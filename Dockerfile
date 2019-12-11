@@ -28,7 +28,7 @@ ENV PATH="$PATH:$JAVA_HOME/bin"
 
 COPY --from=jlink-package /opt/jdk-11-mini-runtime /opt/jdk-11-mini-runtime
 
-COPY --from=maven ./target/MT2-user-profile.jar ./
+COPY --from=maven ./target/UserProfile.jar ./
 
 EXPOSE 8111
 
