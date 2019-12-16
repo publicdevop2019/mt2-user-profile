@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -42,11 +43,13 @@ public class OrderController {
     @PostMapping("profiles/{profileId}/orders")
     public ResponseEntity<?> createOrder(@RequestHeader("authorization") String authorization,@PathVariable(name = "profileId") Long profileId, @RequestBody CustomerOrder newOrder) {
         Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.isEmpty() || findById.get().getOrderList().stream().anyMatch(e->e.equals(newOrder)))
+        if (findById.isEmpty() || findById.get().getOrderList().stream().anyMatch(e -> e.equals(newOrder)))
             return ResponseEntity.badRequest().build();
-        findById.get().getOrderList().add((newOrder));
+        if (findById.get().getOrderList() == null)
+            findById.get().setOrderList(new ArrayList<>());
+        findById.get().getOrderList().add(newOrder);
         Profile save = profileRepo.save(findById.get());
-        return ResponseEntity.ok().header("Location", save.getId() + "/orders/" + save.getOrderList().stream().filter(e -> e.equals(newOrder)).findFirst().get().getId()).build();
+        return ResponseEntity.ok().header("Location", save.getOrderList().stream().filter(e -> e.equals(newOrder)).findFirst().get().getId().toString()).build();
     }
     @OwnerOnly
     @PutMapping("profiles/{profileId}/orders/{orderId}")

@@ -1,23 +1,16 @@
 package com.hw.entity;
 
-import lombok.AccessLevel;
 import lombok.Data;
-import lombok.Setter;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Embeddable;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.util.Objects;
 
-@Entity
-@Table(name = "Address")
-@SequenceGenerator(name = "addressId_gen", sequenceName = "addressId_gen", initialValue = 100)
+@Embeddable
 @Data
-public class Address extends Auditable {
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO, generator = "addressId_gen")
-    @Setter(AccessLevel.NONE)
-    private Long id;
+public class OrderAddress {
 
     @NotNull
     @NotEmpty
@@ -59,15 +52,11 @@ public class Address extends Auditable {
     @Column(nullable = false)
     private String country;
 
-//    @OneToOne(mappedBy = "address")
-//    @JsonIgnore
-//    private CustomerOrder customerOrder;
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Address address = (Address) o;
+        OrderAddress address = (OrderAddress) o;
         return Objects.equals(fullName, address.fullName) &&
                 Objects.equals(line1, address.line1) &&
                 Objects.equals(line2, address.line2) &&

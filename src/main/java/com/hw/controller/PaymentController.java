@@ -53,7 +53,7 @@ public class PaymentController {
             return ResponseEntity.badRequest().build();
         findById.get().getPaymentList().add((payment));
         Profile save = profileRepo.save(findById.get());
-        return ResponseEntity.ok().header("Location", save.getId() + "/payments/" + save.getPaymentList().stream().filter(e -> e.equals(payment)).findFirst().get().getId()).build();
+        return ResponseEntity.ok().header("Location", save.getPaymentList().stream().filter(e -> e.equals(payment)).findFirst().get().getId().toString()).build();
     }
 
     @OwnerOnly

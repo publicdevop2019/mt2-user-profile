@@ -23,8 +23,11 @@ public class ProfileController {
     public ResponseEntity<?> searchProfileByResourceOwnerId(@RequestHeader("authorization") String authorization) {
         String resourceOwnerId = ServiceUtility.getUsername(authorization);
         Optional<Profile> profileByResourceOwnerId = profileRepo.findProfileByResourceOwnerId(Long.parseLong(resourceOwnerId));
-        if (profileByResourceOwnerId.isEmpty())
-            return ResponseEntity.notFound().build();
+        if (profileByResourceOwnerId.isEmpty()) {
+            Map<String, String> errorMsg = new HashMap<>();
+            errorMsg.put("error", "resource not exist");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorMsg);
+        }
         return ResponseEntity.ok(profileByResourceOwnerId.get().getId());
     }
 

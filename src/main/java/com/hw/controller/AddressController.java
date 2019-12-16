@@ -49,7 +49,7 @@ public class AddressController {
             return ResponseEntity.badRequest().build();
         findById.get().getAddressList().add((address));
         Profile save = profileRepo.save(findById.get());
-        return ResponseEntity.ok().header("Location", save.getId() + "/addresses/" + save.getAddressList().stream().filter(e -> e.equals(address)).findFirst().get().getId()).build();
+        return ResponseEntity.ok().header("Location", save.getAddressList().stream().filter(e -> e.equals(address)).findFirst().get().getId().toString()).build();
     }
 
     @OwnerOnly
