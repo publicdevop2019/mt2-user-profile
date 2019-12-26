@@ -14,7 +14,7 @@ public class ProductOptionMapper implements AttributeConverter<List<ProductOptio
          *  qty:1&1*2&2*3&3,color:white&0.35*black&0.37
          */
 
-        return productOptions.stream().map(e -> e.title + ":" + e.options.stream().map(el -> el.optionValue + "&" + el.priceVar).collect(Collectors.joining("="))).collect(Collectors.joining(","));
+        return productOptions.stream().map(e -> e.title + ":" + e.options.stream().map(el -> el.optionValue + "&" + (el.priceVar != null ? el.priceVar : "")).collect(Collectors.joining("="))).collect(Collectors.joining(","));
     }
 
     @Override
@@ -27,7 +27,12 @@ public class ProductOptionMapper implements AttributeConverter<List<ProductOptio
             String[] split = detail.split("=");
             Arrays.stream(split).forEach(el -> {
                 String[] split1 = el.split("&");
-                OptionItem option = new OptionItem(split1[0], split1[1]);
+                OptionItem option;
+                if (split1.length == 1) {
+                    option = new OptionItem(split1[0], null);
+                } else {
+                    option = new OptionItem(split1[0], split1[1]);
+                }
                 if (option1.options == null)
                     option1.options = new ArrayList<>();
                 option1.options.add(option);

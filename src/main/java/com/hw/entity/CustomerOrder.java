@@ -67,7 +67,7 @@ public class CustomerOrder extends Auditable {
         return
                 Objects.equals(address, that.address) &&
                         /**
-                         * use deepEquals for JPA persistentBag workaround
+                         * use deepEquals for JPA persistentBag workaround, otherwise equals will return incorrect result
                          */
                         Objects.deepEquals(productList.toArray(), that.productList.toArray()) &&
                         Objects.equals(additionalFees, that.additionalFees) &&

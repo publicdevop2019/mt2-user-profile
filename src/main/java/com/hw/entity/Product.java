@@ -51,7 +51,10 @@ public class Product extends Auditable{
         if (o == null || getClass() != o.getClass()) return false;
         Product product = (Product) o;
         return Objects.equals(name, product.name) &&
-                Objects.equals(selectedOptions, product.selectedOptions) &&
+                /**
+                 * use deepEquals for JPA persistentBag workaround, otherwise equals will return incorrect result
+                 */
+                Objects.deepEquals(selectedOptions.toArray(), product.selectedOptions.toArray()) &&
                 Objects.equals(finalPrice, product.finalPrice) &&
                 Objects.equals(imageUrlSmall, product.imageUrlSmall) &&
                 Objects.equals(productId, product.productId);
