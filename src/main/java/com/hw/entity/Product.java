@@ -16,7 +16,7 @@ import java.util.Objects;
 @Table(name = "Product")
 @SequenceGenerator(name = "productId_gen", sequenceName = "productId_gen", initialValue = 100)
 @Data
-public class Product extends Auditable{
+public class Product extends Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO, generator = "productId_gen")
     @Setter(AccessLevel.NONE)
@@ -27,8 +27,6 @@ public class Product extends Auditable{
     @Column(nullable = false)
     private String name;
 
-    @NotNull
-    @NotEmpty
     @Column(length = 10000)
     @Convert(converter = ProductOptionMapper.class)
     private List<ProductOption> selectedOptions;
@@ -37,7 +35,6 @@ public class Product extends Auditable{
     @Column
     private String finalPrice;
 
-    @NotNull
     @Column
     private String imageUrlSmall;
 
@@ -54,7 +51,7 @@ public class Product extends Auditable{
                 /**
                  * use deepEquals for JPA persistentBag workaround, otherwise equals will return incorrect result
                  */
-                Objects.deepEquals(selectedOptions.toArray(), product.selectedOptions.toArray()) &&
+                Objects.deepEquals(selectedOptions != null ? selectedOptions.toArray() : new Object[0], product.selectedOptions != null ? product.selectedOptions.toArray() : new Object[0]) &&
                 Objects.equals(finalPrice, product.finalPrice) &&
                 Objects.equals(imageUrlSmall, product.imageUrlSmall) &&
                 Objects.equals(productId, product.productId);
