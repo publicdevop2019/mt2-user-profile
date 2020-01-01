@@ -1,8 +1,10 @@
 package com.hw.controller;
 
 import com.hw.clazz.OwnerOnly;
+import com.hw.clazz.ProductOption;
 import com.hw.entity.CustomerOrder;
 import com.hw.entity.Profile;
+import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -20,6 +23,9 @@ public class OrderController {
 
     @Autowired
     ProfileRepo profileRepo;
+
+    @Autowired
+    OrderService orderService;
 
     @OwnerOnly
     @GetMapping("profiles/{profileId}/orders")
@@ -32,7 +38,7 @@ public class OrderController {
 
     @OwnerOnly
     @GetMapping("profiles/{profileId}/orders/{orderId}")
-    public ResponseEntity<?> getPaymentById(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
+    public ResponseEntity<?> getOrderById(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         if (findById.isEmpty())
             return ResponseEntity.notFound().build();
@@ -51,6 +57,22 @@ public class OrderController {
         if (findById.get().getOrderList() == null)
             findById.get().setOrderList(new ArrayList<>());
         findById.get().getOrderList().add(newOrder);
+        /**
+         * deduct product storage, this is a performance bottleneck with sync http
+         */
+        HashMap<String, Integer> stringIntegerHashMap = new HashMap<>();
+        newOrder.getProductList().stream().forEach(e -> {
+            Optional<ProductOption> qty = e.getSelectedOptions().stream().filter(el -> el.title.equals("qty")).findFirst();
+            int amount = 1;
+            if (qty.isPresent() && !qty.get().options.isEmpty()) {
+                /**
+                 * deduct amount based on qty value, otherwise default is 1
+                 */
+                amount = Integer.parseInt(qty.get().options.get(0).optionValue);
+            }
+            stringIntegerHashMap.put(e.getProductId(), amount);
+        });
+        orderService.deductAmount(stringIntegerHashMap);
         Profile save = profileRepo.save(findById.get());
         return ResponseEntity.ok().header("Location", save.getOrderList().stream().filter(e -> e.equals(newOrder)).findFirst().get().getId().toString()).build();
     }
