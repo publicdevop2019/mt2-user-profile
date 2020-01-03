@@ -32,12 +32,12 @@ public class Profile  extends Auditable{
     @Column
     @OneToMany(cascade = {CascadeType.ALL})
     @JoinColumn(name = "fk_profile")
-    private List<CustomerOrder> orderList;
+    private List<OrderDetail> orderList;
 
     @Column
     @OneToMany(cascade = {CascadeType.ALL})
     @JoinColumn(name = "fk_profile")
-    private List<Product> cartList;
+    private List<CartProduct> cartList;
 
     @Column
     private Long resourceOwnerId;

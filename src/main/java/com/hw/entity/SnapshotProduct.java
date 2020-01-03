@@ -2,25 +2,20 @@ package com.hw.entity;
 
 import com.hw.clazz.ProductOption;
 import com.hw.clazz.ProductOptionMapper;
-import lombok.AccessLevel;
 import lombok.Data;
-import lombok.Setter;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Convert;
+import javax.persistence.Embeddable;
+import javax.persistence.ManyToOne;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Objects;
 
-@Entity
-@Table(name = "Product")
-@SequenceGenerator(name = "productId_gen", sequenceName = "productId_gen", initialValue = 100)
+@Embeddable
 @Data
-public class Product extends Auditable {
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO, generator = "productId_gen")
-    @Setter(AccessLevel.NONE)
-    private Long id;
+public class SnapshotProduct {
 
     @NotNull
     @NotEmpty
@@ -42,11 +37,14 @@ public class Product extends Auditable {
     @Column
     private String productId;
 
+    @ManyToOne
+    private OrderDetail customerOrder;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Product product = (Product) o;
+        SnapshotProduct product = (SnapshotProduct) o;
         return Objects.equals(name, product.name) &&
                 /**
                  * use deepEquals for JPA persistentBag workaround, otherwise equals will return incorrect result

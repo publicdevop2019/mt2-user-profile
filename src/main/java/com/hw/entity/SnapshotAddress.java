@@ -10,7 +10,7 @@ import java.util.Objects;
 
 @Embeddable
 @Data
-public class OrderAddress {
+public class SnapshotAddress {
 
     @NotNull
     @NotEmpty
@@ -56,7 +56,7 @@ public class OrderAddress {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        OrderAddress address = (OrderAddress) o;
+        SnapshotAddress address = (SnapshotAddress) o;
         return Objects.equals(fullName, address.fullName) &&
                 Objects.equals(line1, address.line1) &&
                 Objects.equals(line2, address.line2) &&

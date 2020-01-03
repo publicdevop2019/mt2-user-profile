@@ -59,10 +59,6 @@ public class Address extends Auditable {
     @Column(nullable = false)
     private String country;
 
-//    @OneToOne(mappedBy = "address")
-//    @JsonIgnore
-//    private CustomerOrder customerOrder;
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

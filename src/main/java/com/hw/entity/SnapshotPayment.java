@@ -10,7 +10,7 @@ import java.util.Objects;
 
 @Embeddable
 @Data
-public class OrderPayment {
+public class SnapshotPayment {
 
     @NotNull
     @NotEmpty
@@ -36,7 +36,7 @@ public class OrderPayment {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        OrderPayment payment = (OrderPayment) o;
+        SnapshotPayment payment = (SnapshotPayment) o;
         return Objects.equals(accountNumber, payment.accountNumber) &&
                 Objects.equals(accountHolderName, payment.accountHolderName) &&
                 Objects.equals(expireDate, payment.expireDate) &&

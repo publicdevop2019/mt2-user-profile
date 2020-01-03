@@ -13,30 +13,32 @@ import java.util.Map;
 import java.util.Objects;
 
 @Entity
-@Table(name = "CustomerOrder")
+@Table(name = "OrderDetail")
 @SequenceGenerator(name = "orderId_gen", sequenceName = "orderId_gen", initialValue = 100)
 @Data
-public class CustomerOrder extends Auditable {
+public class OrderDetail extends Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO, generator = "orderId_gen")
     @Setter(AccessLevel.NONE)
     private Long id;
+    /**
+     * Address payment product all treat as embedded element instead of an entity
+     */
+    @NotNull
+    @Valid
+    @Embedded
+    private SnapshotAddress address;
 
     @NotNull
     @Valid
     @Embedded
-    private OrderAddress address;
+    private SnapshotPayment payment;
 
-    @NotNull
-    @Valid
-    @Embedded
-    private OrderPayment payment;
-
-    @Column(length = 10000)
-    @OneToMany(cascade = {CascadeType.ALL})
-    @JoinColumn(name = "fk_order")
-    private List<Product> productList;
+    @ElementCollection
+    @CollectionTable(name = "order_product_snapshot", joinColumns = @JoinColumn(name = "order_id"))
+    @Column
+    private List<SnapshotProduct> productList;
 
 
     @Column
@@ -63,9 +65,10 @@ public class CustomerOrder extends Auditable {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        CustomerOrder that = (CustomerOrder) o;
+        OrderDetail that = (OrderDetail) o;
         return
-                Objects.equals(address, that.address) &&
+                Objects.equals(id, that.id) &&
+                        Objects.equals(address, that.address) &&
                         /**
                          * use deepEquals for JPA persistentBag workaround, otherwise equals will return incorrect result
                          */
@@ -79,7 +82,7 @@ public class CustomerOrder extends Auditable {
 
     @Override
     public int hashCode() {
-        return Objects.hash(address, productList, additionalFees, taxCost, shippingCost, finalPrice, totalProductPrice);
+        return Objects.hash(id, address, productList, additionalFees, taxCost, shippingCost, finalPrice, totalProductPrice);
     }
 }
 

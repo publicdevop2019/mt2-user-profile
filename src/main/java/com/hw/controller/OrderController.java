@@ -2,7 +2,7 @@ package com.hw.controller;
 
 import com.hw.clazz.OwnerOnly;
 import com.hw.clazz.ProductOption;
-import com.hw.entity.CustomerOrder;
+import com.hw.entity.OrderDetail;
 import com.hw.entity.Profile;
 import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
@@ -42,7 +42,7 @@ public class OrderController {
         Optional<Profile> findById = profileRepo.findById(profileId);
         if (findById.isEmpty())
             return ResponseEntity.notFound().build();
-        List<CustomerOrder> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(orderId)).collect(Collectors.toList());
+        List<OrderDetail> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(orderId)).collect(Collectors.toList());
         if (collect.size() != 1)
             return ResponseEntity.badRequest().build();
         return ResponseEntity.ok(collect.get(0));
@@ -50,18 +50,20 @@ public class OrderController {
 
     @OwnerOnly
     @PostMapping("profiles/{profileId}/orders")
-    public ResponseEntity<?> createOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody CustomerOrder newOrder) {
+    public ResponseEntity<?> createOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody OrderDetail newOrder) {
         Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.isEmpty() || findById.get().getOrderList().stream().anyMatch(e -> e.equals(newOrder)))
+        if (findById.isEmpty())
             return ResponseEntity.badRequest().build();
         if (findById.get().getOrderList() == null)
             findById.get().setOrderList(new ArrayList<>());
-        findById.get().getOrderList().add(newOrder);
+        List<OrderDetail> orderList = findById.get().getOrderList();
+        int beforeInsert = orderList.size();
+        orderList.add(newOrder);
         /**
          * deduct product storage, this is a performance bottleneck with sync http
          */
         HashMap<String, Integer> stringIntegerHashMap = new HashMap<>();
-        newOrder.getProductList().stream().forEach(e -> {
+        newOrder.getProductList().forEach(e -> {
             Optional<ProductOption> qty = e.getSelectedOptions().stream().filter(el -> el.title.equals("qty")).findFirst();
             int amount = 1;
             if (qty.isPresent() && !qty.get().options.isEmpty()) {
@@ -74,20 +76,20 @@ public class OrderController {
         });
         orderService.deductAmount(stringIntegerHashMap);
         Profile save = profileRepo.save(findById.get());
-        return ResponseEntity.ok().header("Location", save.getOrderList().stream().filter(e -> e.equals(newOrder)).findFirst().get().getId().toString()).build();
+        return ResponseEntity.ok().header("Location", save.getOrderList().get(beforeInsert).getId().toString()).build();
     }
 
     @OwnerOnly
     @PutMapping("profiles/{profileId}/orders/{orderId}")
-    public ResponseEntity<?> updateOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody CustomerOrder newOrder) {
+    public ResponseEntity<?> updateOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody OrderDetail newOrder) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         if (findById.isEmpty())
             return ResponseEntity.badRequest().build();
-        List<CustomerOrder> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(orderId)).collect(Collectors.toList());
+        List<OrderDetail> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(orderId)).collect(Collectors.toList());
         if (collect.size() != 1)
             return ResponseEntity.badRequest().build();
 
-        CustomerOrder oldOrder = collect.get(0);
+        OrderDetail oldOrder = collect.get(0);
         BeanUtils.copyProperties(newOrder, oldOrder);
         profileRepo.save(findById.get());
         return ResponseEntity.ok().build();
@@ -99,11 +101,11 @@ public class OrderController {
         Optional<Profile> findById = profileRepo.findById(profileId);
         if (findById.isEmpty())
             return ResponseEntity.badRequest().build();
-        List<CustomerOrder> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(orderId)).collect(Collectors.toList());
+        List<OrderDetail> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(orderId)).collect(Collectors.toList());
         if (collect.size() != 1)
             return ResponseEntity.badRequest().build();
 
-        CustomerOrder toBeRemoved = collect.get(0);
+        OrderDetail toBeRemoved = collect.get(0);
         findById.get().getOrderList().removeIf(e -> e.getId().equals(toBeRemoved.getId()));
         profileRepo.save(findById.get());
         return ResponseEntity.ok().build();
