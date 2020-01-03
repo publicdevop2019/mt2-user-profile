@@ -74,7 +74,11 @@ public class OrderController {
                     defaultAmount = Integer.parseInt(qty.get().options.get(0).optionValue);
                 }
             }
-            stringIntegerHashMap.put(e.getProductId(), defaultAmount);
+            if (stringIntegerHashMap.containsKey(e.getProductId())) {
+                stringIntegerHashMap.put(e.getProductId(), stringIntegerHashMap.get(e.getProductId()) + defaultAmount);
+            } else {
+                stringIntegerHashMap.put(e.getProductId(), defaultAmount);
+            }
         });
         orderService.deductAmount(stringIntegerHashMap);
         Profile save = profileRepo.save(findById.get());
