@@ -64,15 +64,17 @@ public class OrderController {
          */
         HashMap<String, Integer> stringIntegerHashMap = new HashMap<>();
         newOrder.getProductList().forEach(e -> {
-            Optional<ProductOption> qty = e.getSelectedOptions().stream().filter(el -> el.title.equals("qty")).findFirst();
-            int amount = 1;
-            if (qty.isPresent() && !qty.get().options.isEmpty()) {
-                /**
-                 * deduct amount based on qty value, otherwise default is 1
-                 */
-                amount = Integer.parseInt(qty.get().options.get(0).optionValue);
+            int defaultAmount = 1;
+            if (e.getSelectedOptions() != null) {
+                Optional<ProductOption> qty = e.getSelectedOptions().stream().filter(el -> el.title.equals("qty")).findFirst();
+                if (qty.isPresent() && !qty.get().options.isEmpty()) {
+                    /**
+                     * deduct amount based on qty value, otherwise default is 1
+                     */
+                    defaultAmount = Integer.parseInt(qty.get().options.get(0).optionValue);
+                }
             }
-            stringIntegerHashMap.put(e.getProductId(), amount);
+            stringIntegerHashMap.put(e.getProductId(), defaultAmount);
         });
         orderService.deductAmount(stringIntegerHashMap);
         Profile save = profileRepo.save(findById.get());
