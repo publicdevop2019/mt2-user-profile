@@ -1,8 +1,7 @@
 package com.hw.controller;
 
-import com.hw.clazz.OwnerOnly;
+import com.hw.clazz.ProfileExistAndOwnerOnly;
 import com.hw.entity.CartProduct;
-import com.hw.entity.SnapshotProduct;
 import com.hw.entity.Profile;
 import com.hw.repo.ProfileRepo;
 import org.springframework.beans.BeanUtils;
@@ -21,16 +20,14 @@ public class CartController {
     @Autowired
     ProfileRepo profileRepo;
 
-    @OwnerOnly
+    @ProfileExistAndOwnerOnly
     @GetMapping("profiles/{profileId}/cart")
     public ResponseEntity<?> getCartItems(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId) {
         Optional<Profile> profileByResourceOwnerId = profileRepo.findById(profileId);
-        if (profileByResourceOwnerId.isEmpty())
-            return ResponseEntity.notFound().build();
         return ResponseEntity.ok(profileByResourceOwnerId.get().getCartList());
     }
 
-    @OwnerOnly
+    @ProfileExistAndOwnerOnly
     @PostMapping("profiles/{profileId}/cart")
     public ResponseEntity<?> addCartItem(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody CartProduct newCartItem) {
         Optional<Profile> findById = profileRepo.findById(profileId);
@@ -41,12 +38,10 @@ public class CartController {
         return ResponseEntity.ok().header("Location", save.getCartList().stream().filter(e -> e.equals(newCartItem)).findFirst().get().getId().toString()).build();
     }
 
-    @OwnerOnly
+    @ProfileExistAndOwnerOnly
     @PutMapping("profiles/{profileId}/cart/{cartItemId}")
     public ResponseEntity<?> updateCartItem(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "cartItemId") Long cartItemId, @RequestBody CartProduct updatedCartItem) {
         Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.isEmpty())
-            return ResponseEntity.badRequest().build();
         List<CartProduct> collect = findById.get().getCartList().stream().filter(e -> e.getId().equals(cartItemId)).collect(Collectors.toList());
         if (collect.size() != 1)
             return ResponseEntity.badRequest().build();
@@ -56,12 +51,10 @@ public class CartController {
         return ResponseEntity.ok().build();
     }
 
-    @OwnerOnly
+    @ProfileExistAndOwnerOnly
     @DeleteMapping("profiles/{profileId}/cart/{cartItemId}")
     public ResponseEntity<?> deleteCartItem(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "cartItemId") Long cartItemId) {
         Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.isEmpty())
-            return ResponseEntity.badRequest().build();
         List<CartProduct> collect = findById.get().getCartList().stream().filter(e -> e.getId().equals(cartItemId)).collect(Collectors.toList());
         if (collect.size() != 1)
             return ResponseEntity.badRequest().build();

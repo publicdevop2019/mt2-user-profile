@@ -10,5 +10,5 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface OwnerOnly {
+public @interface ProfileExistAndOwnerOnly {
 }

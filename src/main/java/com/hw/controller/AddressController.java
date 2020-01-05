@@ -1,6 +1,6 @@
 package com.hw.controller;
 
-import com.hw.clazz.OwnerOnly;
+import com.hw.clazz.ProfileExistAndOwnerOnly;
 import com.hw.entity.Address;
 import com.hw.entity.Profile;
 import com.hw.repo.ProfileRepo;
@@ -20,28 +20,24 @@ public class AddressController {
     @Autowired
     ProfileRepo profileRepo;
 
-    @OwnerOnly
+    @ProfileExistAndOwnerOnly
     @GetMapping("profiles/{profileId}/addresses")
     public ResponseEntity<?> getAllAddresses(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId) {
         Optional<Profile> profileByResourceOwnerId = profileRepo.findById(profileId);
-        if (profileByResourceOwnerId.isEmpty())
-            return ResponseEntity.notFound().build();
         return ResponseEntity.ok(profileByResourceOwnerId.get().getAddressList());
     }
 
-    @OwnerOnly
+    @ProfileExistAndOwnerOnly
     @GetMapping("profiles/{profileId}/addresses/{addressId}")
     public ResponseEntity<?> getAddressInById(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "addressId") Long addressId) {
         Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.isEmpty())
-            return ResponseEntity.notFound().build();
         List<Address> collect = findById.get().getAddressList().stream().filter(e -> e.getId().equals(addressId)).collect(Collectors.toList());
         if (collect.size() != 1)
             return ResponseEntity.badRequest().build();
         return ResponseEntity.ok(collect.get(0));
     }
 
-    @OwnerOnly
+    @ProfileExistAndOwnerOnly
     @PostMapping("profiles/{profileId}/addresses")
     public ResponseEntity<?> createAddress(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody Address address) {
         Optional<Profile> findById = profileRepo.findById(profileId);
@@ -52,12 +48,10 @@ public class AddressController {
         return ResponseEntity.ok().header("Location", save.getAddressList().stream().filter(e -> e.equals(address)).findFirst().get().getId().toString()).build();
     }
 
-    @OwnerOnly
+    @ProfileExistAndOwnerOnly
     @PutMapping("profiles/{profileId}/addresses/{addressId}")
     public ResponseEntity<?> updateAddress(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "addressId") Long addressId, @RequestBody Address newAddress) {
         Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.isEmpty())
-            return ResponseEntity.badRequest().build();
         List<Address> collect = findById.get().getAddressList().stream().filter(e -> e.getId().equals(addressId)).collect(Collectors.toList());
         if (collect.size() != 1)
             return ResponseEntity.badRequest().build();
@@ -67,12 +61,10 @@ public class AddressController {
         return ResponseEntity.ok().build();
     }
 
-    @OwnerOnly
+    @ProfileExistAndOwnerOnly
     @DeleteMapping("profiles/{profileId}/addresses/{addressId}")
     public ResponseEntity<?> deleteAddress(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "addressId") Long addressId) {
         Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.isEmpty())
-            return ResponseEntity.badRequest().build();
         List<Address> collect = findById.get().getAddressList().stream().filter(e -> e.getId().equals(addressId)).collect(Collectors.toList());
         if (collect.size() != 1)
             return ResponseEntity.badRequest().build();
