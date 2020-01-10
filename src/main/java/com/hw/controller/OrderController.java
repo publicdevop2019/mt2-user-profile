@@ -5,15 +5,19 @@ import com.hw.entity.OrderDetail;
 import com.hw.entity.Profile;
 import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping(path = "v1/api", produces = "application/json")
 public class OrderController {
@@ -46,6 +50,15 @@ public class OrderController {
     public ResponseEntity<?> createOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody OrderDetail newOrder) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         String orderId = orderService.placeOrder(newOrder, findById.get());
+        try {
+            Map<String, String> contentMap = new HashMap<>();
+            /**
+             * @todo add order details
+             */
+            orderService.notifyBusinessOwner(contentMap);
+        } catch (Exception ex) {
+            log.error("unable to notify business owner", ex);
+        }
         return ResponseEntity.ok().header("Location", orderId).build();
     }
 

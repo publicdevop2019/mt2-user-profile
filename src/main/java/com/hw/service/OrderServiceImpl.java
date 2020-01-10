@@ -3,7 +3,7 @@ package com.hw.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hw.clazz.ProductOption;
-import com.hw.clazz.ResourceServiceTokenHelper;
+import com.hw.utility.ResourceServiceTokenHelper;
 import com.hw.entity.OrderDetail;
 import com.hw.entity.Profile;
 import com.hw.repo.OrderService;
@@ -33,6 +33,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Value("${url.increaseUrl}")
     private String increaseUrl;
+
+    @Value("${url.notify}")
+    private String notifyUrl;
 
     @Autowired
     private ObjectMapper mapper;
@@ -101,6 +104,43 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public void increaseStorage(Map<String, Integer> productMap) {
         changeStorage(increaseUrl, productMap);
+    }
+
+    /**
+     * @todo generify
+     * @param contentMap
+     */
+    @Override
+    public void notifyBusinessOwner(Map<String, String> contentMap) {
+        String body = null;
+        try {
+            body = mapper.writeValueAsString(contentMap);
+        } catch (JsonProcessingException e) {
+            /**
+             * this block is purposely left blank
+             */
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        /**
+         * get jwt token
+         */
+        if (tokenHelper.storedJwtToken == null)
+            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
+        headers.setBearerAuth(tokenHelper.storedJwtToken);
+        HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
+        try {
+            restTemplate.exchange(notifyUrl, HttpMethod.POST, hashMapHttpEntity, String.class);
+        } catch (HttpClientErrorException ex) {
+            /**
+             * re-try if jwt expires
+             */
+            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
+            headers.setBearerAuth(tokenHelper.storedJwtToken);
+            HttpEntity<String> hashMapHttpEntity2 = new HttpEntity<>(body, headers);
+            restTemplate.exchange(notifyUrl, HttpMethod.POST, hashMapHttpEntity2, String.class);
+        }
+
     }
 
     private void changeStorage(String url, Map<String, Integer> productMap) {

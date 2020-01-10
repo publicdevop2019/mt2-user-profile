@@ -11,4 +11,7 @@ public interface OrderService {
     public void decreaseStorage(Map<String, Integer> productMap);
 
     public void increaseStorage(Map<String, Integer> productMap);
+
+    public void notifyBusinessOwner(Map<String, String> contentMap);
+
 }
