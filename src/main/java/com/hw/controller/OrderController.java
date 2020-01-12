@@ -65,7 +65,6 @@ public class OrderController {
             orderService.notifyBusinessOwner(contentMap);
         } catch (Exception ex) {
             log.error("unable to notify business owner", ex);
-            return ResponseEntity.ok().header("Location", orderId).build();
         }
         return ResponseEntity.ok().header("Location", orderId).build();
     }
