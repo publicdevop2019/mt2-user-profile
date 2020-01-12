@@ -11,10 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -27,6 +24,16 @@ public class OrderController {
 
     @Autowired
     OrderService orderService;
+
+    @GetMapping("orders")
+    public ResponseEntity<?> getAllOrdersForAdmin(@RequestHeader("authorization") String authorization) {
+        List<OrderDetail> collect = profileRepo.findAll().stream().map(Profile::getOrderList).flatMap(Collection::stream).collect(Collectors.toList());
+        List<OrderDetail> collect1 = collect.stream().map(e -> {
+            e.setPayment(null);
+            return e;
+        }).collect(Collectors.toList());
+        return ResponseEntity.ok(collect1);
+    }
 
     @ProfileExistAndOwnerOnly
     @GetMapping("profiles/{profileId}/orders")
@@ -58,6 +65,7 @@ public class OrderController {
             orderService.notifyBusinessOwner(contentMap);
         } catch (Exception ex) {
             log.error("unable to notify business owner", ex);
+            return ResponseEntity.ok().header("Location", orderId).build();
         }
         return ResponseEntity.ok().header("Location", orderId).build();
     }
