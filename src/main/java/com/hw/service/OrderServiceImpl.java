@@ -3,20 +3,19 @@ package com.hw.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hw.clazz.ProductOption;
-import com.hw.utility.ResourceServiceTokenHelper;
 import com.hw.entity.OrderDetail;
 import com.hw.entity.Profile;
+import com.hw.entity.SnapshotProduct;
+import com.hw.exceptions.OrderValidationException;
 import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
+import com.hw.utility.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
@@ -34,6 +33,9 @@ public class OrderServiceImpl implements OrderService {
     @Value("${url.increaseUrl}")
     private String increaseUrl;
 
+    @Value("${url.validateUrl}")
+    private String validateUrl;
+
     @Value("${url.notify}")
     private String notifyUrl;
 
@@ -47,6 +49,7 @@ public class OrderServiceImpl implements OrderService {
     ProfileRepo profileRepo;
 
     /**
+     * step0 validate payment amount
      * step1 deduct amount from product service
      * step2 add new order to profile
      * step3 clear shopping cart
@@ -56,13 +59,13 @@ public class OrderServiceImpl implements OrderService {
      * @note if step2 or 3 does not complete successfully then revocation required
      */
     @Override
-    @Transactional
-    public String placeOrder(OrderDetail orderDetail, Profile profile) {
+    public String placeOrder(OrderDetail orderDetail, Profile profile) throws OrderValidationException {
         if (profile.getOrderList() == null)
             profile.setOrderList(new ArrayList<>());
         List<OrderDetail> orderList = profile.getOrderList();
         int beforeInsert = orderList.size();
         orderList.add(orderDetail);
+        validatePaymentAmount(orderDetail);
         /**
          * deduct product storage, this is a performance bottleneck with sync http
          */
@@ -96,6 +99,35 @@ public class OrderServiceImpl implements OrderService {
         return save.getOrderList().get(beforeInsert).getId().toString();
     }
 
+    private void validatePaymentAmount(OrderDetail orderDetail) throws OrderValidationException {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        /**
+         * get jwt token
+         */
+        if (tokenHelper.storedJwtToken == null)
+            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
+        headers.setBearerAuth(tokenHelper.storedJwtToken);
+        HttpEntity<List<SnapshotProduct>> hashMapHttpEntity = new HttpEntity<>(orderDetail.getProductList(), headers);
+        ResponseEntity<HashMap<String, String>> exchange;
+        ParameterizedTypeReference<HashMap<String, String>> responseType =
+                new ParameterizedTypeReference<>() {
+                };
+        try {
+            exchange = restTemplate.exchange(validateUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
+        } catch (HttpClientErrorException ex) {
+            /**
+             * re-try if jwt expires
+             */
+            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
+            headers.setBearerAuth(tokenHelper.storedJwtToken);
+            HttpEntity<List<SnapshotProduct>> hashMapHttpEntity2 = new HttpEntity<>(orderDetail.getProductList(), headers);
+            exchange = restTemplate.exchange(validateUrl, HttpMethod.POST, hashMapHttpEntity2, responseType);
+        }
+        if (exchange.getBody() == null || !"true".equals(exchange.getBody().get("result")))
+            throw new OrderValidationException();
+    }
+
     @Override
     public void decreaseStorage(Map<String, Integer> productMap) {
         changeStorage(decreaseUrl, productMap);
@@ -107,8 +139,8 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * @todo generify
      * @param contentMap
+     * @todo generify
      */
     @Override
     public void notifyBusinessOwner(Map<String, String> contentMap) {

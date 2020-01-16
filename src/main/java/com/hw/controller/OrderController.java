@@ -3,6 +3,7 @@ package com.hw.controller;
 import com.hw.clazz.ProfileExistAndOwnerOnly;
 import com.hw.entity.OrderDetail;
 import com.hw.entity.Profile;
+import com.hw.exceptions.OrderValidationException;
 import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
 import lombok.extern.slf4j.Slf4j;
@@ -55,8 +56,14 @@ public class OrderController {
     @ProfileExistAndOwnerOnly
     @PostMapping("profiles/{profileId}/orders")
     public ResponseEntity<?> createOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody OrderDetail newOrder) {
+        String orderId;
         Optional<Profile> findById = profileRepo.findById(profileId);
-        String orderId = orderService.placeOrder(newOrder, findById.get());
+        try {
+            orderId = orderService.placeOrder(newOrder, findById.get());
+        } catch (OrderValidationException ex) {
+            log.error("unable to match payment amount, reject order", ex);
+            return ResponseEntity.badRequest().build();
+        }
         try {
             Map<String, String> contentMap = new HashMap<>();
             /**
