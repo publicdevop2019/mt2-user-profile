@@ -29,11 +29,7 @@ public class OrderController {
     @GetMapping("orders")
     public ResponseEntity<?> getAllOrdersForAdmin(@RequestHeader("authorization") String authorization) {
         List<OrderDetail> collect = profileRepo.findAll().stream().map(Profile::getOrderList).flatMap(Collection::stream).collect(Collectors.toList());
-        List<OrderDetail> collect1 = collect.stream().map(e -> {
-            e.setPayment(null);
-            return e;
-        }).collect(Collectors.toList());
-        return ResponseEntity.ok(collect1);
+        return ResponseEntity.ok(collect);
     }
 
     @ProfileExistAndOwnerOnly

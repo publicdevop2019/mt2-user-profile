@@ -22,11 +22,6 @@ public class Profile  extends Auditable{
     @Column
     @OneToMany(cascade = {CascadeType.ALL})
     @JoinColumn(name = "fk_profile")
-    private List<Payment> paymentList;
-
-    @Column
-    @OneToMany(cascade = {CascadeType.ALL})
-    @JoinColumn(name = "fk_profile")
     private List<Address> addressList;
 
     @Column

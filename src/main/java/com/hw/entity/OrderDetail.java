@@ -7,6 +7,7 @@ import lombok.Setter;
 
 import javax.persistence.*;
 import javax.validation.Valid;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
@@ -31,9 +32,8 @@ public class OrderDetail extends Auditable {
     private SnapshotAddress address;
 
     @NotNull
-    @Valid
-    @Embedded
-    private SnapshotPayment payment;
+    @NotEmpty
+    private String paymentType;
 
     @ElementCollection
     @CollectionTable(name = "order_product_snapshot", joinColumns = @JoinColumn(name = "order_id"))
