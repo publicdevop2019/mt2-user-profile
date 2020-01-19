@@ -8,7 +8,6 @@ import com.hw.exceptions.OrderValidationException;
 import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -61,6 +60,11 @@ public class OrderController {
             log.error("unable to reserve order ", ex);
             return ResponseEntity.badRequest().build();
         }
+        /**
+         * clear shopping cart
+         */
+        findById.get().getCartList().clear();
+        profileRepo.save(findById.get());
         return ResponseEntity.ok().header("Location", paymentLink).build();
     }
 
@@ -97,13 +101,11 @@ public class OrderController {
     @ProfileExistAndOwnerOnly
     @PutMapping("profiles/{profileId}/orders/{orderId}")
     public ResponseEntity<?> updateOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody OrderDetail newOrder) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<OrderDetail> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(orderId)).collect(Collectors.toList());
-        if (collect.size() != 1)
+        try {
+            orderService.updateOrderById(profileId.toString(), orderId.toString(), newOrder);
+        } catch (Exception ex) {
             return ResponseEntity.badRequest().build();
-        OrderDetail oldOrder = collect.get(0);
-        BeanUtils.copyProperties(newOrder, oldOrder);
-        profileRepo.save(findById.get());
+        }
         return ResponseEntity.ok().build();
     }
 

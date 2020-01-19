@@ -8,7 +8,10 @@ import java.util.Map;
 
 public interface OrderService {
     public String reserveOrder(OrderDetail orderDetail, Profile profile) throws OrderValidationException;
+
     public Boolean confirmOrder(String orderId) throws OrderValidationException;
+
+    public Profile updateOrderById(String profileId, String orderId, OrderDetail orderDetail) throws OrderValidationException;
 
     public void decreaseStorage(Map<String, Integer> productMap);
 

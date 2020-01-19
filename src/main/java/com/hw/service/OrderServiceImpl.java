@@ -12,6 +12,7 @@ import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
 import com.hw.utility.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -21,6 +22,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -59,7 +61,7 @@ public class OrderServiceImpl implements OrderService {
      * step0 validate payment amount
      * step1 deduct amount from product service
      * step2 add new order to profile
-     * step3 clear shopping cart
+     * step3 generate payment link
      *
      * @param orderDetail
      * @return payment QR link
@@ -67,25 +69,33 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public String reserveOrder(OrderDetail orderDetail, Profile profile) throws OrderValidationException {
-        if (profile.getOrderList() == null)
-            profile.setOrderList(new ArrayList<>());
-        List<OrderDetail> orderList = profile.getOrderList();
-        int beforeInsert = orderList.size();
-
-        orderDetail.setPaymentStatus(PaymentStatus.unpaid);
-
-        orderList.add(orderDetail);
-
         validateOrder(orderDetail);
+        String reservedOrderId;
+        if (orderDetail.getId() != null) {
+            /**
+             * for existing order
+             */
+            /**
+             * @todo reserve again if order expired
+             */
+            updateOrderById(profile.getId().toString(), orderDetail.getId().toString(), orderDetail);
+            reservedOrderId = orderDetail.getId().toString();
+        } else {
+            if (profile.getOrderList() == null)
+                profile.setOrderList(new ArrayList<>());
+            List<OrderDetail> orderList = profile.getOrderList();
+            int beforeInsert = orderList.size();
 
-        Map<String, Integer> productMap = getOrderProductMap(orderDetail);
-
-        decreaseStorage(productMap);
-
-        Profile save = profileRepo.save(profile);
-        String reservedOrderId = save.getOrderList().get(beforeInsert).getId().toString();
-
+            orderDetail.setPaymentStatus(PaymentStatus.unpaid);
+            orderList.add(orderDetail);
+            Map<String, Integer> productMap = getOrderProductMap(orderDetail);
+            decreaseStorage(productMap);
+            Profile save = profileRepo.save(profile);
+            reservedOrderId = save.getOrderList().get(beforeInsert).getId().toString();
+        }
         return generatePaymentLink(reservedOrderId);
+
+
     }
 
     @Override
@@ -115,6 +125,17 @@ public class OrderServiceImpl implements OrderService {
             exchange = restTemplate.exchange(confirmUrl + "/" + orderId, HttpMethod.GET, hashMapHttpEntity2, responseType);
         }
         return exchange.getBody().get("paymentStatus");
+    }
+
+    @Override
+    public Profile updateOrderById(String profileId, String orderId, OrderDetail updatedOrder) throws OrderValidationException {
+        Optional<Profile> findById = profileRepo.findById(Long.parseLong(profileId));
+        List<OrderDetail> collect = findById.get().getOrderList().stream().filter(e -> e.getId().toString().equals(orderId)).collect(Collectors.toList());
+        if (collect.size() != 1)
+            throw new OrderValidationException();
+        OrderDetail oldOrder = collect.get(0);
+        BeanUtils.copyProperties(updatedOrder, oldOrder);
+        return profileRepo.save(findById.get());
     }
 
     private String generatePaymentLink(String orderId) {
