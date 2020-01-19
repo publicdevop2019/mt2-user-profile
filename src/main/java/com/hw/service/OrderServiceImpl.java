@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -227,6 +228,17 @@ public class OrderServiceImpl implements OrderService {
             exchange = restTemplate.exchange(validateUrl, HttpMethod.POST, hashMapHttpEntity2, responseType);
         }
         if (exchange.getBody() == null || !"true".equals(exchange.getBody().get("result")))
+            throw new OrderValidationException();
+        /**
+         * @todo validate paymentAmt
+         */
+        BigDecimal reduce = orderDetail.getProductList().stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
+//        BigDecimal total = new BigDecimal(0);
+//        for (SnapshotProduct pro : orderDetail.getProductList()) {
+//            BigDecimal bigDecimal = BigDecimal.valueOf(Double.parseDouble(pro.getFinalPrice()));
+//            total = bigDecimal.add(total);
+//        }
+        if (orderDetail.getPaymentAmt().compareTo(reduce) != 0)
             throw new OrderValidationException();
     }
 
