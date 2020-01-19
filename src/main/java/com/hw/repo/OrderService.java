@@ -7,7 +7,8 @@ import com.hw.exceptions.OrderValidationException;
 import java.util.Map;
 
 public interface OrderService {
-    public String placeOrder(OrderDetail orderDetail, Profile profile) throws OrderValidationException;
+    public String reserveOrder(OrderDetail orderDetail, Profile profile) throws OrderValidationException;
+    public Boolean confirmOrder(String orderId) throws OrderValidationException;
 
     public void decreaseStorage(Map<String, Integer> productMap);
 

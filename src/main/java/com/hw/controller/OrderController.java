@@ -1,5 +1,6 @@
 package com.hw.controller;
 
+import com.hw.clazz.PaymentStatus;
 import com.hw.clazz.ProfileExistAndOwnerOnly;
 import com.hw.entity.OrderDetail;
 import com.hw.entity.Profile;
@@ -51,15 +52,36 @@ public class OrderController {
 
     @ProfileExistAndOwnerOnly
     @PostMapping("profiles/{profileId}/orders")
-    public ResponseEntity<?> createOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody OrderDetail newOrder) {
-        String orderId;
+    public ResponseEntity<?> reserveOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody OrderDetail newOrder) {
+        String paymentLink;
         Optional<Profile> findById = profileRepo.findById(profileId);
         try {
-            orderId = orderService.placeOrder(newOrder, findById.get());
+            paymentLink = orderService.reserveOrder(newOrder, findById.get());
         } catch (OrderValidationException ex) {
-            log.error("unable to match payment amount, reject order", ex);
+            log.error("unable to reserve order ", ex);
             return ResponseEntity.badRequest().build();
         }
+        return ResponseEntity.ok().header("Location", paymentLink).build();
+    }
+
+    @ProfileExistAndOwnerOnly
+    @GetMapping("profiles/{profileId}/orders/{orderId}/confirm")
+    public ResponseEntity<?> confirmOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
+        Optional<Profile> findById = profileRepo.findById(profileId);
+        List<OrderDetail> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(orderId)).collect(Collectors.toList());
+        if (collect.size() != 1)
+            return ResponseEntity.badRequest().build();
+        OrderDetail orderDetail = collect.get(0);
+        HashMap<String, Boolean> stringStringHashMap = new HashMap<>();
+
+        if (orderService.confirmOrder(orderId.toString())) {
+            orderDetail.setPaymentStatus(PaymentStatus.paid);
+            stringStringHashMap.put("paymentStatus", Boolean.TRUE);
+        } else {
+            orderDetail.setPaymentStatus(PaymentStatus.unpaid);
+            stringStringHashMap.put("paymentStatus", Boolean.FALSE);
+        }
+        profileRepo.save(findById.get());
         try {
             Map<String, String> contentMap = new HashMap<>();
             /**
@@ -69,7 +91,7 @@ public class OrderController {
         } catch (Exception ex) {
             log.error("unable to notify business owner", ex);
         }
-        return ResponseEntity.ok().header("Location", orderId).build();
+        return ResponseEntity.ok(stringStringHashMap);
     }
 
     @ProfileExistAndOwnerOnly

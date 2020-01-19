@@ -2,6 +2,7 @@ package com.hw.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hw.clazz.PaymentStatus;
 import com.hw.clazz.ProductOption;
 import com.hw.entity.OrderDetail;
 import com.hw.entity.Profile;
@@ -36,6 +37,12 @@ public class OrderServiceImpl implements OrderService {
     @Value("${url.validateUrl}")
     private String validateUrl;
 
+    @Value("${url.paymentUrl}")
+    private String paymentUrl;
+
+    @Value("${url.confirmUrl}")
+    private String confirmUrl;
+
     @Value("${url.notify}")
     private String notifyUrl;
 
@@ -55,17 +62,100 @@ public class OrderServiceImpl implements OrderService {
      * step3 clear shopping cart
      *
      * @param orderDetail
-     * @return order detail id
+     * @return payment QR link
      * @note if step2 or 3 does not complete successfully then revocation required
      */
     @Override
-    public String placeOrder(OrderDetail orderDetail, Profile profile) throws OrderValidationException {
+    public String reserveOrder(OrderDetail orderDetail, Profile profile) throws OrderValidationException {
         if (profile.getOrderList() == null)
             profile.setOrderList(new ArrayList<>());
         List<OrderDetail> orderList = profile.getOrderList();
         int beforeInsert = orderList.size();
+
+        orderDetail.setPaymentStatus(PaymentStatus.unpaid);
+
         orderList.add(orderDetail);
-        validatePaymentAmount(orderDetail);
+
+        validateOrder(orderDetail);
+
+        Map<String, Integer> productMap = getOrderProductMap(orderDetail);
+
+        decreaseStorage(productMap);
+
+        Profile save = profileRepo.save(profile);
+        String reservedOrderId = save.getOrderList().get(beforeInsert).getId().toString();
+
+        return generatePaymentLink(reservedOrderId);
+    }
+
+    @Override
+    public Boolean confirmOrder(String orderId) throws OrderValidationException {
+        ParameterizedTypeReference<HashMap<String, Boolean>> responseType =
+                new ParameterizedTypeReference<>() {
+                };
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        /**
+         * get jwt token
+         */
+        if (tokenHelper.storedJwtToken == null)
+            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
+        headers.setBearerAuth(tokenHelper.storedJwtToken);
+        HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(headers);
+        ResponseEntity<HashMap<String, Boolean>> exchange;
+        try {
+            exchange = restTemplate.exchange(confirmUrl + "/" + orderId, HttpMethod.GET, hashMapHttpEntity, responseType);
+        } catch (HttpClientErrorException ex) {
+            /**
+             * re-try if jwt expires
+             */
+            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
+            headers.setBearerAuth(tokenHelper.storedJwtToken);
+            HttpEntity<String> hashMapHttpEntity2 = new HttpEntity<>(headers);
+            exchange = restTemplate.exchange(confirmUrl + "/" + orderId, HttpMethod.GET, hashMapHttpEntity2, responseType);
+        }
+        return exchange.getBody().get("paymentStatus");
+    }
+
+    private String generatePaymentLink(String orderId) {
+        HashMap<String, String> stringStringHashMap = new HashMap<>();
+        stringStringHashMap.put("orderId", orderId);
+        String body = null;
+        try {
+            body = mapper.writeValueAsString(stringStringHashMap);
+        } catch (JsonProcessingException e) {
+            /**
+             * this block is purposely left blank
+             */
+        }
+        ParameterizedTypeReference<HashMap<String, String>> responseType =
+                new ParameterizedTypeReference<>() {
+                };
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        /**
+         * get jwt token
+         */
+        if (tokenHelper.storedJwtToken == null)
+            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
+        headers.setBearerAuth(tokenHelper.storedJwtToken);
+        HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
+        ResponseEntity<HashMap<String, String>> exchange;
+        try {
+            exchange = restTemplate.exchange(paymentUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
+        } catch (HttpClientErrorException ex) {
+            /**
+             * re-try if jwt expires
+             */
+            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
+            headers.setBearerAuth(tokenHelper.storedJwtToken);
+            HttpEntity<String> hashMapHttpEntity2 = new HttpEntity<>(body, headers);
+            exchange = restTemplate.exchange(paymentUrl, HttpMethod.POST, hashMapHttpEntity2, responseType);
+        }
+        return exchange.getBody().get("paymentLink");
+    }
+
+    private Map<String, Integer> getOrderProductMap(OrderDetail orderDetail) {
         /**
          * deduct product storage, this is a performance bottleneck with sync http
          */
@@ -87,19 +177,10 @@ public class OrderServiceImpl implements OrderService {
                 stringIntegerHashMap.put(e.getProductId(), defaultAmount);
             }
         });
-        decreaseStorage(stringIntegerHashMap);
-        Profile save = null;
-        try {
-            profile.getCartList().clear();
-            save = profileRepo.save(profile);
-        } catch (Exception ex) {
-            log.error("Error during order placement, revoking product storage", ex);
-            increaseStorage(stringIntegerHashMap);
-        }
-        return save.getOrderList().get(beforeInsert).getId().toString();
+        return stringIntegerHashMap;
     }
 
-    private void validatePaymentAmount(OrderDetail orderDetail) throws OrderValidationException {
+    private void validateOrder(OrderDetail orderDetail) throws OrderValidationException {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         /**

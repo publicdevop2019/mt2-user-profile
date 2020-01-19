@@ -1,6 +1,6 @@
 package com.hw.entity;
 
-import com.hw.clazz.MapConverter;
+import com.hw.clazz.PaymentStatus;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.Setter;
@@ -9,8 +9,8 @@ import javax.persistence.*;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 @Entity
@@ -24,42 +24,32 @@ public class OrderDetail extends Auditable {
     @Setter(AccessLevel.NONE)
     private Long id;
     /**
-     * Address payment product all treat as embedded element instead of an entity
+     * Address product all treat as embedded element instead of an entity
      */
     @NotNull
     @Valid
     @Embedded
     private SnapshotAddress address;
 
-    @NotNull
-    @NotEmpty
-    private String paymentType;
 
     @ElementCollection
     @CollectionTable(name = "order_product_snapshot", joinColumns = @JoinColumn(name = "order_id"))
     @Column
     private List<SnapshotProduct> productList;
 
-
-    @Column
-    @Convert(converter = MapConverter.class)
-    private Map<String, String> additionalFees;
+    @NotNull
+    @NotEmpty
+    private String paymentType;
 
     @Column
     @NotNull
-    private String taxCost;
+    private BigDecimal paymentAmt;
 
     @Column
-    @NotNull
-    private String shippingCost;
+    private String paymentDate;
 
     @Column
-    @NotNull
-    private String finalPrice;
-
-    @Column
-    @NotNull
-    private String totalProductPrice;
+    private PaymentStatus paymentStatus;
 
     @Override
     public boolean equals(Object o) {
@@ -73,16 +63,13 @@ public class OrderDetail extends Auditable {
                          * use deepEquals for JPA persistentBag workaround, otherwise equals will return incorrect result
                          */
                         Objects.deepEquals(productList.toArray(), that.productList.toArray()) &&
-                        Objects.equals(additionalFees, that.additionalFees) &&
-                        Objects.equals(taxCost, that.taxCost) &&
-                        Objects.equals(shippingCost, that.shippingCost) &&
-                        Objects.equals(finalPrice, that.finalPrice) &&
-                        Objects.equals(totalProductPrice, that.totalProductPrice);
+                        Objects.equals(paymentType, that.paymentType) &&
+                        Objects.equals(paymentAmt, that.paymentAmt);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, address, productList, additionalFees, taxCost, shippingCost, finalPrice, totalProductPrice);
+        return Objects.hash(id, address, productList, paymentType, paymentAmt);
     }
 }
 
