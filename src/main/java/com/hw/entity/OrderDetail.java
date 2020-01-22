@@ -56,7 +56,6 @@ public class OrderDetail extends Auditable {
     private Boolean expired;
 
     @Column
-    @NotNull
     private Boolean revoked;
 
     @Override

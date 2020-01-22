@@ -99,6 +99,7 @@ public class OrderServiceImpl implements OrderService {
 
             orderDetail.setPaymentStatus(PaymentStatus.unpaid);
             orderDetail.setExpired(Boolean.FALSE);
+            orderDetail.setRevoked(Boolean.FALSE);
             orderList.add(orderDetail);
             Map<String, Integer> productMap = getOrderProductMap(orderDetail);
             decreaseStorage(productMap);
