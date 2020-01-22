@@ -18,10 +18,11 @@ import java.util.Objects;
 @SequenceGenerator(name = "orderId_gen", sequenceName = "orderId_gen", initialValue = 100)
 @Data
 public class OrderDetail extends Auditable {
-
+    /**
+     * id setter is required to correctly work with BeanPropertyRowMapper for spring batch
+     */
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO, generator = "orderId_gen")
-    @Setter(AccessLevel.NONE)
     private Long id;
     /**
      * Address product all treat as embedded element instead of an entity
@@ -50,6 +51,13 @@ public class OrderDetail extends Auditable {
 
     @Column
     private PaymentStatus paymentStatus;
+
+    @Column
+    private Boolean expired;
+
+    @Column
+    @NotNull
+    private Boolean revoked;
 
     @Override
     public boolean equals(Object o) {

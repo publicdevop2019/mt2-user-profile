@@ -19,4 +19,6 @@ public interface OrderService {
 
     public void notifyBusinessOwner(Map<String, String> contentMap);
 
+    public void releaseExpiredOrder();
+
 }

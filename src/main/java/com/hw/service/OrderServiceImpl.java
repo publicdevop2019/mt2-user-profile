@@ -17,13 +17,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import javax.transaction.Transactional;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @Slf4j
@@ -49,6 +53,9 @@ public class OrderServiceImpl implements OrderService {
     @Value("${url.notify}")
     private String notifyUrl;
 
+    @Value("${order.expireAfter}")
+    private Long expireAfter;
+
     @Autowired
     private ObjectMapper mapper;
 
@@ -70,7 +77,10 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public String reserveOrder(OrderDetail orderDetail, Profile profile) throws OrderValidationException {
-        validateOrder(orderDetail);
+
+        removeUnwantedValue(orderDetail);
+        validateOrderInfo(orderDetail);
+
         String reservedOrderId;
         if (orderDetail.getId() != null) {
             /**
@@ -88,6 +98,7 @@ public class OrderServiceImpl implements OrderService {
             int beforeInsert = orderList.size();
 
             orderDetail.setPaymentStatus(PaymentStatus.unpaid);
+            orderDetail.setExpired(Boolean.FALSE);
             orderList.add(orderDetail);
             Map<String, Integer> productMap = getOrderProductMap(orderDetail);
             decreaseStorage(productMap);
@@ -130,6 +141,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public Profile updateOrderById(String profileId, String orderId, OrderDetail updatedOrder) throws OrderValidationException {
+        updatedOrder.setId(Long.parseLong(orderId));
         Optional<Profile> findById = profileRepo.findById(Long.parseLong(profileId));
         List<OrderDetail> collect = findById.get().getOrderList().stream().filter(e -> e.getId().toString().equals(orderId)).collect(Collectors.toList());
         if (collect.size() != 1)
@@ -137,6 +149,10 @@ public class OrderServiceImpl implements OrderService {
         OrderDetail oldOrder = collect.get(0);
         BeanUtils.copyProperties(updatedOrder, oldOrder);
         return profileRepo.save(findById.get());
+    }
+
+    private void removeUnwantedValue(OrderDetail orderDetail) {
+        orderDetail.setId(null);
     }
 
     private String generatePaymentLink(String orderId) {
@@ -202,7 +218,7 @@ public class OrderServiceImpl implements OrderService {
         return stringIntegerHashMap;
     }
 
-    private void validateOrder(OrderDetail orderDetail) throws OrderValidationException {
+    private void validateOrderInfo(OrderDetail orderDetail) throws OrderValidationException {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         /**
@@ -233,11 +249,6 @@ public class OrderServiceImpl implements OrderService {
          * @todo validate paymentAmt
          */
         BigDecimal reduce = orderDetail.getProductList().stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
-//        BigDecimal total = new BigDecimal(0);
-//        for (SnapshotProduct pro : orderDetail.getProductList()) {
-//            BigDecimal bigDecimal = BigDecimal.valueOf(Double.parseDouble(pro.getFinalPrice()));
-//            total = bigDecimal.add(total);
-//        }
         if (orderDetail.getPaymentAmt().compareTo(reduce) != 0)
             throw new OrderValidationException();
     }
@@ -287,6 +298,46 @@ public class OrderServiceImpl implements OrderService {
             restTemplate.exchange(notifyUrl, HttpMethod.POST, hashMapHttpEntity2, String.class);
         }
 
+    }
+
+    @Override
+    @Transactional
+    @Scheduled(fixedRateString = "${fixedRate.in.milliseconds}")
+    public void releaseExpiredOrder() {
+        Map<String, Integer> stringIntegerHashMap = new HashMap<>();
+        List<Profile> all = profileRepo.findAll();
+        all.forEach(p -> {
+            Stream<OrderDetail> unpaidOrders = p.getOrderList().stream().filter(e -> e.getPaymentStatus().equals(PaymentStatus.unpaid));
+            Stream<OrderDetail> expiredOrder = unpaidOrders.filter(e -> (e.getCreatedAt().toInstant().toEpochMilli() + expireAfter * 60 * 1000 < Instant.now().toEpochMilli()) && (Boolean.FALSE.equals(e.getRevoked())));
+            expiredOrder.forEach(or -> {
+                or.setExpired(Boolean.TRUE);
+                or.setRevoked(Boolean.FALSE);
+                Map<String, Integer> orderProductMap = getOrderProductMap(or);
+                orderProductMap.forEach((key, value) -> {
+                    stringIntegerHashMap.merge(key, value, Integer::sum);
+                });
+            });
+            profileRepo.save(p);
+
+        });
+        try {
+            if (!stringIntegerHashMap.keySet().isEmpty()) {
+                log.info("release product(s) :: " + stringIntegerHashMap.toString());
+                increaseStorage(stringIntegerHashMap);
+                /** mark revoked orders */
+                all.forEach(p -> {
+                    Stream<OrderDetail> unpaidOrders = p.getOrderList().stream().filter(e -> e.getPaymentStatus().equals(PaymentStatus.unpaid));
+                    Stream<OrderDetail> expiredOrder = unpaidOrders.filter(e -> e.getExpired().equals(Boolean.TRUE) && e.getRevoked().equals(Boolean.FALSE));
+                    expiredOrder.forEach(or -> {
+                        or.setRevoked(Boolean.TRUE);
+                    });
+                    profileRepo.save(p);
+                });
+            }
+        } catch (Exception ex) {
+            log.error("error during revoking storage");
+
+        }
     }
 
     private void changeStorage(String url, Map<String, Integer> productMap) {
