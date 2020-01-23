@@ -66,49 +66,35 @@ public class OrderServiceImpl implements OrderService {
     ProfileRepo profileRepo;
 
     /**
-     * step0 validate payment amount
+     * step0 validate order info
      * step1 deduct amount from product service
      * step2 add new order to profile
      * step3 generate payment link
      *
-     * @param orderDetail
+     * @param nextOrderDetail
      * @return payment QR link
      * @note if step2 or 3 does not complete successfully then revocation required
      */
     @Override
-    public String reserveOrder(OrderDetail orderDetail, Profile profile) throws OrderValidationException {
+    public String reserveOrder(OrderDetail nextOrderDetail, Profile profile) throws OrderValidationException {
 
-        removeUnwantedValue(orderDetail);
-        validateOrderInfo(orderDetail);
+        validateOrderInfo(nextOrderDetail);
 
-        String reservedOrderId;
-        if (orderDetail.getId() != null) {
-            /**
-             * for existing order
-             */
-            /**
-             * @todo reserve again if order expired
-             */
-            updateOrderById(profile.getId().toString(), orderDetail.getId().toString(), orderDetail);
-            reservedOrderId = orderDetail.getId().toString();
-        } else {
-            if (profile.getOrderList() == null)
-                profile.setOrderList(new ArrayList<>());
-            List<OrderDetail> orderList = profile.getOrderList();
-            int beforeInsert = orderList.size();
+        if (profile.getOrderList() == null)
+            profile.setOrderList(new ArrayList<>());
+        List<OrderDetail> orderList = profile.getOrderList();
+        int beforeInsert = orderList.size();
 
-            orderDetail.setPaymentStatus(PaymentStatus.unpaid);
-            orderDetail.setExpired(Boolean.FALSE);
-            orderDetail.setRevoked(Boolean.FALSE);
-            orderList.add(orderDetail);
-            Map<String, Integer> productMap = getOrderProductMap(orderDetail);
-            decreaseStorage(productMap);
-            Profile save = profileRepo.save(profile);
-            reservedOrderId = save.getOrderList().get(beforeInsert).getId().toString();
-        }
+        nextOrderDetail.setPaymentStatus(PaymentStatus.unpaid);
+        nextOrderDetail.setExpired(Boolean.FALSE);
+        nextOrderDetail.setRevoked(Boolean.FALSE);
+        nextOrderDetail.setModifiedByUserAt(Date.from(Instant.now()));
+        orderList.add(nextOrderDetail);
+        Map<String, Integer> productMap = getOrderProductMap(nextOrderDetail);
+        decreaseStorage(productMap);
+        Profile save = profileRepo.save(profile);
+        String reservedOrderId = save.getOrderList().get(beforeInsert).getId().toString();
         return generatePaymentLink(reservedOrderId);
-
-
     }
 
     @Override
@@ -140,6 +126,35 @@ public class OrderServiceImpl implements OrderService {
         return exchange.getBody().get("paymentStatus");
     }
 
+    /***
+     * @note only address and payment type can be updated
+     * @param updatedOrder
+     * @param orderId
+     * @param profileId
+     * @return
+     */
+    @Override
+    public String replaceOrder(OrderDetail updatedOrder, long orderId, long profileId) {
+
+        Optional<Profile> findById = profileRepo.findById(profileId);
+
+        List<OrderDetail> collect = findById.get().getOrderList().stream().filter(e -> e.getId() == orderId).collect(Collectors.toList());
+        OrderDetail oldOrder = collect.get(0);
+        BeanUtils.copyProperties(updatedOrder.getAddress(), oldOrder.getAddress());
+        oldOrder.setPaymentType(updatedOrder.getPaymentType());
+        oldOrder.setModifiedByUserAt(Date.from(Instant.now()));
+        if (oldOrder.getExpired()) {
+            Map<String, Integer> productMap = getOrderProductMap(oldOrder);
+            decreaseStorage(productMap);
+        } else {
+            /**
+             * storage not release yet,
+             */
+        }
+        return generatePaymentLink(String.valueOf(orderId));
+    }
+
+
     @Override
     public Profile updateOrderById(String profileId, String orderId, OrderDetail updatedOrder) throws OrderValidationException {
         updatedOrder.setId(Long.parseLong(orderId));
@@ -150,10 +165,6 @@ public class OrderServiceImpl implements OrderService {
         OrderDetail oldOrder = collect.get(0);
         BeanUtils.copyProperties(updatedOrder, oldOrder);
         return profileRepo.save(findById.get());
-    }
-
-    private void removeUnwantedValue(OrderDetail orderDetail) {
-        orderDetail.setId(null);
     }
 
     private String generatePaymentLink(String orderId) {
@@ -309,7 +320,7 @@ public class OrderServiceImpl implements OrderService {
         List<Profile> all = profileRepo.findAll();
         all.forEach(p -> {
             Stream<OrderDetail> unpaidOrders = p.getOrderList().stream().filter(e -> e.getPaymentStatus().equals(PaymentStatus.unpaid));
-            Stream<OrderDetail> expiredOrder = unpaidOrders.filter(e -> (e.getCreatedAt().toInstant().toEpochMilli() + expireAfter * 60 * 1000 < Instant.now().toEpochMilli()) && (Boolean.FALSE.equals(e.getRevoked())));
+            Stream<OrderDetail> expiredOrder = unpaidOrders.filter(e -> (e.getModifiedByUserAt().toInstant().toEpochMilli() + expireAfter * 60 * 1000 < Instant.now().toEpochMilli()) && (Boolean.FALSE.equals(e.getRevoked())));
             expiredOrder.forEach(or -> {
                 or.setExpired(Boolean.TRUE);
                 or.setRevoked(Boolean.FALSE);

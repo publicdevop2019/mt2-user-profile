@@ -11,6 +11,8 @@ public interface OrderService {
 
     public Boolean confirmOrder(String orderId) throws OrderValidationException;
 
+    public String replaceOrder(OrderDetail orderDetail, long orderId, long profileId);
+
     public Profile updateOrderById(String profileId, String orderId, OrderDetail orderDetail) throws OrderValidationException;
 
     public void decreaseStorage(Map<String, Integer> productMap);

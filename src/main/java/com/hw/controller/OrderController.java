@@ -52,6 +52,7 @@ public class OrderController {
     @ProfileExistAndOwnerOnly
     @PostMapping("profiles/{profileId}/orders")
     public ResponseEntity<?> reserveOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody OrderDetail newOrder) {
+        removeUnwantedValue(newOrder);
         String paymentLink;
         Optional<Profile> findById = profileRepo.findById(profileId);
         try {
@@ -110,6 +111,20 @@ public class OrderController {
     }
 
     @ProfileExistAndOwnerOnly
+    @PutMapping("profiles/{profileId}/orders/{orderId}/replace")
+    public ResponseEntity<?> replaceOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody OrderDetail newOrder) {
+        /**
+         *  only address and payment_method can be updated
+         */
+        try {
+            String paymentLink = orderService.replaceOrder(newOrder, orderId, profileId);
+            return ResponseEntity.ok().header("Location", paymentLink).build();
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @ProfileExistAndOwnerOnly
     @DeleteMapping("profiles/{profileId}/orders/{orderId}")
     public ResponseEntity<?> deleteOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
         Optional<Profile> findById = profileRepo.findById(profileId);
@@ -121,4 +136,9 @@ public class OrderController {
         profileRepo.save(findById.get());
         return ResponseEntity.ok().build();
     }
+
+    private void removeUnwantedValue(OrderDetail orderDetail) {
+        orderDetail.setId(null);
+    }
+
 }

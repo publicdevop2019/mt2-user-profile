@@ -1,5 +1,6 @@
 package com.hw.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.hw.clazz.PaymentStatus;
 import lombok.AccessLevel;
 import lombok.Data;
@@ -10,6 +11,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
@@ -51,6 +53,10 @@ public class OrderDetail extends Auditable {
 
     @Column
     private PaymentStatus paymentStatus;
+
+    @Column
+    @JsonIgnore
+    private Date modifiedByUserAt;
 
     @Column
     private Boolean expired;
