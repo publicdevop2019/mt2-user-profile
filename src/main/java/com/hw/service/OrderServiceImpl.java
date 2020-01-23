@@ -38,6 +38,9 @@ public class OrderServiceImpl implements OrderService {
     @Value("${url.decreaseUrl}")
     private String decreaseUrl;
 
+    @Value("${url.sold}")
+    private String soldUrl;
+
     @Value("${url.increaseUrl}")
     private String increaseUrl;
 
@@ -86,19 +89,27 @@ public class OrderServiceImpl implements OrderService {
         int beforeInsert = orderList.size();
 
         nextOrderDetail.setPaymentStatus(PaymentStatus.unpaid);
-        nextOrderDetail.setExpired(Boolean.FALSE);
-        nextOrderDetail.setRevoked(Boolean.FALSE);
-        nextOrderDetail.setModifiedByUserAt(Date.from(Instant.now()));
+        resetOrderSchedulerInfo(nextOrderDetail);
         orderList.add(nextOrderDetail);
         Map<String, Integer> productMap = getOrderProductMap(nextOrderDetail);
         decreaseStorage(productMap);
-        Profile save = profileRepo.save(profile);
-        String reservedOrderId = save.getOrderList().get(beforeInsert).getId().toString();
+        String reservedOrderId;
+        try {
+            Profile save = profileRepo.save(profile);
+            reservedOrderId = save.getOrderList().get(beforeInsert).getId().toString();
+        } catch (Exception ex) {
+            /**
+             * when order failed on DB create
+             */
+            increaseStorage(productMap);
+            throw new OrderValidationException();
+        }
         return generatePaymentLink(reservedOrderId);
+
     }
 
     @Override
-    public Boolean confirmOrder(String orderId) throws OrderValidationException {
+    public Boolean confirmOrder(String profileId, String orderId) throws OrderValidationException {
         ParameterizedTypeReference<HashMap<String, Boolean>> responseType =
                 new ParameterizedTypeReference<>() {
                 };
@@ -123,7 +134,12 @@ public class OrderServiceImpl implements OrderService {
             HttpEntity<String> hashMapHttpEntity2 = new HttpEntity<>(headers);
             exchange = restTemplate.exchange(confirmUrl + "/" + orderId, HttpMethod.GET, hashMapHttpEntity2, responseType);
         }
-        return exchange.getBody().get("paymentStatus");
+        Boolean paymentStatus = exchange.getBody().get("paymentStatus");
+        if (paymentStatus) {
+            increaseActualStorage(getOrderProductMap(getOrder(Long.parseLong(profileId), Long.parseLong(orderId))));
+        }
+        return paymentStatus;
+
     }
 
     /***
@@ -146,6 +162,9 @@ public class OrderServiceImpl implements OrderService {
         if (oldOrder.getExpired()) {
             Map<String, Integer> productMap = getOrderProductMap(oldOrder);
             decreaseStorage(productMap);
+            oldOrder.setRevoked(Boolean.FALSE);
+            oldOrder.setExpired(Boolean.FALSE);
+            profileRepo.save(findById.get());
         } else {
             /**
              * storage not release yet,
@@ -159,12 +178,15 @@ public class OrderServiceImpl implements OrderService {
     public Profile updateOrderById(String profileId, String orderId, OrderDetail updatedOrder) throws OrderValidationException {
         updatedOrder.setId(Long.parseLong(orderId));
         Optional<Profile> findById = profileRepo.findById(Long.parseLong(profileId));
-        List<OrderDetail> collect = findById.get().getOrderList().stream().filter(e -> e.getId().toString().equals(orderId)).collect(Collectors.toList());
-        if (collect.size() != 1)
-            throw new OrderValidationException();
-        OrderDetail oldOrder = collect.get(0);
+        OrderDetail oldOrder = getOrder(Long.parseLong(profileId), Long.parseLong(orderId));
         BeanUtils.copyProperties(updatedOrder, oldOrder);
         return profileRepo.save(findById.get());
+    }
+
+    private void resetOrderSchedulerInfo(OrderDetail orderDetail) {
+        orderDetail.setExpired(Boolean.FALSE);
+        orderDetail.setRevoked(Boolean.FALSE);
+        orderDetail.setModifiedByUserAt(Date.from(Instant.now()));
     }
 
     private String generatePaymentLink(String orderId) {
@@ -205,7 +227,7 @@ public class OrderServiceImpl implements OrderService {
         return exchange.getBody().get("paymentLink");
     }
 
-    private Map<String, Integer> getOrderProductMap(OrderDetail orderDetail) {
+    public Map<String, Integer> getOrderProductMap(OrderDetail orderDetail) {
         /**
          * deduct product storage, this is a performance bottleneck with sync http
          */
@@ -273,6 +295,11 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public void increaseStorage(Map<String, Integer> productMap) {
         changeStorage(increaseUrl, productMap);
+    }
+
+    @Override
+    public void increaseActualStorage(Map<String, Integer> productMap) {
+        changeStorage(soldUrl, productMap);
     }
 
     /**
@@ -381,6 +408,13 @@ public class OrderServiceImpl implements OrderService {
             HttpEntity<String> hashMapHttpEntity2 = new HttpEntity<>(body, headers);
             restTemplate.exchange(url, HttpMethod.PUT, hashMapHttpEntity2, String.class);
         }
+    }
 
+    private OrderDetail getOrder(long profileId, long orderId) {
+        Optional<Profile> findById = profileRepo.findById(profileId);
+        List<OrderDetail> collect = findById.get().getOrderList().stream().filter(e -> e.getId() == orderId).collect(Collectors.toList());
+        if (collect.size() != 1)
+            throw new OrderValidationException();
+        return collect.get(0);
     }
 }

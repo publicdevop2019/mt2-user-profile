@@ -79,7 +79,7 @@ public class OrderController {
         OrderDetail orderDetail = collect.get(0);
         HashMap<String, Boolean> stringStringHashMap = new HashMap<>();
 
-        if (orderService.confirmOrder(orderId.toString())) {
+        if (orderService.confirmOrder(profileId.toString(), orderId.toString())) {
             orderDetail.setPaymentStatus(PaymentStatus.paid);
             stringStringHashMap.put("paymentStatus", Boolean.TRUE);
         } else {
