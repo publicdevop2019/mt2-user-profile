@@ -160,10 +160,11 @@ public class OrderServiceImpl implements OrderService {
         oldOrder.setPaymentType(updatedOrder.getPaymentType());
         oldOrder.setModifiedByUserAt(Date.from(Instant.now()));
         if (oldOrder.getExpired()) {
-            Map<String, Integer> productMap = getOrderProductMap(oldOrder);
-            decreaseStorage(productMap);
-            oldOrder.setRevoked(Boolean.FALSE);
             oldOrder.setExpired(Boolean.FALSE);
+            Map<String, Integer> productMap = getOrderProductMap(oldOrder);
+            if (oldOrder.getRevoked())
+                decreaseStorage(productMap);
+            oldOrder.setRevoked(Boolean.FALSE);
             profileRepo.save(findById.get());
         } else {
             /**
