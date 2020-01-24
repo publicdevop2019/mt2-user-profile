@@ -136,7 +136,7 @@ public class OrderServiceImpl implements OrderService {
         }
         Boolean paymentStatus = exchange.getBody().get("paymentStatus");
         if (paymentStatus) {
-            increaseActualStorage(getOrderProductMap(getOrder(Long.parseLong(profileId), Long.parseLong(orderId))));
+            decreaseActualStorage(getOrderProductMap(getOrder(Long.parseLong(profileId), Long.parseLong(orderId))));
         }
         return paymentStatus;
 
@@ -298,7 +298,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public void increaseActualStorage(Map<String, Integer> productMap) {
+    public void decreaseActualStorage(Map<String, Integer> productMap) {
         changeStorage(soldUrl, productMap);
     }
 
