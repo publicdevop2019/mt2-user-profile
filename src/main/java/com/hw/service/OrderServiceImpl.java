@@ -7,7 +7,6 @@ import com.hw.clazz.ProductOption;
 import com.hw.entity.OrderDetail;
 import com.hw.entity.Profile;
 import com.hw.entity.SnapshotProduct;
-import com.hw.exceptions.OrderValidationException;
 import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
 import com.hw.utility.ResourceServiceTokenHelper;
@@ -79,7 +78,7 @@ public class OrderServiceImpl implements OrderService {
      * @note if step2 or 3 does not complete successfully then revocation required
      */
     @Override
-    public String reserveOrder(OrderDetail nextOrderDetail, Profile profile) throws OrderValidationException {
+    public String reserveOrder(OrderDetail nextOrderDetail, Profile profile) throws RuntimeException {
 
         validateOrderInfo(nextOrderDetail);
 
@@ -102,14 +101,14 @@ public class OrderServiceImpl implements OrderService {
              * when order failed on DB create
              */
             increaseStorage(productMap);
-            throw new OrderValidationException();
+            throw new RuntimeException("unable to create order");
         }
         return generatePaymentLink(reservedOrderId);
 
     }
 
     @Override
-    public Boolean confirmOrder(String profileId, String orderId) throws OrderValidationException {
+    public Boolean confirmOrder(String profileId, String orderId) throws RuntimeException {
         ParameterizedTypeReference<HashMap<String, Boolean>> responseType =
                 new ParameterizedTypeReference<>() {
                 };
@@ -176,7 +175,7 @@ public class OrderServiceImpl implements OrderService {
 
 
     @Override
-    public Profile updateOrderById(String profileId, String orderId, OrderDetail updatedOrder) throws OrderValidationException {
+    public Profile updateOrderById(String profileId, String orderId, OrderDetail updatedOrder) throws RuntimeException {
         updatedOrder.setId(Long.parseLong(orderId));
         Optional<Profile> findById = profileRepo.findById(Long.parseLong(profileId));
         OrderDetail oldOrder = getOrder(Long.parseLong(profileId), Long.parseLong(orderId));
@@ -253,7 +252,7 @@ public class OrderServiceImpl implements OrderService {
         return stringIntegerHashMap;
     }
 
-    private void validateOrderInfo(OrderDetail orderDetail) throws OrderValidationException {
+    private void validateOrderInfo(OrderDetail orderDetail) throws RuntimeException {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         /**
@@ -279,13 +278,10 @@ public class OrderServiceImpl implements OrderService {
             exchange = restTemplate.exchange(validateUrl, HttpMethod.POST, hashMapHttpEntity2, responseType);
         }
         if (exchange.getBody() == null || !"true".equals(exchange.getBody().get("result")))
-            throw new OrderValidationException();
-        /**
-         * @todo validate paymentAmt
-         */
+            throw new RuntimeException("order validation success");
         BigDecimal reduce = orderDetail.getProductList().stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
         if (orderDetail.getPaymentAmt().compareTo(reduce) != 0)
-            throw new OrderValidationException();
+            throw new RuntimeException("invalid payment amount");
     }
 
     @Override
@@ -415,7 +411,7 @@ public class OrderServiceImpl implements OrderService {
         Optional<Profile> findById = profileRepo.findById(profileId);
         List<OrderDetail> collect = findById.get().getOrderList().stream().filter(e -> e.getId() == orderId).collect(Collectors.toList());
         if (collect.size() != 1)
-            throw new OrderValidationException();
+            throw new RuntimeException("id should be unique");
         return collect.get(0);
     }
 }

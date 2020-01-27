@@ -2,7 +2,7 @@ package com.hw.controller;
 
 import com.hw.entity.Profile;
 import com.hw.repo.ProfileRepo;
-import com.hw.utility.ServiceUtility;
+import com.hw.shared.ServiceUtility;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

@@ -2,7 +2,7 @@ package com.hw.config;
 
 import com.hw.entity.Profile;
 import com.hw.repo.ProfileRepo;
-import com.hw.utility.ServiceUtility;
+import com.hw.shared.ServiceUtility;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -30,7 +30,7 @@ public class AccessAspectConfig {
         Optional<Profile> byId = profileRepo.findById(profileId);
         if (byId.isEmpty()) {
             throw new IllegalArgumentException("resource not found");
-        } else if (byId.isPresent() && byId.get().getCreatedBy().equals(resourceOwnerId)) {
+        } else if (byId.get().getCreatedBy().equals(resourceOwnerId)) {
             return joinPoint.proceed();
         } else {
             throw new IllegalArgumentException("you can only view/modify your own data");

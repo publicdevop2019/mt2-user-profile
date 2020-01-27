@@ -1,5 +1,6 @@
 package com.hw.entity;
 
+import com.hw.shared.Auditable;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,7 +14,7 @@ import java.util.List;
 @SequenceGenerator(name = "profileId_gen", sequenceName = "profileId_gen", initialValue = 100)
 @Data
 @NoArgsConstructor
-public class Profile  extends Auditable{
+public class Profile  extends Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO, generator = "profileId_gen")
     @Setter(AccessLevel.NONE)

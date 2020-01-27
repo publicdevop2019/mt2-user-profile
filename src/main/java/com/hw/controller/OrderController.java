@@ -4,7 +4,6 @@ import com.hw.clazz.PaymentStatus;
 import com.hw.clazz.ProfileExistAndOwnerOnly;
 import com.hw.entity.OrderDetail;
 import com.hw.entity.Profile;
-import com.hw.exceptions.OrderValidationException;
 import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
 import lombok.extern.slf4j.Slf4j;
@@ -57,7 +56,7 @@ public class OrderController {
         Optional<Profile> findById = profileRepo.findById(profileId);
         try {
             paymentLink = orderService.reserveOrder(newOrder, findById.get());
-        } catch (OrderValidationException ex) {
+        } catch (RuntimeException ex) {
             log.error("unable to reserve order ", ex);
             return ResponseEntity.badRequest().build();
         }

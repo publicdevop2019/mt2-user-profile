@@ -2,6 +2,7 @@ package com.hw.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.hw.clazz.PaymentStatus;
+import com.hw.shared.Auditable;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.Setter;
