@@ -4,12 +4,14 @@ COPY ./src ./src
 
 COPY ./pom.xml ./pom.xml
 
+COPY ./shared/parent-pom.xml ./shared/parent-pom.xml
+
 # build all dependencies for offline use
 RUN mvn dependency:go-offline -B
 
 ENV MAVEN_OPTS="-XX:+TieredCompilation -XX:TieredStopAtLevel=1"
 
-RUN mvn package
+RUN mvn package -DskipTests
 
 FROM hirokimatsumoto/alpine-openjdk-11:latest as jlink-package
 
@@ -30,6 +32,6 @@ COPY --from=jlink-package /opt/jdk-11-mini-runtime /opt/jdk-11-mini-runtime
 
 COPY --from=maven ./target/UserProfile.jar ./
 
-EXPOSE 8111
+EXPOSE 8082
 
 ENTRYPOINT ["java"]

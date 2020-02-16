@@ -2,7 +2,7 @@
 <configuration>
 
     <property name="location" value="./logs"/>
-    <property name="name" value="userProfile"/>
+    <property name="name" value="UserProfile"/>
 
     <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
         <layout class="ch.qos.logback.classic.PatternLayout">
