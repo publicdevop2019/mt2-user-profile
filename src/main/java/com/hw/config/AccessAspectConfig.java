@@ -25,7 +25,7 @@ public class AccessAspectConfig {
     @Around(value = "com.hw.config.AccessAspectConfig.restrictAccess()")
     public Object aroundGetAllPayments(ProceedingJoinPoint joinPoint) throws Throwable {
         Object[] args = joinPoint.getArgs();
-        String resourceOwnerId = ServiceUtility.getUsername((String) args[0]);
+        String resourceOwnerId = ServiceUtility.getUserId((String) args[0]);
         Long profileId = (Long) args[1];
         Optional<Profile> byId = profileRepo.findById(profileId);
         if (byId.isEmpty()) {

@@ -9,7 +9,7 @@ import com.hw.entity.Profile;
 import com.hw.entity.SnapshotProduct;
 import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
-import com.hw.utility.ResourceServiceTokenHelper;
+import com.hw.shared.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;

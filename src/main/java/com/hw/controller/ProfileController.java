@@ -21,7 +21,7 @@ public class ProfileController {
 
     @GetMapping("profiles/search")
     public ResponseEntity<?> searchProfileByResourceOwnerId(@RequestHeader("authorization") String authorization) {
-        String resourceOwnerId = ServiceUtility.getUsername(authorization);
+        String resourceOwnerId = ServiceUtility.getUserId(authorization);
         Optional<Profile> profileByResourceOwnerId = profileRepo.findProfileByResourceOwnerId(Long.parseLong(resourceOwnerId));
         if (profileByResourceOwnerId.isEmpty()) {
             Map<String, String> errorMsg = new HashMap<>();
@@ -33,7 +33,7 @@ public class ProfileController {
 
     @PostMapping("profiles")
     public ResponseEntity<?> createProfile(@RequestHeader("authorization") String authorization) {
-        String resourceOwnerId = ServiceUtility.getUsername(authorization);
+        String resourceOwnerId = ServiceUtility.getUserId(authorization);
         Optional<Profile> profileByResourceOwnerId = profileRepo.findProfileByResourceOwnerId(Long.parseLong(resourceOwnerId));
         if (profileByResourceOwnerId.isPresent()) {
             Map<String, String> errorMsg = new HashMap<>();
