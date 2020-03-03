@@ -16,6 +16,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -30,6 +32,7 @@ import java.util.stream.Stream;
 
 @Service
 @Slf4j
+@EnableScheduling
 public class OrderServiceImpl implements OrderService {
     @Autowired
     private RestTemplate restTemplate;
@@ -303,6 +306,7 @@ public class OrderServiceImpl implements OrderService {
      * @param contentMap
      * @todo generify
      */
+    @Async
     @Override
     public void notifyBusinessOwner(Map<String, String> contentMap) {
         String body = null;
