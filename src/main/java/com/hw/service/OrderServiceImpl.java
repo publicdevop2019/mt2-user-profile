@@ -344,6 +344,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     @Scheduled(fixedRateString = "${fixedRate.in.milliseconds}")
     public void releaseExpiredOrder() {
+        log.info("start of scheduler");
         Map<String, Integer> stringIntegerHashMap = new HashMap<>();
         List<Profile> all = profileRepo.findAll();
         all.forEach(p -> {
