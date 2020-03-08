@@ -4,6 +4,7 @@ import com.hw.clazz.ProfileExistAndOwnerOnly;
 import com.hw.entity.Address;
 import com.hw.entity.Profile;
 import com.hw.repo.ProfileRepo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping(path = "v1/api", produces = "application/json")
+@Slf4j
 public class AddressController {
 
     @Autowired
@@ -32,8 +34,10 @@ public class AddressController {
     public ResponseEntity<?> getAddressInById(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "addressId") Long addressId) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         List<Address> collect = findById.get().getAddressList().stream().filter(e -> e.getId().equals(addressId)).collect(Collectors.toList());
-        if (collect.size() != 1)
+        if (collect.size() != 1) {
+            log.info("address id - {} return {} addresses", addressId, collect.size());
             return ResponseEntity.badRequest().build();
+        }
         return ResponseEntity.ok(collect.get(0));
     }
 
@@ -41,8 +45,10 @@ public class AddressController {
     @PostMapping("profiles/{profileId}/addresses")
     public ResponseEntity<?> createAddress(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody Address address) {
         Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.isEmpty() || findById.get().getAddressList().stream().anyMatch(e -> e.equals(address)))
+        if (findById.isEmpty() || findById.get().getAddressList().stream().anyMatch(e -> e.equals(address))) {
+            log.info("same address found");
             return ResponseEntity.badRequest().build();
+        }
         findById.get().getAddressList().add((address));
         Profile save = profileRepo.save(findById.get());
         return ResponseEntity.ok().header("Location", save.getAddressList().stream().filter(e -> e.equals(address)).findFirst().get().getId().toString()).build();

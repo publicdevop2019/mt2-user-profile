@@ -103,6 +103,7 @@ public class OrderServiceImpl implements OrderService {
             /**
              * when order failed on DB create
              */
+            log.error("unable to create order", ex);
             increaseStorage(productMap);
             throw new RuntimeException("unable to create order");
         }
@@ -281,7 +282,7 @@ public class OrderServiceImpl implements OrderService {
             exchange = restTemplate.exchange(validateUrl, HttpMethod.POST, hashMapHttpEntity2, responseType);
         }
         if (exchange.getBody() == null || !"true".equals(exchange.getBody().get("result")))
-            throw new RuntimeException("order validation success");
+            throw new RuntimeException("order validation failed");
         BigDecimal reduce = orderDetail.getProductList().stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
         if (orderDetail.getPaymentAmt().compareTo(reduce) != 0)
             throw new RuntimeException("invalid payment amount");
