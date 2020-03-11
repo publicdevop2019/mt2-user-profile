@@ -85,7 +85,7 @@ public class OrderServiceImpl implements OrderService {
     public String reserveOrder(OrderDetail nextOrderDetail, Profile profile) throws RuntimeException {
         log.debug("start of reserve order");
         validateOrderInfo(nextOrderDetail);
-        log.debug("order validation success, moving forward");
+        log.debug("order validation success");
         if (profile.getOrderList() == null)
             profile.setOrderList(new ArrayList<>());
         List<OrderDetail> orderList = profile.getOrderList();
