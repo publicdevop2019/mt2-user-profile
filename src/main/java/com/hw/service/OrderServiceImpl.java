@@ -9,6 +9,7 @@ import com.hw.entity.Profile;
 import com.hw.entity.SnapshotProduct;
 import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
+import com.hw.shared.InternalServerException;
 import com.hw.shared.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -82,9 +83,9 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public String reserveOrder(OrderDetail nextOrderDetail, Profile profile) throws RuntimeException {
-
+        log.debug("start of reserve order");
         validateOrderInfo(nextOrderDetail);
-
+        log.debug("order validation success, moving forward");
         if (profile.getOrderList() == null)
             profile.setOrderList(new ArrayList<>());
         List<OrderDetail> orderList = profile.getOrderList();
@@ -94,25 +95,30 @@ public class OrderServiceImpl implements OrderService {
         resetOrderSchedulerInfo(nextOrderDetail);
         orderList.add(nextOrderDetail);
         Map<String, Integer> productMap = getOrderProductMap(nextOrderDetail);
+        log.debug("start of decrease product(s) order storage");
         decreaseStorage(productMap);
         String reservedOrderId;
         try {
+            log.debug("decrease success, saving order to database");
             Profile save = profileRepo.save(profile);
             reservedOrderId = save.getOrderList().get(beforeInsert).getId().toString();
         } catch (Exception ex) {
             /**
              * when order failed on DB create
              */
-            log.error("unable to create order", ex);
+            log.error("error during order save, revoking reserved product(s)", ex);
             increaseStorage(productMap);
+            log.debug("revoke reserved product(s) successful");
             throw new RuntimeException("unable to create order");
         }
+        log.info("order save success, generating payment link");
         return generatePaymentLink(reservedOrderId);
 
     }
 
     @Override
     public Boolean confirmOrder(String profileId, String orderId) throws RuntimeException {
+        log.debug("start of confirm order");
         ParameterizedTypeReference<HashMap<String, Boolean>> responseType =
                 new ParameterizedTypeReference<>() {
                 };
@@ -139,6 +145,7 @@ public class OrderServiceImpl implements OrderService {
         }
         Boolean paymentStatus = exchange.getBody().get("paymentStatus");
         if (paymentStatus) {
+            log.debug("order payment status is true, decrease actual storage");
             decreaseActualStorage(getOrderProductMap(getOrder(Long.parseLong(profileId), Long.parseLong(orderId))));
         }
         return paymentStatus;
@@ -228,7 +235,13 @@ public class OrderServiceImpl implements OrderService {
             HttpEntity<String> hashMapHttpEntity2 = new HttpEntity<>(body, headers);
             exchange = restTemplate.exchange(paymentUrl, HttpMethod.POST, hashMapHttpEntity2, responseType);
         }
-        return exchange.getBody().get("paymentLink");
+        if (null != exchange.getBody() && null != exchange.getBody().get("paymentLink")) {
+            log.info("payment link generate success");
+            return exchange.getBody().get("paymentLink");
+        } else {
+            log.info("payment link generate failed");
+            throw new InternalServerException("error during payment link generation");
+        }
     }
 
     public Map<String, Integer> getOrderProductMap(OrderDetail orderDetail) {
