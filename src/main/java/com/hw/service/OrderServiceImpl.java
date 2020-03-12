@@ -21,7 +21,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import javax.transaction.Transactional;
@@ -124,25 +123,8 @@ public class OrderServiceImpl implements OrderService {
                 };
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        /**
-         * get jwt token
-         */
-        if (tokenHelper.storedJwtToken == null)
-            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
-        headers.setBearerAuth(tokenHelper.storedJwtToken);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(headers);
-        ResponseEntity<HashMap<String, Boolean>> exchange;
-        try {
-            exchange = restTemplate.exchange(confirmUrl + "/" + orderId, HttpMethod.GET, hashMapHttpEntity, responseType);
-        } catch (HttpClientErrorException ex) {
-            /**
-             * re-try if jwt expires
-             */
-            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
-            headers.setBearerAuth(tokenHelper.storedJwtToken);
-            HttpEntity<String> hashMapHttpEntity2 = new HttpEntity<>(headers);
-            exchange = restTemplate.exchange(confirmUrl + "/" + orderId, HttpMethod.GET, hashMapHttpEntity2, responseType);
-        }
+        ResponseEntity<HashMap<String, Boolean>> exchange = tokenHelper.exchange(confirmUrl + "/" + orderId, HttpMethod.GET, hashMapHttpEntity, responseType);
         Boolean paymentStatus = exchange.getBody().get("paymentStatus");
         if (paymentStatus) {
             log.debug("order payment status is true, decrease actual storage");
@@ -216,25 +198,8 @@ public class OrderServiceImpl implements OrderService {
                 };
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        /**
-         * get jwt token
-         */
-        if (tokenHelper.storedJwtToken == null)
-            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
-        headers.setBearerAuth(tokenHelper.storedJwtToken);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
-        ResponseEntity<HashMap<String, String>> exchange;
-        try {
-            exchange = restTemplate.exchange(paymentUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
-        } catch (HttpClientErrorException ex) {
-            /**
-             * re-try if jwt expires
-             */
-            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
-            headers.setBearerAuth(tokenHelper.storedJwtToken);
-            HttpEntity<String> hashMapHttpEntity2 = new HttpEntity<>(body, headers);
-            exchange = restTemplate.exchange(paymentUrl, HttpMethod.POST, hashMapHttpEntity2, responseType);
-        }
+        ResponseEntity<HashMap<String, String>> exchange = tokenHelper.exchange(paymentUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
         if (null != exchange.getBody() && null != exchange.getBody().get("paymentLink")) {
             log.info("payment link generate success");
             return exchange.getBody().get("paymentLink");
@@ -272,28 +237,11 @@ public class OrderServiceImpl implements OrderService {
     private void validateOrderInfo(OrderDetail orderDetail) throws RuntimeException {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        /**
-         * get jwt token
-         */
-        if (tokenHelper.storedJwtToken == null)
-            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
-        headers.setBearerAuth(tokenHelper.storedJwtToken);
         HttpEntity<List<SnapshotProduct>> hashMapHttpEntity = new HttpEntity<>(orderDetail.getProductList(), headers);
-        ResponseEntity<HashMap<String, String>> exchange;
         ParameterizedTypeReference<HashMap<String, String>> responseType =
                 new ParameterizedTypeReference<>() {
                 };
-        try {
-            exchange = restTemplate.exchange(validateUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
-        } catch (HttpClientErrorException ex) {
-            /**
-             * re-try if jwt expires
-             */
-            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
-            headers.setBearerAuth(tokenHelper.storedJwtToken);
-            HttpEntity<List<SnapshotProduct>> hashMapHttpEntity2 = new HttpEntity<>(orderDetail.getProductList(), headers);
-            exchange = restTemplate.exchange(validateUrl, HttpMethod.POST, hashMapHttpEntity2, responseType);
-        }
+        ResponseEntity<HashMap<String, String>> exchange = tokenHelper.exchange(validateUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
         if (exchange.getBody() == null || !"true".equals(exchange.getBody().get("result")))
             throw new RuntimeException("order validation failed");
         BigDecimal reduce = orderDetail.getProductList().stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
@@ -333,24 +281,8 @@ public class OrderServiceImpl implements OrderService {
         }
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        /**
-         * get jwt token
-         */
-        if (tokenHelper.storedJwtToken == null)
-            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
-        headers.setBearerAuth(tokenHelper.storedJwtToken);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
-        try {
-            restTemplate.exchange(notifyUrl, HttpMethod.POST, hashMapHttpEntity, String.class);
-        } catch (HttpClientErrorException ex) {
-            /**
-             * re-try if jwt expires
-             */
-            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
-            headers.setBearerAuth(tokenHelper.storedJwtToken);
-            HttpEntity<String> hashMapHttpEntity2 = new HttpEntity<>(body, headers);
-            restTemplate.exchange(notifyUrl, HttpMethod.POST, hashMapHttpEntity2, String.class);
-        }
+        tokenHelper.exchange(notifyUrl, HttpMethod.POST, hashMapHttpEntity, String.class);
 
     }
 
@@ -406,24 +338,8 @@ public class OrderServiceImpl implements OrderService {
         }
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        /**
-         * get jwt token
-         */
-        if (tokenHelper.storedJwtToken == null)
-            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
-        headers.setBearerAuth(tokenHelper.storedJwtToken);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
-        try {
-            restTemplate.exchange(url, HttpMethod.PUT, hashMapHttpEntity, String.class);
-        } catch (HttpClientErrorException ex) {
-            /**
-             * re-try if jwt expires
-             */
-            tokenHelper.storedJwtToken = tokenHelper.getJwtToken();
-            headers.setBearerAuth(tokenHelper.storedJwtToken);
-            HttpEntity<String> hashMapHttpEntity2 = new HttpEntity<>(body, headers);
-            restTemplate.exchange(url, HttpMethod.PUT, hashMapHttpEntity2, String.class);
-        }
+        tokenHelper.exchange(url, HttpMethod.PUT, hashMapHttpEntity, String.class);
     }
 
     private OrderDetail getOrder(long profileId, long orderId) {
@@ -433,4 +349,6 @@ public class OrderServiceImpl implements OrderService {
             throw new RuntimeException("id should be unique");
         return collect.get(0);
     }
+
+
 }
