@@ -94,24 +94,14 @@ public class OrderServiceImpl implements OrderService {
         resetOrderSchedulerInfo(nextOrderDetail);
         orderList.add(nextOrderDetail);
         Map<String, Integer> productMap = getOrderProductMap(nextOrderDetail);
+        Profile save = profileRepo.save(profile);
+        String reservedOrderId = save.getOrderList().get(beforeInsert).getId().toString();
+        log.info("order save success");
+        String paymentLink = generatePaymentLink(reservedOrderId);
+        //move decreaseStorage as late as possible bcz when code after decreaseStorage throw exception, then revoke storage required
         log.debug("start of decrease product(s) order storage");
         decreaseStorage(productMap);
-        String reservedOrderId;
-        try {
-            log.debug("decrease success, saving order to database");
-            Profile save = profileRepo.save(profile);
-            reservedOrderId = save.getOrderList().get(beforeInsert).getId().toString();
-        } catch (Exception ex) {
-            /**
-             * when order failed on DB create
-             */
-            log.error("error during order save, revoking reserved product(s)", ex);
-            increaseStorage(productMap);
-            log.debug("revoke reserved product(s) successful");
-            throw new RuntimeException("unable to create order");
-        }
-        log.info("order save success, generating payment link");
-        return generatePaymentLink(reservedOrderId);
+        return paymentLink;
 
     }
 
@@ -151,6 +141,7 @@ public class OrderServiceImpl implements OrderService {
         BeanUtils.copyProperties(updatedOrder.getAddress(), oldOrder.getAddress());
         oldOrder.setPaymentType(updatedOrder.getPaymentType());
         oldOrder.setModifiedByUserAt(Date.from(Instant.now()));
+        String paymentLink = generatePaymentLink(String.valueOf(orderId));
         if (oldOrder.getExpired()) {
             oldOrder.setExpired(Boolean.FALSE);
             Map<String, Integer> productMap = getOrderProductMap(oldOrder);
@@ -163,7 +154,7 @@ public class OrderServiceImpl implements OrderService {
              * storage not release yet,
              */
         }
-        return generatePaymentLink(String.valueOf(orderId));
+        return paymentLink;
     }
 
 
