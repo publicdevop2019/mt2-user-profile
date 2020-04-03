@@ -14,9 +14,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-@RestController
-@RequestMapping(path = "v1/api", produces = "application/json")
 @Slf4j
+@RestController
+@RequestMapping(produces = "application/json")
 public class AddressController {
 
     @Autowired

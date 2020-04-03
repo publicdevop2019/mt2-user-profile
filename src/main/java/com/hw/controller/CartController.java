@@ -15,7 +15,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping(path = "v1/api", produces = "application/json")
+@RequestMapping(produces = "application/json")
 public class CartController {
     @Autowired
     ProfileRepo profileRepo;

@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
-@RequestMapping(path = "v1/api", produces = "application/json")
+@RequestMapping(produces = "application/json")
 public class OrderController {
 
     @Autowired

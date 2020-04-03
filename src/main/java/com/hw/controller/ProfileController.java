@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @RestController
-@RequestMapping(path = "v1/api", produces = "application/json")
+@RequestMapping(produces = "application/json")
 public class ProfileController {
 
     @Autowired
