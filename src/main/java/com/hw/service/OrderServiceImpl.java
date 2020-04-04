@@ -9,6 +9,7 @@ import com.hw.entity.Profile;
 import com.hw.entity.SnapshotProduct;
 import com.hw.repo.OrderService;
 import com.hw.repo.ProfileRepo;
+import com.hw.shared.EurekaRegistryHelper;
 import com.hw.shared.InternalServerException;
 import com.hw.shared.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +22,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import javax.transaction.Transactional;
 import java.math.BigDecimal;
@@ -34,8 +34,9 @@ import java.util.stream.Stream;
 @Slf4j
 @EnableScheduling
 public class OrderServiceImpl implements OrderService {
+
     @Autowired
-    private RestTemplate restTemplate;
+    EurekaRegistryHelper eurekaRegistryHelper;
 
     @Value("${url.decreaseUrl}")
     private String decreaseUrl;
@@ -114,7 +115,7 @@ public class OrderServiceImpl implements OrderService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(headers);
-        ResponseEntity<HashMap<String, Boolean>> exchange = tokenHelper.exchange(confirmUrl + "/" + orderId, HttpMethod.GET, hashMapHttpEntity, responseType);
+        ResponseEntity<HashMap<String, Boolean>> exchange = tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + confirmUrl + "/" + orderId, HttpMethod.GET, hashMapHttpEntity, responseType);
         Boolean paymentStatus = exchange.getBody().get("paymentStatus");
         if (paymentStatus) {
             log.debug("order payment status is true, decrease actual storage");
@@ -190,7 +191,7 @@ public class OrderServiceImpl implements OrderService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
-        ResponseEntity<HashMap<String, String>> exchange = tokenHelper.exchange(paymentUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
+        ResponseEntity<HashMap<String, String>> exchange = tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + paymentUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
         if (null != exchange.getBody() && null != exchange.getBody().get("paymentLink")) {
             log.info("payment link generate success");
             return exchange.getBody().get("paymentLink");
@@ -232,7 +233,7 @@ public class OrderServiceImpl implements OrderService {
         ParameterizedTypeReference<HashMap<String, String>> responseType =
                 new ParameterizedTypeReference<>() {
                 };
-        ResponseEntity<HashMap<String, String>> exchange = tokenHelper.exchange(validateUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
+        ResponseEntity<HashMap<String, String>> exchange = tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + validateUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
         if (exchange.getBody() == null || !"true".equals(exchange.getBody().get("result")))
             throw new RuntimeException("order validation failed");
         BigDecimal reduce = orderDetail.getProductList().stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
@@ -273,7 +274,7 @@ public class OrderServiceImpl implements OrderService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
-        tokenHelper.exchange(notifyUrl, HttpMethod.POST, hashMapHttpEntity, String.class);
+        tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + notifyUrl, HttpMethod.POST, hashMapHttpEntity, String.class);
 
     }
 
@@ -330,7 +331,7 @@ public class OrderServiceImpl implements OrderService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
-        tokenHelper.exchange(url, HttpMethod.PUT, hashMapHttpEntity, String.class);
+        tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + url, HttpMethod.PUT, hashMapHttpEntity, String.class);
     }
 
     private OrderDetail getOrder(long profileId, long orderId) {
