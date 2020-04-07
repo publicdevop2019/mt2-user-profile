@@ -1,7 +1,7 @@
 package com.hw.config;
 
-import com.hw.entity.Profile;
-import com.hw.repo.ProfileRepo;
+import com.hw.aggregate.profile.model.Profile;
+import com.hw.aggregate.profile.ProfileRepo;
 import com.hw.shared.ServiceUtility;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
