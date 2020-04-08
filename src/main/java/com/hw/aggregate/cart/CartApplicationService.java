@@ -65,4 +65,13 @@ public class CartApplicationService {
         findById.get().getCartList().removeIf(e -> e.getId().equals(tobeRemoved.getId()));
         profileRepo.save(findById.get());
     }
+
+    @Transactional
+    public void clearCartItem(Long profileId) {
+        Optional<Profile> findById = profileRepo.findById(profileId);
+        List<CartItem> collect = findById.get().getCartList();
+        if (collect != null)
+            findById.get().getCartList().clear();
+        profileRepo.save(findById.get());
+    }
 }

@@ -1,8 +1,7 @@
 package com.hw.config;
 
-import com.hw.aggregate.profile.model.Profile;
 import com.hw.aggregate.profile.ProfileRepo;
-import com.hw.shared.ServiceUtility;
+import com.hw.aggregate.profile.model.Profile;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -16,7 +15,7 @@ import java.util.Optional;
 @Configuration
 @Aspect
 @Slf4j
-public class AccessAspectConfig {
+public class ProfileAccessAspectConfig {
     @Autowired
     ProfileRepo profileRepo;
 
@@ -24,10 +23,10 @@ public class AccessAspectConfig {
     public void restrictAccess() {
     }
 
-    @Around(value = "com.hw.config.AccessAspectConfig.restrictAccess()")
+    @Around(value = "com.hw.config.ProfileAccessAspectConfig.restrictAccess()")
     public Object aroundGetAllPayments(ProceedingJoinPoint joinPoint) throws Throwable {
         Object[] args = joinPoint.getArgs();
-        String resourceOwnerId = ServiceUtility.getUserId((String) args[0]);
+        String resourceOwnerId = (String) args[0];
         Long profileId = (Long) args[1];
         Optional<Profile> byId = profileRepo.findById(profileId);
         if (byId.isEmpty()) {

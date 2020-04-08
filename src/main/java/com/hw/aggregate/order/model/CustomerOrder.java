@@ -24,6 +24,10 @@ public class CustomerOrder extends Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO, generator = "orderId_gen")
     private Long id;
+
+    @Column
+    @JoinColumn(name = "fk_profile")
+    private Long profileId;
     /**
      * Address product all treat as embedded element instead of an entity
      */
@@ -113,11 +117,12 @@ public class CustomerOrder extends Auditable {
         this.paymentStatus = paymentStatus ? CustomerOrderPaymentStatus.paid : CustomerOrderPaymentStatus.unpaid;
     }
 
-    public static CustomerOrder create(List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
-        return new CustomerOrder(productList, address, paymentType, paymentAmt);
+    public static CustomerOrder create(Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
+        return new CustomerOrder(profileId, productList, address, paymentType, paymentAmt);
     }
 
-    private CustomerOrder(List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
+    private CustomerOrder(Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
+        this.profileId = profileId;
         this.productList = productList;
         this.address = address;
         this.paymentType = paymentType;

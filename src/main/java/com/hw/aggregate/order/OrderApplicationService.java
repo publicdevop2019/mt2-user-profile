@@ -1,13 +1,14 @@
 package com.hw.aggregate.order;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hw.aggregate.cart.CartApplicationService;
 import com.hw.aggregate.order.command.*;
+import com.hw.aggregate.order.exception.OrderAccessException;
 import com.hw.aggregate.order.exception.OrderNotExistException;
 import com.hw.aggregate.order.model.CustomerOrder;
 import com.hw.aggregate.order.model.CustomerOrderPaymentStatus;
 import com.hw.aggregate.order.representation.*;
-import com.hw.aggregate.profile.ProfileRepo;
-import com.hw.aggregate.profile.model.Profile;
+import com.hw.clazz.ProfileExistAndOwnerOnly;
 import com.hw.shared.EurekaRegistryHelper;
 import com.hw.shared.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +21,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -42,7 +46,7 @@ public class OrderApplicationService {
     private ResourceServiceTokenHelper tokenHelper;
 
     @Autowired
-    private ProfileRepo profileRepo;
+    private OrderRepository orderRepository;
 
     @Autowired
     private PaymentService paymentService;
@@ -53,25 +57,25 @@ public class OrderApplicationService {
     @Autowired
     private MessengerService messengerService;
 
+    @Autowired
+    private CartApplicationService cartApplicationService;
+
     @Transactional(readOnly = true)
     public OrderSummaryAdminRepresentation getAllOrdersForAdmin() {
-        List<CustomerOrder> collect = profileRepo.findAll().stream().map(Profile::getOrderList).flatMap(Collection::stream).collect(Collectors.toList());
-        return new OrderSummaryAdminRepresentation(collect);
+        return new OrderSummaryAdminRepresentation(orderRepository.findAll());
     }
 
+    @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
-    public OrderSummaryCustomerRepresentation getAllOrders(Long profileId) {
-        Optional<Profile> profileByResourceOwnerId = profileRepo.findById(profileId);
-        return new OrderSummaryCustomerRepresentation(profileByResourceOwnerId.get().getOrderList());
+    public OrderSummaryCustomerRepresentation getAllOrders(String authUserId, Long profileId) {
+        List<CustomerOrder> byProfileId = orderRepository.findByProfileId(profileId);
+        return new OrderSummaryCustomerRepresentation(byProfileId);
     }
 
+    @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
-    public OrderRepresentation getOrderById(Long profileId, Long orderId) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<CustomerOrder> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(orderId)).collect(Collectors.toList());
-        if (collect.size() != 1)
-            throw new OrderNotExistException();
-        return new OrderRepresentation(collect.get(0));
+    public OrderRepresentation getOrderById(String authUserId, Long profileId, Long orderId) {
+        return new OrderRepresentation(getOrderForCustomer(profileId, orderId));
     }
 
     /**
@@ -82,10 +86,11 @@ public class OrderApplicationService {
      *
      * @note move decreaseStorage as late as possible bcz when code after decreaseStorage throw exception, then revoke storage required
      */
+    @ProfileExistAndOwnerOnly
     @Transactional
-    public OrderPaymentLinkRepresentation reserveOrder(Long profileId, ReserveOrderCommand newOrder) {
+    public OrderPaymentLinkRepresentation reserveOrder(String authUserId, Long profileId, ReserveOrderCommand newOrder) {
         log.debug("start of reserve order");
-        CustomerOrder customerOrder = CustomerOrder.create(newOrder.getProductList(), newOrder.getAddress(), newOrder.getPaymentType(), newOrder.getPaymentAmt());
+        CustomerOrder customerOrder = CustomerOrder.create(profileId, newOrder.getProductList(), newOrder.getAddress(), newOrder.getPaymentType(), newOrder.getPaymentAmt());
 
         // validate order
         customerOrder.validatePaymentAmount();
@@ -93,14 +98,8 @@ public class OrderApplicationService {
         log.debug("order validation success");
 
         // generate order id, use db generate orderId
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.get().getOrderList() == null)
-            findById.get().setOrderList(new ArrayList<>());
-        List<CustomerOrder> orderList = findById.get().getOrderList();
-        int beforeInsert = orderList.size();
-        orderList.add(customerOrder);
-        Profile save = profileRepo.save(findById.get());
-        String reservedOrderId = save.getOrderList().get(beforeInsert).getId().toString();
+        CustomerOrder save = orderRepository.save(customerOrder);
+        String reservedOrderId = save.getId().toString();
         log.debug("order id generated & saved");
 
         // generate payment QR link
@@ -110,29 +109,21 @@ public class OrderApplicationService {
         // decrease order storage
         productStorageService.decreaseOrderStorage(customerOrder.getProductSummary());
         log.debug("order storage decreased");
-        // @todo move to cart
-        /**
-         * clear shopping cart
-         */
-        findById.get().getCartList().clear();
-        profileRepo.save(findById.get());
+        cartApplicationService.clearCartItem(profileId);
         return new OrderPaymentLinkRepresentation(paymentLink);
     }
 
+    @ProfileExistAndOwnerOnly
     @Transactional
-    public OrderConfirmStatusRepresentation confirmOrderPaymentStatus(Long profileId, ConfirmOrderPaymentCommand confirmOrderPaymentCommand) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<CustomerOrder> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(confirmOrderPaymentCommand.orderId)).collect(Collectors.toList());
-        if (collect.size() != 1)
-            throw new OrderNotExistException();
-        CustomerOrder customerOrder = collect.get(0);
+    public OrderConfirmStatusRepresentation confirmOrderPaymentStatus(String authUserId, Long profileId, ConfirmOrderPaymentCommand confirmOrderPaymentCommand) {
+        CustomerOrder customerOrder = getOrderForCustomer(profileId, confirmOrderPaymentCommand.orderId);
 
         Boolean paymentStatus = paymentService.confirmPaymentStatus(confirmOrderPaymentCommand.orderId.toString());
         customerOrder.setPaymentStatus(paymentStatus);
         if (paymentStatus)
             productStorageService.decreaseActualStorage(customerOrder.getProductSummary());
 
-        profileRepo.save(findById.get());
+        orderRepository.save(customerOrder);
 
         log.debug("notify business owner asynchronously");
         messengerService.notifyBusinessOwner(new HashMap<>());
@@ -143,51 +134,43 @@ public class OrderApplicationService {
     }
 
     @Transactional
-    public void updateOrderAdmin(Long profileId, Long orderId, UpdateOrderAdminCommand newOrder) {
+    public void updateOrderAdmin(Long orderId, UpdateOrderAdminCommand newOrder) {
         newOrder.setId(orderId);
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        CustomerOrder oldOrder = getOrder(profileId, orderId);
-        BeanUtils.copyProperties(newOrder, oldOrder);
-        profileRepo.save(findById.get());
+        Optional<CustomerOrder> byId = orderRepository.findById(orderId);
+        if (byId.isEmpty())
+            throw new OrderNotExistException();
+        BeanUtils.copyProperties(newOrder, byId.get());
+        orderRepository.save(byId.get());
     }
 
     /**
      * only address and payment_method can be updated
      */
+    @ProfileExistAndOwnerOnly
     @Transactional
-    public OrderPaymentLinkRepresentation placeOrderAgain(Long profileId, Long orderId, PlaceOrderAgainCommand placeOrderAgainCommand) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<CustomerOrder> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(orderId)).collect(Collectors.toList());
-        if (collect.size() != 1)
-            throw new OrderNotExistException();
+    public OrderPaymentLinkRepresentation placeOrderAgain(String authUserId, Long profileId, Long orderId, PlaceOrderAgainCommand placeOrderAgainCommand) {
+        CustomerOrder customerOrder = getOrderForCustomer(profileId, orderId);
 
-        CustomerOrder oldOrder = collect.get(0);
-
-        oldOrder.setAddress(placeOrderAgainCommand.getAddress());
-        oldOrder.setPaymentType(placeOrderAgainCommand.getPaymentType());
-        oldOrder.setExpired(Boolean.FALSE);
-        oldOrder.updateModifiedByUserAt();
+        customerOrder.setAddress(placeOrderAgainCommand.getAddress());
+        customerOrder.setPaymentType(placeOrderAgainCommand.getPaymentType());
+        customerOrder.setExpired(Boolean.FALSE);
+        customerOrder.updateModifiedByUserAt();
 
         String paymentLink = paymentService.generatePaymentLink(String.valueOf(orderId));
 
-        if (oldOrder.getExpired() && oldOrder.getRevoked()) {
-            productStorageService.decreaseOrderStorage(oldOrder.getProductSummary());
-            oldOrder.setRevoked(Boolean.FALSE);
-            profileRepo.save(findById.get());
+        if (customerOrder.getExpired() && customerOrder.getRevoked()) {
+            productStorageService.decreaseOrderStorage(customerOrder.getProductSummary());
+            customerOrder.setRevoked(Boolean.FALSE);
+            orderRepository.save(customerOrder);
         }
         return new OrderPaymentLinkRepresentation(paymentLink);
     }
 
+    @ProfileExistAndOwnerOnly
     @Transactional
-    public void deleteOrder(Long profileId, DeleteOrderCustomerCommand deleteOrderCustomerCommand) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<CustomerOrder> collect = findById.get().getOrderList().stream().filter(e -> e.getId().equals(deleteOrderCustomerCommand.orderId)).collect(Collectors.toList());
-        if (collect.size() != 1)
-            throw new OrderNotExistException();
-
-        CustomerOrder toBeRemoved = collect.get(0);
-        findById.get().getOrderList().removeIf(e -> e.getId().equals(toBeRemoved.getId()));
-        profileRepo.save(findById.get());
+    public void deleteOrder(String authUserId, Long profileId, DeleteOrderCustomerCommand deleteOrderCustomerCommand) {
+        CustomerOrder customerOrder = getOrderForCustomer(profileId, deleteOrderCustomerCommand.orderId);
+        orderRepository.delete(customerOrder);
     }
 
     @Transactional
@@ -195,46 +178,42 @@ public class OrderApplicationService {
     public void releaseExpiredOrder() {
         log.info("start of scheduler");
         Map<String, Integer> stringIntegerHashMap = new HashMap<>();
-        List<Profile> all = profileRepo.findAll();
-        all.forEach(p -> {
-            Stream<CustomerOrder> unpaidOrders = p.getOrderList().stream().filter(e -> e.getPaymentStatus().equals(CustomerOrderPaymentStatus.unpaid));
-            Stream<CustomerOrder> expiredOrder = unpaidOrders.filter(e -> (e.getModifiedByUserAt().toInstant().toEpochMilli() + expireAfter * 60 * 1000 < Instant.now().toEpochMilli()) && (Boolean.FALSE.equals(e.getRevoked())));
-            expiredOrder.forEach(or -> {
-                or.setExpired(Boolean.TRUE);
-                or.setRevoked(Boolean.FALSE);
-                Map<String, Integer> orderProductMap = or.getProductSummary();
-                orderProductMap.forEach((key, value) -> {
-                    stringIntegerHashMap.merge(key, value, Integer::sum);
-                });
+        List<CustomerOrder> all = orderRepository.findAll();
+        Stream<CustomerOrder> unpaidOrders = all.stream().filter(e -> e.getPaymentStatus().equals(CustomerOrderPaymentStatus.unpaid));
+        Stream<CustomerOrder> expiredOrders = unpaidOrders.filter(e -> (e.getModifiedByUserAt().toInstant().toEpochMilli() + expireAfter * 60 * 1000 < Instant.now().toEpochMilli()) && (Boolean.FALSE.equals(e.getRevoked())));
+        List<CustomerOrder> expiredOrderList = expiredOrders.collect(Collectors.toList());
+        expiredOrderList.forEach(expiredOrder -> {
+            expiredOrder.setExpired(Boolean.TRUE);
+            expiredOrder.setRevoked(Boolean.FALSE);
+            Map<String, Integer> orderProductMap = expiredOrder.getProductSummary();
+            orderProductMap.forEach((key, value) -> {
+                stringIntegerHashMap.merge(key, value, Integer::sum);
             });
-            profileRepo.save(p);
-
         });
         try {
             if (!stringIntegerHashMap.keySet().isEmpty()) {
                 log.info("release product(s) :: " + stringIntegerHashMap.toString());
                 productStorageService.increaseOrderStorage(stringIntegerHashMap);
                 /** mark revoked orders */
-                all.forEach(p -> {
-                    Stream<CustomerOrder> unpaidOrders = p.getOrderList().stream().filter(e -> e.getPaymentStatus().equals(CustomerOrderPaymentStatus.unpaid));
-                    Stream<CustomerOrder> expiredOrder = unpaidOrders.filter(e -> e.getExpired().equals(Boolean.TRUE) && e.getRevoked().equals(Boolean.FALSE));
-                    expiredOrder.forEach(or -> {
-                        or.setRevoked(Boolean.TRUE);
-                    });
-                    profileRepo.save(p);
+                expiredOrderList.forEach(revokedOrder -> {
+                    revokedOrder.setRevoked(Boolean.TRUE);
                 });
             }
         } catch (Exception ex) {
             log.error("error during revoking storage");
 
         }
+        expiredOrderList.forEach(e -> {
+            orderRepository.save(e);
+        });
     }
 
-    private CustomerOrder getOrder(long profileId, long orderId) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<CustomerOrder> collect = findById.get().getOrderList().stream().filter(e -> e.getId() == orderId).collect(Collectors.toList());
-        if (collect.size() != 1)
+    private CustomerOrder getOrderForCustomer(Long profileId, Long orderId) {
+        Optional<CustomerOrder> byId = orderRepository.findById(orderId);
+        if (byId.isEmpty())
             throw new OrderNotExistException();
-        return collect.get(0);
+        if (!byId.get().getProfileId().equals(profileId))
+            throw new OrderAccessException();
+        return byId.get();
     }
 }
