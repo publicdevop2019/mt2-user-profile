@@ -1,5 +1,6 @@
 package com.hw.aggregate.order.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import javax.persistence.Column;
@@ -10,6 +11,7 @@ import java.util.Objects;
 
 @Embeddable
 @Data
+@AllArgsConstructor
 public class CustomerOrderAddress {
 
     @NotNull

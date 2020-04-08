@@ -46,14 +46,14 @@ public class OrderController {
     @ProfileExistAndOwnerOnly
     @GetMapping("profiles/{profileId}/orders/{orderId}/confirm")
     public ResponseEntity<?> confirmOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
-        OrderConfirmStatusRepresentation orderConfirmStatusRepresentation = orderService.confirmOrder(profileId, new ConfirmOrderPaymentCommand(orderId));
+        OrderConfirmStatusRepresentation orderConfirmStatusRepresentation = orderService.confirmOrderPaymentStatus(profileId, new ConfirmOrderPaymentCommand(orderId));
         return ResponseEntity.ok(orderConfirmStatusRepresentation);
     }
 
     @ProfileExistAndOwnerOnly
     @PutMapping("profiles/{profileId}/orders/{orderId}")
-    public ResponseEntity<?> updateOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody UpdateOrderAddressOrPaymentMethodCommand newOrder) {
-        orderService.updateOrder(profileId, orderId, newOrder);
+    public ResponseEntity<?> updateOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody UpdateOrderAdminCommand newOrder) {
+        orderService.updateOrderAdmin(profileId, orderId, newOrder);
         return ResponseEntity.ok().build();
     }
 
