@@ -19,7 +19,7 @@ public class OrderController {
     private OrderApplicationService orderService;
 
     @GetMapping("orders")
-    public ResponseEntity<?> getAllOrdersForAdmin(@RequestHeader("authorization") String authorization) {
+    public ResponseEntity<?> getAllOrdersForAdmin() {
         return ResponseEntity.ok(orderService.getAllOrdersForAdmin().customerOrders);
     }
 
@@ -42,13 +42,13 @@ public class OrderController {
 
     @GetMapping("profiles/{profileId}/orders/{orderId}/confirm")
     public ResponseEntity<?> confirmOrderPaymentStatus(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
-        OrderConfirmStatusRepresentation orderConfirmStatusRepresentation = orderService.confirmOrderPaymentStatus(ServiceUtility.getUserId(authorization), profileId,new ConfirmOrderPaymentCommand(orderId));
+        OrderConfirmStatusRepresentation orderConfirmStatusRepresentation = orderService.confirmOrderPaymentStatus(ServiceUtility.getUserId(authorization), profileId, new ConfirmOrderPaymentCommand(orderId));
         return ResponseEntity.ok(orderConfirmStatusRepresentation);
     }
 
     //not used
     @PutMapping("/orders/{orderId}")
-    public ResponseEntity<?> updateOrderAdmin(@RequestHeader("authorization") String authorization, @PathVariable(name = "orderId") Long orderId, @RequestBody UpdateOrderAdminCommand newOrder) {
+    public ResponseEntity<?> updateOrderAdmin(@PathVariable(name = "orderId") Long orderId, @RequestBody UpdateOrderAdminCommand newOrder) {
         orderService.updateOrderAdmin(orderId, newOrder);
         return ResponseEntity.ok().build();
     }

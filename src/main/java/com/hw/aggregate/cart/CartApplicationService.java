@@ -10,6 +10,7 @@ import com.hw.aggregate.cart.representation.CartItemRepresentation;
 import com.hw.aggregate.cart.representation.CartSummaryRepresentation;
 import com.hw.aggregate.profile.ProfileRepo;
 import com.hw.aggregate.profile.model.Profile;
+import com.hw.clazz.ProfileExistAndOwnerOnly;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,14 +27,16 @@ public class CartApplicationService {
     @Autowired
     private ProfileRepo profileRepo;
 
+    @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
-    public CartSummaryRepresentation getCartItems(Long profileId) {
+    public CartSummaryRepresentation getCartItems(String authUserId, Long profileId) {
         Optional<Profile> profileByResourceOwnerId = profileRepo.findById(profileId);
         return new CartSummaryRepresentation(profileByResourceOwnerId.get().getCartList());
     }
 
+    @ProfileExistAndOwnerOnly
     @Transactional
-    public CartItemRepresentation addCartItem(Long profileId, AddCartItemCommand addCartItemCommand) {
+    public CartItemRepresentation addCartItem(String authUserId, Long profileId, AddCartItemCommand addCartItemCommand) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         if (findById.get().getCartList() == null)
             findById.get().setCartList(new ArrayList<>());
@@ -44,8 +47,9 @@ public class CartApplicationService {
         return new CartItemRepresentation(save.getCartList().stream().filter(e -> e.equals(addCartItemCommand)).findFirst().get());
     }
 
+    @ProfileExistAndOwnerOnly
     @Transactional
-    public void updateCartItem(Long profileId, Long cartItemId, UpdateCartItemAddOnCommand updateCartItemAddOnCommand) {
+    public void updateCartItem(String authUserId, Long profileId, Long cartItemId, UpdateCartItemAddOnCommand updateCartItemAddOnCommand) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         List<CartItem> collect = findById.get().getCartList().stream().filter(e -> e.getId().equals(cartItemId)).collect(Collectors.toList());
         if (collect.size() != 1)
@@ -55,8 +59,9 @@ public class CartApplicationService {
         profileRepo.save(findById.get());
     }
 
+    @ProfileExistAndOwnerOnly
     @Transactional
-    public void deleteCartItem(Long profileId, DeleteCartItemCommand deleteCartItemCommand) {
+    public void deleteCartItem(String authUserId, Long profileId, DeleteCartItemCommand deleteCartItemCommand) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         List<CartItem> collect = findById.get().getCartList().stream().filter(e -> e.getId().equals(deleteCartItemCommand.cartItemId)).collect(Collectors.toList());
         if (collect.size() != 1)

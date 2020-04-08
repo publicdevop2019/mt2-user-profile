@@ -11,6 +11,7 @@ import com.hw.aggregate.address.representation.AddressRepresentation;
 import com.hw.aggregate.address.representation.AddressSummaryRepresentation;
 import com.hw.aggregate.profile.ProfileRepo;
 import com.hw.aggregate.profile.model.Profile;
+import com.hw.clazz.ProfileExistAndOwnerOnly;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,14 +29,16 @@ public class AddressApplicationService {
     @Autowired
     private ProfileRepo profileRepo;
 
+    @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
-    public AddressSummaryRepresentation getAllAddresses(Long profileId) {
+    public AddressSummaryRepresentation getAllAddresses(String authUserId, Long profileId) {
         Optional<Profile> profileByResourceOwnerId = profileRepo.findById(profileId);
         return new AddressSummaryRepresentation(profileByResourceOwnerId.get().getAddressList());
     }
 
+    @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
-    public AddressRepresentation getAddressInById(Long profileId, Long addressId) {
+    public AddressRepresentation getAddressInById(String authUserId, Long profileId, Long addressId) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         List<Address> collect = findById.get().getAddressList().stream().filter(e -> e.getId().equals(addressId)).collect(Collectors.toList());
         if (collect.size() != 1)
@@ -43,8 +46,9 @@ public class AddressApplicationService {
         return new AddressRepresentation(collect.get(0));
     }
 
+    @ProfileExistAndOwnerOnly
     @Transactional
-    public AddressRepresentation createAddress(Long profileId, AddAddressCommand addAddressCommand) {
+    public AddressRepresentation createAddress(String authUserId, Long profileId, AddAddressCommand addAddressCommand) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         if (findById.isEmpty() || findById.get().getAddressList().stream().anyMatch(e -> e.equals(addAddressCommand))) {
             log.info("same address found");
@@ -57,8 +61,9 @@ public class AddressApplicationService {
         return new AddressRepresentation(save.getAddressList().stream().filter(e -> e.equals(addAddressCommand)).findFirst().get());
     }
 
+    @ProfileExistAndOwnerOnly
     @Transactional
-    public void updateAddress(Long profileId, Long addressId, UpdateAddressCommand updateAddressCommand) {
+    public void updateAddress(String authUserId, Long profileId, Long addressId, UpdateAddressCommand updateAddressCommand) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         List<Address> collect = findById.get().getAddressList().stream().filter(e -> e.getId().equals(addressId)).collect(Collectors.toList());
         if (collect.size() != 1)
@@ -68,8 +73,9 @@ public class AddressApplicationService {
         profileRepo.save(findById.get());
     }
 
+    @ProfileExistAndOwnerOnly
     @Transactional
-    public void deleteAddress(Long profileId, DeleteAddressCommand deleteAddressCommand) {
+    public void deleteAddress(String authUserId, Long profileId, DeleteAddressCommand deleteAddressCommand) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         List<Address> collect = findById.get().getAddressList().stream().filter(e -> e.getId().equals(deleteAddressCommand.addressId)).collect(Collectors.toList());
         if (collect.size() != 1)
