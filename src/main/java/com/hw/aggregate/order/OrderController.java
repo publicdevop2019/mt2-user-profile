@@ -24,12 +24,12 @@ public class OrderController {
     }
 
     @GetMapping("profiles/{profileId}/orders")
-    public ResponseEntity<?> getAllOrders(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId) {
+    public ResponseEntity<?> getAllOrdersForCustomer(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId) {
         return ResponseEntity.ok(orderService.getAllOrders(ServiceUtility.getUserId(authorization), profileId).orderList);
     }
 
     @PostMapping("profiles/{profileId}/orders")
-    public ResponseEntity<?> reserveOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody ReserveOrderCommand newOrder) {
+    public ResponseEntity<?> reserveOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody CreateOrderCommand newOrder) {
         OrderPaymentLinkRepresentation orderPaymentLinkRepresentation = orderService.reserveOrder(ServiceUtility.getUserId(authorization), profileId, newOrder);
         return ResponseEntity.ok().header("Location", orderPaymentLinkRepresentation.paymentLink).build();
     }

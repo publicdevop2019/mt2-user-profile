@@ -25,8 +25,7 @@ public class CustomerOrder extends Auditable {
     @GeneratedValue(strategy = GenerationType.AUTO, generator = "orderId_gen")
     private Long id;
 
-    @Column
-    @JoinColumn(name = "fk_profile")
+    @Column(name = "fk_profile")
     private Long profileId;
     /**
      * Address product all treat as embedded element instead of an entity
@@ -65,6 +64,9 @@ public class CustomerOrder extends Auditable {
 
     @Column
     private Boolean revoked;
+
+    public CustomerOrder() {
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -122,7 +124,7 @@ public class CustomerOrder extends Auditable {
     }
 
     private CustomerOrder(Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
-        this.profileId = profileId;
+//        this.profileId = profileId;
         this.productList = productList;
         this.address = address;
         this.paymentType = paymentType;

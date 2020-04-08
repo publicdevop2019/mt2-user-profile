@@ -1,6 +1,6 @@
 package com.hw.aggregate.address;
 
-import com.hw.aggregate.address.command.AddAddressCommand;
+import com.hw.aggregate.address.command.CreateAddressCommand;
 import com.hw.aggregate.address.command.DeleteAddressCommand;
 import com.hw.aggregate.address.command.UpdateAddressCommand;
 import com.hw.aggregate.address.exception.AddressNotExistException;
@@ -48,17 +48,17 @@ public class AddressApplicationService {
 
     @ProfileExistAndOwnerOnly
     @Transactional
-    public AddressRepresentation createAddress(String authUserId, Long profileId, AddAddressCommand addAddressCommand) {
+    public AddressRepresentation createAddress(String authUserId, Long profileId, CreateAddressCommand createAddressCommand) {
         Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.isEmpty() || findById.get().getAddressList().stream().anyMatch(e -> e.equals(addAddressCommand))) {
+        if (findById.isEmpty() || findById.get().getAddressList().stream().anyMatch(e -> e.equals(createAddressCommand))) {
             log.info("same address found");
             throw new DuplicateAddressException();
         }
         if (findById.get().getAddressList().size() == 5)
             throw new MaxAddressCountException();
-        findById.get().getAddressList().add((addAddressCommand));
+        findById.get().getAddressList().add((createAddressCommand));
         Profile save = profileRepo.save(findById.get());
-        return new AddressRepresentation(save.getAddressList().stream().filter(e -> e.equals(addAddressCommand)).findFirst().get());
+        return new AddressRepresentation(save.getAddressList().stream().filter(e -> e.equals(createAddressCommand)).findFirst().get());
     }
 
     @ProfileExistAndOwnerOnly

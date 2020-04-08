@@ -1,6 +1,6 @@
 package com.hw.aggregate.cart;
 
-import com.hw.aggregate.cart.command.AddCartItemCommand;
+import com.hw.aggregate.cart.command.CreateCartItemCommand;
 import com.hw.aggregate.cart.command.DeleteCartItemCommand;
 import com.hw.aggregate.cart.command.UpdateCartItemAddOnCommand;
 import com.hw.aggregate.cart.representation.CartItemRepresentation;
@@ -21,7 +21,7 @@ public class CartController {
     }
 
     @PostMapping("profiles/{profileId}/cart")
-    public ResponseEntity<?> addCartItem(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody AddCartItemCommand newCartItem) {
+    public ResponseEntity<?> addCartItem(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody CreateCartItemCommand newCartItem) {
         CartItemRepresentation cartItemRepresentation = cartApplicationService.addCartItem(ServiceUtility.getUserId(authorization), profileId, newCartItem);
         return ResponseEntity.ok().header("Location", cartItemRepresentation.cartItemId).build();
     }

@@ -5,6 +5,7 @@ import com.hw.aggregate.cart.CartApplicationService;
 import com.hw.aggregate.order.command.*;
 import com.hw.aggregate.order.exception.OrderAccessException;
 import com.hw.aggregate.order.exception.OrderNotExistException;
+import com.hw.aggregate.order.exception.OrderSchedulerProductRecycleException;
 import com.hw.aggregate.order.model.CustomerOrder;
 import com.hw.aggregate.order.model.CustomerOrderPaymentStatus;
 import com.hw.aggregate.order.representation.*;
@@ -88,7 +89,7 @@ public class OrderApplicationService {
      */
     @ProfileExistAndOwnerOnly
     @Transactional
-    public OrderPaymentLinkRepresentation reserveOrder(String authUserId, Long profileId, ReserveOrderCommand newOrder) {
+    public OrderPaymentLinkRepresentation reserveOrder(String authUserId, Long profileId, CreateOrderCommand newOrder) {
         log.debug("start of reserve order");
         CustomerOrder customerOrder = CustomerOrder.create(profileId, newOrder.getProductList(), newOrder.getAddress(), newOrder.getPaymentType(), newOrder.getPaymentAmt());
 
@@ -201,11 +202,12 @@ public class OrderApplicationService {
             }
         } catch (Exception ex) {
             log.error("error during revoking storage");
-
+            throw new OrderSchedulerProductRecycleException();
         }
         expiredOrderList.forEach(e -> {
             orderRepository.save(e);
         });
+        log.debug("order scheduler execute success");
     }
 
     private CustomerOrder getOrderForCustomer(Long profileId, Long orderId) {

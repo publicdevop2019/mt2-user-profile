@@ -1,6 +1,6 @@
 package com.hw.aggregate.address;
 
-import com.hw.aggregate.address.command.AddAddressCommand;
+import com.hw.aggregate.address.command.CreateAddressCommand;
 import com.hw.aggregate.address.command.DeleteAddressCommand;
 import com.hw.aggregate.address.command.UpdateAddressCommand;
 import com.hw.aggregate.address.representation.AddressRepresentation;
@@ -32,7 +32,7 @@ public class AddressController {
     }
 
     @PostMapping("profiles/{profileId}/addresses")
-    public ResponseEntity<?> createAddress(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody AddAddressCommand address) {
+    public ResponseEntity<?> createAddress(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody CreateAddressCommand address) {
         AddressRepresentation address1 = addressApplicationService.createAddress(ServiceUtility.getUserId(authorization), profileId, address);
         return ResponseEntity.ok().header("Location", address1.address.getId().toString()).build();
     }

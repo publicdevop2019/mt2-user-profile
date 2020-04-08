@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @Data
-public class ReserveOrderCommand {
+public class CreateOrderCommand {
     private CustomerOrderAddress address;
     private List<CustomerOrderItem> productList;
     private String paymentType;

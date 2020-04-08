@@ -1,6 +1,6 @@
 package com.hw.aggregate.cart;
 
-import com.hw.aggregate.cart.command.AddCartItemCommand;
+import com.hw.aggregate.cart.command.CreateCartItemCommand;
 import com.hw.aggregate.cart.command.DeleteCartItemCommand;
 import com.hw.aggregate.cart.command.UpdateCartItemAddOnCommand;
 import com.hw.aggregate.cart.exception.CartItemNotExistException;
@@ -36,7 +36,7 @@ public class CartApplicationService {
 
     @ProfileExistAndOwnerOnly
     @Transactional
-    public CartItemRepresentation addCartItem(String authUserId, Long profileId, AddCartItemCommand addCartItemCommand) {
+    public CartItemRepresentation addCartItem(String authUserId, Long profileId, CreateCartItemCommand addCartItemCommand) {
         Optional<Profile> findById = profileRepo.findById(profileId);
         if (findById.get().getCartList() == null)
             findById.get().setCartList(new ArrayList<>());
