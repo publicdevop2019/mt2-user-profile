@@ -35,7 +35,6 @@ public class CustomerOrder extends Auditable {
     @Embedded
     private CustomerOrderAddress address;
 
-
     @ElementCollection
     @CollectionTable(name = "order_product_snapshot", joinColumns = @JoinColumn(name = "order_id"))
     @Column
@@ -114,7 +113,7 @@ public class CustomerOrder extends Auditable {
      * @param paymentStatus
      */
     public void setPaymentStatus(Boolean paymentStatus) {
-        if (paymentStatus && this.paymentStatus.equals(CustomerOrderPaymentStatus.paid))
+        if (this.paymentStatus != null && paymentStatus && this.paymentStatus.equals(CustomerOrderPaymentStatus.paid))
             throw new OrderAlreadyPaidException();
         this.paymentStatus = paymentStatus ? CustomerOrderPaymentStatus.paid : CustomerOrderPaymentStatus.unpaid;
     }
@@ -124,7 +123,7 @@ public class CustomerOrder extends Auditable {
     }
 
     private CustomerOrder(Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
-//        this.profileId = profileId;
+        this.profileId = profileId;
         this.productList = productList;
         this.address = address;
         this.paymentType = paymentType;

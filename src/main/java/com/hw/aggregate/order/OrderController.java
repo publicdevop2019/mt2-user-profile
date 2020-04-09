@@ -4,11 +4,14 @@ import com.hw.aggregate.order.command.*;
 import com.hw.aggregate.order.representation.OrderConfirmStatusRepresentation;
 import com.hw.aggregate.order.representation.OrderPaymentLinkRepresentation;
 import com.hw.aggregate.order.representation.OrderRepresentation;
+import com.hw.aggregate.order.representation.OrderSummaryAdminRepresentation;
 import com.hw.shared.ServiceUtility;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -20,7 +23,9 @@ public class OrderController {
 
     @GetMapping("orders")
     public ResponseEntity<?> getAllOrdersForAdmin() {
-        return ResponseEntity.ok(orderService.getAllOrdersForAdmin().customerOrders);
+        List<OrderSummaryAdminRepresentation.OrderAdminRepresentation> adminRepresentations = orderService.getAllOrdersForAdmin().getAdminRepresentations();
+        return ResponseEntity.ok(adminRepresentations);
+
     }
 
     @GetMapping("profiles/{profileId}/orders")
@@ -64,5 +69,4 @@ public class OrderController {
         orderService.deleteOrder(ServiceUtility.getUserId(authorization), profileId, new DeleteOrderCustomerCommand(orderId));
         return ResponseEntity.ok().build();
     }
-
 }
