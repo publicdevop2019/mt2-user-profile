@@ -1,6 +1,22 @@
 package com.hw.aggregate.address.command;
 
-import com.hw.aggregate.address.model.Address;
+import lombok.Data;
 
-public class UpdateAddressCommand extends Address {
+@Data
+public class UpdateAddressCommand {
+    private String fullName;
+
+    private String line1;
+
+    private String line2;
+
+    private String postalCode;
+
+    private String phoneNumber;
+
+    private String city;
+
+    private String province;
+
+    private String country;
 }

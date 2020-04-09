@@ -35,10 +35,13 @@ public class CustomerOrder extends Auditable {
     @Embedded
     private CustomerOrderAddress address;
 
+    @Column
+    private ArrayList<CustomerOrderItem> readOnlyProductList;
+
+    @Column
     @ElementCollection
     @CollectionTable(name = "order_product_snapshot", joinColumns = @JoinColumn(name = "order_id"))
-    @Column
-    private List<CustomerOrderItem> productList;
+    private List<CustomerOrderItem> writeOnlyProductList;
 
     @NotNull
     @NotEmpty
@@ -78,14 +81,14 @@ public class CustomerOrder extends Auditable {
                         /**
                          * use deepEquals for JPA persistentBag workaround, otherwise equals will return incorrect result
                          */
-                        Objects.deepEquals(productList.toArray(), that.productList.toArray()) &&
+                        Objects.deepEquals(readOnlyProductList.toArray(), that.readOnlyProductList.toArray()) &&
                         Objects.equals(paymentType, that.paymentType) &&
                         Objects.equals(paymentAmt, that.paymentAmt);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, address, productList, paymentType, paymentAmt);
+        return Objects.hash(id, address, readOnlyProductList, paymentType, paymentAmt);
     }
 
     public void updateModifiedByUserAt() {
@@ -124,7 +127,8 @@ public class CustomerOrder extends Auditable {
 
     private CustomerOrder(Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
         this.profileId = profileId;
-        this.productList = productList;
+        this.readOnlyProductList = new ArrayList<>(productList);
+        this.writeOnlyProductList = productList;
         this.address = address;
         this.paymentType = paymentType;
         this.paymentAmt = paymentAmt;
@@ -141,7 +145,7 @@ public class CustomerOrder extends Auditable {
      */
     public Map<String, Integer> getProductSummary() {
         HashMap<String, Integer> stringIntegerHashMap = new HashMap<>();
-        productList.forEach(e -> {
+        readOnlyProductList.forEach(e -> {
             int defaultAmount = 1;
             if (e.getSelectedOptions() != null) {
                 Optional<CustomerOrderItemAddOn> qty = e.getSelectedOptions().stream().filter(el -> el.title.equals("qty")).findFirst();
@@ -162,7 +166,7 @@ public class CustomerOrder extends Auditable {
     }
 
     public void validatePaymentAmount() {
-        BigDecimal reduce = productList.stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
+        BigDecimal reduce = readOnlyProductList.stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
         if (paymentAmt.compareTo(reduce) != 0)
             throw new OrderPaymentMismatchException();
     }

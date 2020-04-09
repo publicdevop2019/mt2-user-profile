@@ -1,4 +1,9 @@
 package com.hw.aggregate.order.exception;
 
-public class PaymentQRLinkGenerationException extends RuntimeException {
+import com.hw.shared.InternalServerException;
+
+public class PaymentQRLinkGenerationException extends InternalServerException {
+    public PaymentQRLinkGenerationException() {
+        super("");
+    }
 }

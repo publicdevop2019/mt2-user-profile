@@ -9,12 +9,15 @@ import javax.persistence.Embeddable;
 import javax.persistence.ManyToOne;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
 
 @Embeddable
 @Data
-public class CustomerOrderItem {
+public class CustomerOrderItem implements Serializable {
+
+    private static final long serialVersionUID = 1;
 
     @NotNull
     @NotEmpty
@@ -37,7 +40,7 @@ public class CustomerOrderItem {
     private String productId;
 
     @ManyToOne
-    private CustomerOrder customerOrder;
+    transient private CustomerOrder customerOrder;
 
     @Override
     public boolean equals(Object o) {

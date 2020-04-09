@@ -20,6 +20,9 @@ public class Address extends Auditable {
     @Setter(AccessLevel.NONE)
     private Long id;
 
+    @Column(name = "fk_profile")
+    private Long profileId;
+
     @NotNull
     @NotEmpty
     @Column(nullable = false)
@@ -59,6 +62,26 @@ public class Address extends Auditable {
     @NotEmpty
     @Column(nullable = false)
     private String country;
+
+    public Address() {
+
+    }
+
+    public static Address create(Long profileId, String fullName, String line1, String line2, String postalCode, String phoneNumber, String city, String province, String country) {
+        return new Address(profileId, fullName, line1, line2, postalCode, phoneNumber, city, province, country);
+    }
+
+    private Address(Long profileId, String fullName, String line1, String line2, String postalCode, String phoneNumber, String city, String province, String country) {
+        this.profileId = profileId;
+        this.fullName = fullName;
+        this.line1 = line1;
+        this.line2 = line2;
+        this.postalCode = postalCode;
+        this.phoneNumber = phoneNumber;
+        this.city = city;
+        this.province = province;
+        this.country = country;
+    }
 
     @Override
     public boolean equals(Object o) {

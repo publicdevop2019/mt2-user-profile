@@ -1,4 +1,9 @@
 package com.hw.aggregate.order.exception;
 
-public class OrderAlreadyPaidException extends RuntimeException {
+import com.hw.shared.BadRequestException;
+
+public class OrderAlreadyPaidException extends BadRequestException {
+    public OrderAlreadyPaidException() {
+        super("");
+    }
 }

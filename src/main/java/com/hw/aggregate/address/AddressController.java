@@ -21,7 +21,7 @@ public class AddressController {
 
     @GetMapping("profiles/{profileId}/addresses")
     public ResponseEntity<?> getAllAddresses(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId) {
-        AddressSummaryRepresentation allAddresses = addressApplicationService.getAllAddresses(ServiceUtility.getUserId(authorization), profileId);
+        AddressSummaryRepresentation allAddresses = addressApplicationService.getAllAddressesForCustomer(ServiceUtility.getUserId(authorization), profileId);
         return ResponseEntity.ok(allAddresses.addressList);
     }
 

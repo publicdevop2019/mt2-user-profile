@@ -1,4 +1,10 @@
 package com.hw.aggregate.address.exception;
 
-public class DuplicateAddressException extends RuntimeException {
+import com.hw.shared.BadRequestException;
+
+public class DuplicateAddressException extends BadRequestException {
+
+    public DuplicateAddressException() {
+        super("");
+    }
 }

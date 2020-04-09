@@ -9,8 +9,6 @@ import com.hw.aggregate.address.exception.MaxAddressCountException;
 import com.hw.aggregate.address.model.Address;
 import com.hw.aggregate.address.representation.AddressRepresentation;
 import com.hw.aggregate.address.representation.AddressSummaryRepresentation;
-import com.hw.aggregate.profile.ProfileRepo;
-import com.hw.aggregate.profile.model.Profile;
 import com.hw.clazz.ProfileExistAndOwnerOnly;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -20,69 +18,67 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class AddressApplicationService {
 
     @Autowired
-    private ProfileRepo profileRepo;
+    private AddressRepository addressRepository;
 
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
-    public AddressSummaryRepresentation getAllAddresses(String authUserId, Long profileId) {
-        Optional<Profile> profileByResourceOwnerId = profileRepo.findById(profileId);
-        return new AddressSummaryRepresentation(profileByResourceOwnerId.get().getAddressList());
+    public AddressSummaryRepresentation getAllAddressesForCustomer(String authUserId, Long profileId) {
+        List<Address> byProfileId = addressRepository.findByProfileId(profileId);
+        return new AddressSummaryRepresentation(byProfileId);
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
     public AddressRepresentation getAddressInById(String authUserId, Long profileId, Long addressId) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<Address> collect = findById.get().getAddressList().stream().filter(e -> e.getId().equals(addressId)).collect(Collectors.toList());
-        if (collect.size() != 1)
-            throw new AddressNotExistException();
-        return new AddressRepresentation(collect.get(0));
+        Address addressForCustomer = getAddressForCustomer(profileId, addressId);
+        return new AddressRepresentation(addressForCustomer);
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional
     public AddressRepresentation createAddress(String authUserId, Long profileId, CreateAddressCommand createAddressCommand) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.isEmpty() || findById.get().getAddressList().stream().anyMatch(e -> e.equals(createAddressCommand))) {
-            log.info("same address found");
+        List<Address> byProfileId = addressRepository.findByProfileId(profileId);
+        if (byProfileId.size() == 5)
+            throw new MaxAddressCountException();
+        Address address = Address.create(
+                profileId, createAddressCommand.getFullName(), createAddressCommand.getLine1(),
+                createAddressCommand.getLine2(), createAddressCommand.getPostalCode(), createAddressCommand.getPhoneNumber(),
+                createAddressCommand.getCity(), createAddressCommand.getProvince(), createAddressCommand.getCountry());
+        if (byProfileId.stream().anyMatch(e -> e.equals(address))) {
             throw new DuplicateAddressException();
         }
-        if (findById.get().getAddressList().size() == 5)
-            throw new MaxAddressCountException();
-        findById.get().getAddressList().add((createAddressCommand));
-        Profile save = profileRepo.save(findById.get());
-        return new AddressRepresentation(save.getAddressList().stream().filter(e -> e.equals(createAddressCommand)).findFirst().get());
+        Address save = addressRepository.save(address);
+        return new AddressRepresentation(save);
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional
     public void updateAddress(String authUserId, Long profileId, Long addressId, UpdateAddressCommand updateAddressCommand) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<Address> collect = findById.get().getAddressList().stream().filter(e -> e.getId().equals(addressId)).collect(Collectors.toList());
-        if (collect.size() != 1)
-            throw new AddressNotExistException();
-        Address oldAddress = collect.get(0);
-        BeanUtils.copyProperties(updateAddressCommand, oldAddress);
-        profileRepo.save(findById.get());
+        Address addressForCustomer = getAddressForCustomer(profileId, addressId);
+        BeanUtils.copyProperties(updateAddressCommand, addressForCustomer);
+        addressRepository.save(addressForCustomer);
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional
     public void deleteAddress(String authUserId, Long profileId, DeleteAddressCommand deleteAddressCommand) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<Address> collect = findById.get().getAddressList().stream().filter(e -> e.getId().equals(deleteAddressCommand.addressId)).collect(Collectors.toList());
-        if (collect.size() != 1)
+        Address addressForCustomer = getAddressForCustomer(profileId, deleteAddressCommand.addressId);
+        addressRepository.delete(addressForCustomer);
+    }
+
+    private Address getAddressForCustomer(Long profileId, Long addressId) {
+        Optional<Address> byId = addressRepository.findById(addressId);
+        if (byId.isEmpty())
             throw new AddressNotExistException();
-        Address toBeRemoved = collect.get(0);
-        findById.get().getAddressList().removeIf(e -> e.getId().equals(toBeRemoved.getId()));
-        profileRepo.save(findById.get());
+        if (!byId.get().getProfileId().equals(profileId))
+            throw new AddressNotExistException();
+        return byId.get();
     }
 
 }

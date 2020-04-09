@@ -1,4 +1,9 @@
 package com.hw.aggregate.profile.exception;
 
-public class ProfileNotExistException extends RuntimeException{
+import com.hw.shared.BadRequestException;
+
+public class ProfileNotExistException extends BadRequestException {
+    public ProfileNotExistException() {
+        super("");
+    }
 }

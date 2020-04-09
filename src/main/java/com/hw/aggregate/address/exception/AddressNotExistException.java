@@ -1,4 +1,9 @@
 package com.hw.aggregate.address.exception;
 
-public class AddressNotExistException extends RuntimeException{
+import com.hw.shared.BadRequestException;
+
+public class AddressNotExistException extends BadRequestException {
+    public AddressNotExistException() {
+        super("");
+    }
 }

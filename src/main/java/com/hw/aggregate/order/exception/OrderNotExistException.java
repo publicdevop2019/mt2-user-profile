@@ -1,4 +1,9 @@
 package com.hw.aggregate.order.exception;
 
-public class OrderNotExistException extends RuntimeException {
+import com.hw.shared.BadRequestException;
+
+public class OrderNotExistException extends BadRequestException {
+    public OrderNotExistException() {
+        super("");
+    }
 }

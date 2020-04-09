@@ -95,7 +95,7 @@ public class OrderApplicationService {
 
         // validate order
         customerOrder.validatePaymentAmount();
-        productStorageService.validateProductInfo(customerOrder.getProductList());
+        productStorageService.validateProductInfo(customerOrder.getReadOnlyProductList());
         log.debug("order validation success");
 
         // generate order id, use db generate orderId

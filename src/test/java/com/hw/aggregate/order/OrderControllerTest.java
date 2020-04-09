@@ -68,7 +68,7 @@ public class OrderControllerTest {
         for (int a = 0; a < 5; a++) {
             customerOrderItems.add(getCustomerOrderItem());
         }
-        customerOrder.setProductList(customerOrderItems);
+        customerOrder.setReadOnlyProductList(new ArrayList<>(customerOrderItems));
         customerOrder.setPaymentAmt(new BigDecimal(100));
         customerOrder.setPaymentStatus(true);
         customerOrder.setId(1500L);

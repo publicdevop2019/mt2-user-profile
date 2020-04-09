@@ -28,7 +28,7 @@ public class OrderSummaryAdminRepresentation {
             this.id = customerOrder.getId();
             this.paymentAmt = customerOrder.getPaymentAmt();
             this.paymentStatus = customerOrder.getPaymentStatus();
-            this.productList = customerOrder.getProductList();
+            this.productList = customerOrder.getReadOnlyProductList();
         }
     }
 }

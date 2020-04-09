@@ -15,7 +15,7 @@ public class ProfileController {
 
     @GetMapping("profiles/search")
     public ResponseEntity<?> searchProfile(@RequestHeader("authorization") String authorization) {
-        return ResponseEntity.ok(profileApplicationService.searchProfile(authorization));
+        return ResponseEntity.ok(profileApplicationService.searchProfile(authorization).profileId);
     }
 
     @PostMapping("profiles")
