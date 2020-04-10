@@ -1,6 +1,8 @@
 package com.hw.config;
 
 import com.hw.aggregate.profile.ProfileRepo;
+import com.hw.aggregate.profile.exception.ProfileAccessException;
+import com.hw.aggregate.profile.exception.ProfileNotExistException;
 import com.hw.aggregate.profile.model.Profile;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -30,13 +32,11 @@ public class ProfileAccessAspectConfig {
         Long profileId = (Long) args[1];
         Optional<Profile> byId = profileRepo.findById(profileId);
         if (byId.isEmpty()) {
-            log.info("resource not found");
-            throw new IllegalArgumentException("resource not found");
+            throw new ProfileNotExistException();
         } else if (byId.get().getCreatedBy().equals(resourceOwnerId)) {
             return joinPoint.proceed();
         } else {
-            log.info("you can only view/modify your own data");
-            throw new IllegalArgumentException("you can only view/modify your own data");
+            throw new ProfileAccessException();
         }
 
     }

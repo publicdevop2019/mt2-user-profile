@@ -1,9 +1,4 @@
 package com.hw.aggregate.order.exception;
 
-import com.hw.shared.InternalServerException;
-
-public class ActualStorageDecreaseException extends InternalServerException {
-    public ActualStorageDecreaseException() {
-        super("");
-    }
+public class ActualStorageDecreaseException extends RuntimeException {
 }
