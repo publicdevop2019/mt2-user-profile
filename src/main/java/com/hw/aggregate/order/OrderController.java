@@ -2,8 +2,8 @@ package com.hw.aggregate.order;
 
 import com.hw.aggregate.order.command.*;
 import com.hw.aggregate.order.representation.OrderConfirmStatusRepresentation;
+import com.hw.aggregate.order.representation.OrderCustomerRepresentation;
 import com.hw.aggregate.order.representation.OrderPaymentLinkRepresentation;
-import com.hw.aggregate.order.representation.OrderRepresentation;
 import com.hw.aggregate.order.representation.OrderSummaryAdminRepresentation;
 import com.hw.shared.ServiceUtility;
 import lombok.extern.slf4j.Slf4j;
@@ -41,8 +41,8 @@ public class OrderController {
 
     @GetMapping("profiles/{profileId}/orders/{orderId}")
     public ResponseEntity<?> getOrderById(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
-        OrderRepresentation orderById = orderService.getOrderById(ServiceUtility.getUserId(authorization), profileId, orderId);
-        return ResponseEntity.ok(orderById.customerOrder);
+        OrderCustomerRepresentation orderForCustomer = orderService.getOrderForCustomer(ServiceUtility.getUserId(authorization), profileId, orderId);
+        return ResponseEntity.ok(orderForCustomer);
     }
 
     @GetMapping("profiles/{profileId}/orders/{orderId}/confirm")

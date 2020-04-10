@@ -75,8 +75,8 @@ public class OrderApplicationService {
 
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
-    public OrderRepresentation getOrderById(String authUserId, Long profileId, Long orderId) {
-        return new OrderRepresentation(getOrderForCustomer(profileId, orderId));
+    public OrderCustomerRepresentation getOrderForCustomer(String authUserId, Long profileId, Long orderId) {
+        return new OrderCustomerRepresentation(getOrderForCustomer(profileId, orderId));
     }
 
     /**
