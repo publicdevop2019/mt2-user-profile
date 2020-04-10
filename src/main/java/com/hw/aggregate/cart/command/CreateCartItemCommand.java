@@ -1,6 +1,21 @@
 package com.hw.aggregate.cart.command;
 
-import com.hw.aggregate.cart.model.CartItem;
+import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
+import lombok.Data;
 
-public class CreateCartItemCommand extends CartItem {
+import java.util.List;
+
+@Data
+public class CreateCartItemCommand {
+
+    private String name;
+
+    private List<CustomerOrderItemAddOn> selectedOptions;
+
+    private String finalPrice;
+
+    private String imageUrlSmall;
+
+    private String productId;
+
 }

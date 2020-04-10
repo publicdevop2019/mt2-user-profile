@@ -1,4 +1,9 @@
 package com.hw.aggregate.cart.exception;
 
-public class MaxCartItemException extends RuntimeException{
+import com.hw.shared.BadRequestException;
+
+public class MaxCartItemException extends BadRequestException {
+    public MaxCartItemException() {
+        super("");
+    }
 }

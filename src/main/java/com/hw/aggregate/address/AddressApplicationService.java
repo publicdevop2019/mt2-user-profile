@@ -3,6 +3,7 @@ package com.hw.aggregate.address;
 import com.hw.aggregate.address.command.CreateAddressCommand;
 import com.hw.aggregate.address.command.DeleteAddressCommand;
 import com.hw.aggregate.address.command.UpdateAddressCommand;
+import com.hw.aggregate.address.exception.AddressAccessException;
 import com.hw.aggregate.address.exception.AddressNotExistException;
 import com.hw.aggregate.address.exception.DuplicateAddressException;
 import com.hw.aggregate.address.exception.MaxAddressCountException;
@@ -77,7 +78,7 @@ public class AddressApplicationService {
         if (byId.isEmpty())
             throw new AddressNotExistException();
         if (!byId.get().getProfileId().equals(profileId))
-            throw new AddressNotExistException();
+            throw new AddressAccessException();
         return byId.get();
     }
 

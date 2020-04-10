@@ -2,7 +2,6 @@ package com.hw.aggregate.cart.model;
 
 import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
 import com.hw.clazz.ProductOptionMapper;
-import com.hw.aggregate.order.model.CustomerOrder;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.Setter;
@@ -24,6 +23,9 @@ public class CartItem {
     @Setter(AccessLevel.NONE)
     private Long id;
 
+    @Column(name = "fk_profile")
+    private Long profileId;
+
     @NotNull
     @NotEmpty
     @Column(nullable = false)
@@ -44,8 +46,23 @@ public class CartItem {
     @Column
     private String productId;
 
-    @ManyToOne
-    private CustomerOrder customerOrder;
+    public CartItem() {
+
+    }
+
+    public static CartItem create(Long profileId, String name, List<CustomerOrderItemAddOn> selectedOptions, String finalPrice, String imageUrlSmall, String productId) {
+        return new CartItem(profileId, name, selectedOptions, finalPrice, imageUrlSmall, productId);
+    }
+
+    private CartItem(Long profileId, String name, List<CustomerOrderItemAddOn> selectedOptions, String finalPrice, String imageUrlSmall, String productId) {
+        this.name = name;
+        this.selectedOptions = selectedOptions;
+        this.finalPrice = finalPrice;
+        this.imageUrlSmall = imageUrlSmall;
+        this.productId = productId;
+        this.productId = productId;
+        this.profileId = profileId;
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -59,11 +76,12 @@ public class CartItem {
                 Objects.deepEquals(selectedOptions != null ? selectedOptions.toArray() : new Object[0], product.selectedOptions != null ? product.selectedOptions.toArray() : new Object[0]) &&
                 Objects.equals(finalPrice, product.finalPrice) &&
                 Objects.equals(imageUrlSmall, product.imageUrlSmall) &&
+                Objects.equals(profileId, product.profileId) &&
                 Objects.equals(productId, product.productId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, selectedOptions, finalPrice, imageUrlSmall, productId);
+        return Objects.hash(name, selectedOptions, finalPrice, imageUrlSmall, productId, profileId);
     }
 }

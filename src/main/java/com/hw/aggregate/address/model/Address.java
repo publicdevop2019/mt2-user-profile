@@ -95,11 +95,12 @@ public class Address extends Auditable {
                 Objects.equals(phoneNumber, address.phoneNumber) &&
                 Objects.equals(city, address.city) &&
                 Objects.equals(province, address.province) &&
+                Objects.equals(profileId, address.profileId) &&
                 Objects.equals(country, address.country);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(fullName, line1, line2, postalCode, phoneNumber, city, province, country);
+        return Objects.hash(fullName, line1, line2, postalCode, phoneNumber, city, province, country, profileId);
     }
 }

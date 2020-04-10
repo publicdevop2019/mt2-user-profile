@@ -1,4 +1,9 @@
 package com.hw.aggregate.cart.exception;
 
-public class CartItemNotExistException extends RuntimeException {
+import com.hw.shared.BadRequestException;
+
+public class CartItemNotExistException extends BadRequestException {
+    public CartItemNotExistException() {
+        super("");
+    }
 }

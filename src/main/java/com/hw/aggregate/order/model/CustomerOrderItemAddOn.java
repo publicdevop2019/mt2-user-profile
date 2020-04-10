@@ -2,12 +2,17 @@ package com.hw.aggregate.order.model;
 
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
 
 @Data
-public class CustomerOrderItemAddOn {
+public class CustomerOrderItemAddOn implements Serializable {
+
+    private static final long serialVersionUID = 1;
+
     public String title;
+
     public List<CustomerOrderItemAddOnSelection> options;
 
     @Override

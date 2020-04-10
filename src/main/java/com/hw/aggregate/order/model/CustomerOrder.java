@@ -35,7 +35,7 @@ public class CustomerOrder extends Auditable {
     @Embedded
     private CustomerOrderAddress address;
 
-    @Column
+    @Column(length = 100000)
     private ArrayList<CustomerOrderItem> readOnlyProductList;
 
     @Column
@@ -83,12 +83,13 @@ public class CustomerOrder extends Auditable {
                          */
                         Objects.deepEquals(readOnlyProductList.toArray(), that.readOnlyProductList.toArray()) &&
                         Objects.equals(paymentType, that.paymentType) &&
+                        Objects.equals(profileId, that.profileId) &&
                         Objects.equals(paymentAmt, that.paymentAmt);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, address, readOnlyProductList, paymentType, paymentAmt);
+        return Objects.hash(id, address, readOnlyProductList, paymentType, paymentAmt, profileId);
     }
 
     public void updateModifiedByUserAt() {

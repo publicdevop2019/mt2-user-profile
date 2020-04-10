@@ -3,80 +3,74 @@ package com.hw.aggregate.cart;
 import com.hw.aggregate.cart.command.CreateCartItemCommand;
 import com.hw.aggregate.cart.command.DeleteCartItemCommand;
 import com.hw.aggregate.cart.command.UpdateCartItemAddOnCommand;
+import com.hw.aggregate.cart.exception.CartItemAccessException;
 import com.hw.aggregate.cart.exception.CartItemNotExistException;
 import com.hw.aggregate.cart.exception.MaxCartItemException;
 import com.hw.aggregate.cart.model.CartItem;
 import com.hw.aggregate.cart.representation.CartItemRepresentation;
 import com.hw.aggregate.cart.representation.CartSummaryRepresentation;
-import com.hw.aggregate.profile.ProfileRepo;
-import com.hw.aggregate.profile.model.Profile;
 import com.hw.clazz.ProfileExistAndOwnerOnly;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class CartApplicationService {
 
     @Autowired
-    private ProfileRepo profileRepo;
+    private CartRepository cartRepository;
 
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
     public CartSummaryRepresentation getCartItems(String authUserId, Long profileId) {
-        Optional<Profile> profileByResourceOwnerId = profileRepo.findById(profileId);
-        return new CartSummaryRepresentation(profileByResourceOwnerId.get().getCartList());
+        return new CartSummaryRepresentation(cartRepository.findByProfileId(profileId));
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional
     public CartItemRepresentation addCartItem(String authUserId, Long profileId, CreateCartItemCommand addCartItemCommand) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        if (findById.get().getCartList() == null)
-            findById.get().setCartList(new ArrayList<>());
-        if (findById.get().getCartList().size() == 5)
+        List<CartItem> byProfileId = cartRepository.findByProfileId(profileId);
+        if (byProfileId.size() == 10)
             throw new MaxCartItemException();
-        findById.get().getCartList().add(addCartItemCommand);
-        Profile save = profileRepo.save(findById.get());
-        return new CartItemRepresentation(save.getCartList().stream().filter(e -> e.equals(addCartItemCommand)).findFirst().get());
+        CartItem cartItem = CartItem.create(
+                profileId, addCartItemCommand.getName(), addCartItemCommand.getSelectedOptions(),
+                addCartItemCommand.getFinalPrice(), addCartItemCommand.getImageUrlSmall(), addCartItemCommand.getProductId());
+        CartItem save = cartRepository.save(cartItem);
+        return new CartItemRepresentation(save);
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional
+    //not used
     public void updateCartItem(String authUserId, Long profileId, Long cartItemId, UpdateCartItemAddOnCommand updateCartItemAddOnCommand) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<CartItem> collect = findById.get().getCartList().stream().filter(e -> e.getId().equals(cartItemId)).collect(Collectors.toList());
-        if (collect.size() != 1)
-            throw new CartItemNotExistException();
-        CartItem oldCartItem = collect.get(0);
-        BeanUtils.copyProperties(updateCartItemAddOnCommand, oldCartItem);
-        profileRepo.save(findById.get());
+        CartItem cartItemForCustomer = getCartItemForCustomer(profileId, cartItemId);
+        BeanUtils.copyProperties(updateCartItemAddOnCommand, cartItemForCustomer);
+        cartRepository.save(cartItemForCustomer);
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional
     public void deleteCartItem(String authUserId, Long profileId, DeleteCartItemCommand deleteCartItemCommand) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<CartItem> collect = findById.get().getCartList().stream().filter(e -> e.getId().equals(deleteCartItemCommand.cartItemId)).collect(Collectors.toList());
-        if (collect.size() != 1)
-            throw new CartItemNotExistException();
-        CartItem tobeRemoved = collect.get(0);
-        findById.get().getCartList().removeIf(e -> e.getId().equals(tobeRemoved.getId()));
-        profileRepo.save(findById.get());
+        CartItem cartItemForCustomer = getCartItemForCustomer(profileId, deleteCartItemCommand.cartItemId);
+        cartRepository.delete(cartItemForCustomer);
     }
 
     @Transactional
     public void clearCartItem(Long profileId) {
-        Optional<Profile> findById = profileRepo.findById(profileId);
-        List<CartItem> collect = findById.get().getCartList();
-        if (collect != null)
-            findById.get().getCartList().clear();
-        profileRepo.save(findById.get());
+        List<CartItem> byProfileId = cartRepository.findByProfileId(profileId);
+        cartRepository.deleteInBatch(byProfileId);
+    }
+
+    private CartItem getCartItemForCustomer(Long profileId, Long cartItemId) {
+        Optional<CartItem> byId = cartRepository.findById(cartItemId);
+        if (byId.isEmpty())
+            throw new CartItemNotExistException();
+        if (!byId.get().getProfileId().equals(profileId))
+            throw new CartItemAccessException();
+        return byId.get();
     }
 }
