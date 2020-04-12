@@ -2,6 +2,7 @@ package com.hw.config;
 
 import com.hw.clazz.CustomAsyncExceptionHandler;
 import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
@@ -20,6 +21,17 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.setMaxPoolSize(5);
         executor.setQueueCapacity(500);
         executor.setThreadNamePrefix("NotifyByEmail-");
+        executor.initialize();
+        return executor;
+    }
+    @Bean
+    @Qualifier("reserveOrder")
+    public Executor reserveOrderExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(50);
+        executor.setMaxPoolSize(50);
+        executor.setQueueCapacity(500);
+        executor.setThreadNamePrefix("ReserveOrder-");
         executor.initialize();
         return executor;
     }

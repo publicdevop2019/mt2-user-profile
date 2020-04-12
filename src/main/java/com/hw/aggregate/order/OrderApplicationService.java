@@ -13,6 +13,7 @@ import com.hw.shared.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -61,6 +63,10 @@ public class OrderApplicationService {
     @Autowired
     private CartApplicationService cartApplicationService;
 
+    @Autowired
+    @Qualifier("reserveOrder")
+    private Executor reserveOrderEx;
+
     @Transactional(readOnly = true)
     public OrderSummaryAdminRepresentation getAllOrdersForAdmin() {
         return new OrderSummaryAdminRepresentation(orderRepository.findAll());
@@ -94,8 +100,9 @@ public class OrderApplicationService {
         CustomerOrder customerOrder = CustomerOrder.create(profileId, newOrder.getProductList(), newOrder.getAddress(), newOrder.getPaymentType(), newOrder.getPaymentAmt());
 
         // validate order
+
         CompletableFuture<Void> validateResultFuture = CompletableFuture.runAsync(() ->
-                productStorageService.validateProductInfo(customerOrder.getReadOnlyProductList())
+                productStorageService.validateProductInfo(customerOrder.getReadOnlyProductList()), reserveOrderEx
         );
         customerOrder.validatePaymentAmount();
 
@@ -106,12 +113,12 @@ public class OrderApplicationService {
 
         // generate payment QR link
         CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
-                paymentService.generatePaymentLink(reservedOrderId)
+                paymentService.generatePaymentLink(reservedOrderId), reserveOrderEx
         );
 
         // decrease order storage
         CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                productStorageService.decreaseOrderStorage(customerOrder.getProductSummary())
+                productStorageService.decreaseOrderStorage(customerOrder.getProductSummary()), reserveOrderEx
         );
         CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
         String paymentLink;
@@ -119,18 +126,18 @@ public class OrderApplicationService {
             allDoneFuture.get();
             paymentLink = paymentQRLinkFuture.get();
         } catch (InterruptedException | ExecutionException e) {
-            log.error("error during reserve order",e);
+            log.error("error during reserve order", e);
             if (decreaseOrderStorageFuture.isCompletedExceptionally())
                 throw new OrderStorageDecreaseException();
             if (paymentQRLinkFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally()) {
                 CompletableFuture.runAsync(() ->
-                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary())
+                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), reserveOrderEx
                 );
                 throw new PaymentQRLinkGenerationException();
             }
             if (validateResultFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally()) {
                 CompletableFuture.runAsync(() ->
-                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary())
+                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), reserveOrderEx
                 );
                 throw new ProductInfoValidationException();
             }
