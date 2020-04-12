@@ -85,14 +85,6 @@ public class OrderApplicationService {
         return new OrderCustomerRepresentation(getOrderForCustomer(profileId, orderId));
     }
 
-    /**
-     * step0 validate order info
-     * step1 add new order to profile
-     * step2 generate payment link
-     * step3 deduct amount from product service
-     *
-     * @note move decreaseStorage as late as possible bcz when code after decreaseStorage throw exception, then revoke storage required
-     */
     @ProfileExistAndOwnerOnly
     @Transactional
     public OrderPaymentLinkRepresentation reserveOrder(String authUserId, Long profileId, CreateOrderCommand newOrder) {
