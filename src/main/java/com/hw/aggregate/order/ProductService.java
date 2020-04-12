@@ -44,11 +44,7 @@ public class ProductService {
 
 
     public void decreaseOrderStorage(Map<String, Integer> productMap) throws OrderStorageDecreaseException {
-        try {
-            changeStorage(decreaseUrl, productMap);
-        } catch (Exception e) {
-            throw new OrderStorageDecreaseException();
-        }
+        changeStorage(decreaseUrl, productMap);
     }
 
     public void increaseOrderStorage(Map<String, Integer> productMap) {

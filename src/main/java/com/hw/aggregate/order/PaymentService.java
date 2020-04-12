@@ -2,7 +2,6 @@ package com.hw.aggregate.order;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hw.aggregate.order.exception.PaymentQRLinkGenerationException;
 import com.hw.shared.EurekaRegistryHelper;
 import com.hw.shared.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
@@ -51,11 +50,7 @@ public class PaymentService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
         ResponseEntity<HashMap<String, String>> exchange = tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + paymentUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
-        if (null != exchange.getBody() && null != exchange.getBody().get("paymentLink")) {
-            return exchange.getBody().get("paymentLink");
-        } else {
-            throw new PaymentQRLinkGenerationException();
-        }
+        return exchange.getBody().get("paymentLink");
     }
 
     public Boolean confirmPaymentStatus(String orderId) {

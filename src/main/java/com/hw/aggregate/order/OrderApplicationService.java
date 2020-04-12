@@ -3,9 +3,7 @@ package com.hw.aggregate.order;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hw.aggregate.cart.CartApplicationService;
 import com.hw.aggregate.order.command.*;
-import com.hw.aggregate.order.exception.OrderAccessException;
-import com.hw.aggregate.order.exception.OrderNotExistException;
-import com.hw.aggregate.order.exception.OrderSchedulerProductRecycleException;
+import com.hw.aggregate.order.exception.*;
 import com.hw.aggregate.order.model.CustomerOrder;
 import com.hw.aggregate.order.model.CustomerOrderPaymentStatus;
 import com.hw.aggregate.order.representation.*;
@@ -26,6 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -94,9 +94,10 @@ public class OrderApplicationService {
         CustomerOrder customerOrder = CustomerOrder.create(profileId, newOrder.getProductList(), newOrder.getAddress(), newOrder.getPaymentType(), newOrder.getPaymentAmt());
 
         // validate order
+        CompletableFuture<Void> validateResultFuture = CompletableFuture.runAsync(() ->
+                productStorageService.validateProductInfo(customerOrder.getReadOnlyProductList())
+        );
         customerOrder.validatePaymentAmount();
-        productStorageService.validateProductInfo(customerOrder.getReadOnlyProductList());
-        log.debug("order validation success");
 
         // generate order id, use db generate orderId
         CustomerOrder save = orderRepository.save(customerOrder);
@@ -104,11 +105,37 @@ public class OrderApplicationService {
         log.debug("order id generated & saved");
 
         // generate payment QR link
-        String paymentLink = paymentService.generatePaymentLink(reservedOrderId);
-        log.debug("payment link generated");
+        CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
+                paymentService.generatePaymentLink(reservedOrderId)
+        );
 
         // decrease order storage
-        productStorageService.decreaseOrderStorage(customerOrder.getProductSummary());
+        CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
+                productStorageService.decreaseOrderStorage(customerOrder.getProductSummary())
+        );
+        CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
+        String paymentLink;
+        try {
+            allDoneFuture.get();
+            paymentLink = paymentQRLinkFuture.get();
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("error during reserve order",e);
+            if (decreaseOrderStorageFuture.isCompletedExceptionally())
+                throw new OrderStorageDecreaseException();
+            if (paymentQRLinkFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally()) {
+                CompletableFuture.runAsync(() ->
+                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary())
+                );
+                throw new PaymentQRLinkGenerationException();
+            }
+            if (validateResultFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally()) {
+                CompletableFuture.runAsync(() ->
+                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary())
+                );
+                throw new ProductInfoValidationException();
+            }
+            throw new OrderCreateException();
+        }
         log.debug("order storage decreased");
         cartApplicationService.clearCartItem(profileId);
         return new OrderPaymentLinkRepresentation(paymentLink);
