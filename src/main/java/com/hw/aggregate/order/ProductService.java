@@ -2,8 +2,6 @@ package com.hw.aggregate.order;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hw.aggregate.order.exception.ActualStorageDecreaseException;
-import com.hw.aggregate.order.exception.OrderStorageDecreaseException;
 import com.hw.aggregate.order.exception.ProductInfoValidationException;
 import com.hw.aggregate.order.model.CustomerOrderItem;
 import com.hw.shared.EurekaRegistryHelper;
@@ -43,7 +41,7 @@ public class ProductService {
     private ResourceServiceTokenHelper tokenHelper;
 
 
-    public void decreaseOrderStorage(Map<String, Integer> productMap) throws OrderStorageDecreaseException {
+    public void decreaseOrderStorage(Map<String, Integer> productMap) {
         changeStorage(decreaseUrl, productMap);
     }
 
@@ -51,12 +49,8 @@ public class ProductService {
         changeStorage(increaseUrl, productMap);
     }
 
-    public void decreaseActualStorage(Map<String, Integer> productMap) throws ActualStorageDecreaseException {
-        try {
-            changeStorage(soldUrl, productMap);
-        } catch (Exception e) {
-            throw new ActualStorageDecreaseException();
-        }
+    public void decreaseActualStorage(Map<String, Integer> productMap) {
+        changeStorage(soldUrl, productMap);
     }
 
     private void changeStorage(String url, Map<String, Integer> productMap) {

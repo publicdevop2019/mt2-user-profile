@@ -64,8 +64,8 @@ public class OrderApplicationService {
     private CartApplicationService cartApplicationService;
 
     @Autowired
-    @Qualifier("reserveOrder")
-    private Executor reserveOrderEx;
+    @Qualifier("CustomPool")
+    private Executor customExecutor;
 
     @Transactional(readOnly = true)
     public OrderSummaryAdminRepresentation getAllOrdersForAdmin() {
@@ -100,9 +100,8 @@ public class OrderApplicationService {
         CustomerOrder customerOrder = CustomerOrder.create(profileId, newOrder.getProductList(), newOrder.getAddress(), newOrder.getPaymentType(), newOrder.getPaymentAmt());
 
         // validate order
-
         CompletableFuture<Void> validateResultFuture = CompletableFuture.runAsync(() ->
-                productStorageService.validateProductInfo(customerOrder.getReadOnlyProductList()), reserveOrderEx
+                productStorageService.validateProductInfo(customerOrder.getReadOnlyProductList()), customExecutor
         );
         customerOrder.validatePaymentAmount();
 
@@ -113,12 +112,12 @@ public class OrderApplicationService {
 
         // generate payment QR link
         CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
-                paymentService.generatePaymentLink(reservedOrderId), reserveOrderEx
+                paymentService.generatePaymentLink(reservedOrderId), customExecutor
         );
 
         // decrease order storage
         CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                productStorageService.decreaseOrderStorage(customerOrder.getProductSummary()), reserveOrderEx
+                productStorageService.decreaseOrderStorage(customerOrder.getProductSummary()), customExecutor
         );
         CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
         String paymentLink;
@@ -131,13 +130,13 @@ public class OrderApplicationService {
                 throw new OrderStorageDecreaseException();
             if (paymentQRLinkFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally()) {
                 CompletableFuture.runAsync(() ->
-                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), reserveOrderEx
+                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), customExecutor
                 );
                 throw new PaymentQRLinkGenerationException();
             }
             if (validateResultFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally()) {
                 CompletableFuture.runAsync(() ->
-                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), reserveOrderEx
+                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), customExecutor
                 );
                 throw new ProductInfoValidationException();
             }
@@ -152,17 +151,26 @@ public class OrderApplicationService {
     @Transactional
     public OrderConfirmStatusRepresentation confirmOrderPaymentStatus(String authUserId, Long profileId, ConfirmOrderPaymentCommand confirmOrderPaymentCommand) {
         CustomerOrder customerOrder = getOrderForCustomer(profileId, confirmOrderPaymentCommand.orderId);
-
         Boolean paymentStatus = paymentService.confirmPaymentStatus(confirmOrderPaymentCommand.orderId.toString());
+        CompletableFuture<Void> decreaseActualStorageFuture = null;
+        if (paymentStatus) {
+            log.debug("notify business owner asynchronously");
+            messengerService.notifyBusinessOwner(new HashMap<>());
+            decreaseActualStorageFuture = CompletableFuture.runAsync(() ->
+                    productStorageService.decreaseActualStorage(customerOrder.getProductSummary()), customExecutor
+            );
+        }
         customerOrder.setPaymentStatus(paymentStatus);
-        if (paymentStatus)
-            productStorageService.decreaseActualStorage(customerOrder.getProductSummary());
-
         orderRepository.save(customerOrder);
-
-        log.debug("notify business owner asynchronously");
-        messengerService.notifyBusinessOwner(new HashMap<>());
-
+        if (paymentStatus) {
+            try {
+                decreaseActualStorageFuture.get();
+            } catch (InterruptedException | ExecutionException e) {
+                log.error("error during confirm order", e);
+                if (decreaseActualStorageFuture.isCompletedExceptionally())
+                    throw new ActualStorageDecreaseException();
+            }
+        }
         OrderConfirmStatusRepresentation confirmStatusRepresentation = new OrderConfirmStatusRepresentation();
         confirmStatusRepresentation.put("paymentStatus", paymentStatus);
         return confirmStatusRepresentation;
@@ -191,12 +199,38 @@ public class OrderApplicationService {
         customerOrder.setExpired(Boolean.FALSE);
         customerOrder.updateModifiedByUserAt();
 
-        String paymentLink = paymentService.generatePaymentLink(String.valueOf(orderId));
-
+        // generate payment QR link
+        CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
+                paymentService.generatePaymentLink(String.valueOf(orderId)), customExecutor
+        );
+        // decrease order storage
+        CompletableFuture<Void> decreaseOrderStorageFuture = null;
+        CompletableFuture<Void> allDoneFuture;
         if (customerOrder.getExpired() && customerOrder.getRevoked()) {
-            productStorageService.decreaseOrderStorage(customerOrder.getProductSummary());
+            decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
+                    productStorageService.decreaseOrderStorage(customerOrder.getProductSummary()), customExecutor
+            );
             customerOrder.setRevoked(Boolean.FALSE);
             orderRepository.save(customerOrder);
+            allDoneFuture = CompletableFuture.allOf(paymentQRLinkFuture, decreaseOrderStorageFuture);
+        } else {
+            allDoneFuture = CompletableFuture.allOf(paymentQRLinkFuture);
+        }
+        String paymentLink;
+        try {
+            allDoneFuture.get();
+            paymentLink = paymentQRLinkFuture.get();
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("error during place order again", e);
+            if (decreaseOrderStorageFuture != null && decreaseOrderStorageFuture.isCompletedExceptionally())
+                throw new OrderStorageDecreaseException();
+            if (paymentQRLinkFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally()) {
+                CompletableFuture.runAsync(() ->
+                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), customExecutor
+                );
+                throw new PaymentQRLinkGenerationException();
+            }
+            throw new OrderCreateException();
         }
         return new OrderPaymentLinkRepresentation(paymentLink);
     }

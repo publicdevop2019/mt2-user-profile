@@ -24,14 +24,15 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.initialize();
         return executor;
     }
+
     @Bean
-    @Qualifier("reserveOrder")
-    public Executor reserveOrderExecutor() {
+    @Qualifier("CustomPool")
+    public Executor customPool() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(50);
-        executor.setMaxPoolSize(50);
+        executor.setCorePoolSize(100);
+        executor.setMaxPoolSize(100);
         executor.setQueueCapacity(500);
-        executor.setThreadNamePrefix("ReserveOrder-");
+        executor.setThreadNamePrefix("CustomPool-");
         executor.initialize();
         return executor;
     }
