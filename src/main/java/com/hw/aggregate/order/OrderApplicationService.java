@@ -140,7 +140,7 @@ public class OrderApplicationService {
                 );
                 throw new ProductInfoValidationException();
             }
-            throw new OrderCreateException();
+            throw new OrderCreationUnknownException();
         }
         log.debug("order storage decreased");
         cartApplicationService.clearCartItem(profileId);
@@ -206,7 +206,8 @@ public class OrderApplicationService {
         // decrease order storage
         CompletableFuture<Void> decreaseOrderStorageFuture = null;
         CompletableFuture<Void> allDoneFuture;
-        if (customerOrder.getExpired() && customerOrder.getRevoked()) {
+        boolean decreaseCallRequired = customerOrder.getExpired() && customerOrder.getRevoked();
+        if (decreaseCallRequired) {
             decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
                     productStorageService.decreaseOrderStorage(customerOrder.getProductSummary()), customExecutor
             );
@@ -222,15 +223,22 @@ public class OrderApplicationService {
             paymentLink = paymentQRLinkFuture.get();
         } catch (InterruptedException | ExecutionException e) {
             log.error("error during place order again", e);
-            if (decreaseOrderStorageFuture != null && decreaseOrderStorageFuture.isCompletedExceptionally())
-                throw new OrderStorageDecreaseException();
-            if (paymentQRLinkFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally()) {
-                CompletableFuture.runAsync(() ->
-                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), customExecutor
-                );
-                throw new PaymentQRLinkGenerationException();
+            if (decreaseCallRequired) {
+                // order expired
+                if (decreaseOrderStorageFuture.isCompletedExceptionally())
+                    throw new OrderStorageDecreaseException();
+                if (paymentQRLinkFuture.isCompletedExceptionally()) {
+                    CompletableFuture.runAsync(() ->
+                            productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), customExecutor
+                    );
+                    throw new PaymentQRLinkGenerationException();
+                }
+            } else {
+                // order not expired
+                if (paymentQRLinkFuture.isCompletedExceptionally())
+                    throw new PaymentQRLinkGenerationException();
             }
-            throw new OrderCreateException();
+            throw new OrderCreationUnknownException();
         }
         return new OrderPaymentLinkRepresentation(paymentLink);
     }

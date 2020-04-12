@@ -47,7 +47,7 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(value = {
             ActualStorageDecreaseException.class,
             OrderStorageDecreaseException.class,
-            OrderCreateException.class,
+            OrderCreationUnknownException.class,
             PaymentQRLinkGenerationException.class,
     })
     protected ResponseEntity<?> handle500Exception(RuntimeException ex, WebRequest request) {
