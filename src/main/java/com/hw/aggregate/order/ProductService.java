@@ -34,6 +34,9 @@ public class ProductService {
     @Value("${url.validateUrl}")
     private String validateUrl;
 
+    @Value("${url.revoke}")
+    private String revokeUrl;
+
     @Autowired
     private ObjectMapper mapper;
 
@@ -41,19 +44,26 @@ public class ProductService {
     private ResourceServiceTokenHelper tokenHelper;
 
 
-    public void decreaseOrderStorage(Map<String, Integer> productMap) {
-        changeStorage(decreaseUrl, productMap);
+    public void decreaseOrderStorage(Map<String, Integer> productMap, String optToken) {
+        changeStorage(decreaseUrl, productMap, optToken);
     }
 
-    public void increaseOrderStorage(Map<String, Integer> productMap) {
-        changeStorage(increaseUrl, productMap);
+    public void increaseOrderStorage(Map<String, Integer> productMap, String optToken) {
+        changeStorage(increaseUrl, productMap, optToken);
     }
 
-    public void decreaseActualStorage(Map<String, Integer> productMap) {
-        changeStorage(soldUrl, productMap);
+    public void revokeOrderStorageChange(String optToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(headers);
+        tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + revokeUrl + "?optToken=" + optToken, HttpMethod.PUT, hashMapHttpEntity, String.class);
     }
 
-    private void changeStorage(String url, Map<String, Integer> productMap) {
+    public void decreaseActualStorage(Map<String, Integer> productMap, String optToken) {
+        changeStorage(soldUrl, productMap, optToken);
+    }
+
+    private void changeStorage(String url, Map<String, Integer> productMap, String optToken) {
         String body = null;
         try {
             body = mapper.writeValueAsString(productMap);
@@ -65,7 +75,7 @@ public class ProductService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
-        tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + url, HttpMethod.PUT, hashMapHttpEntity, String.class);
+        tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + url + "?optToken=" + optToken, HttpMethod.PUT, hashMapHttpEntity, String.class);
     }
 
     public void validateProductInfo(List<CustomerOrderItem> customerOrderItemList) {

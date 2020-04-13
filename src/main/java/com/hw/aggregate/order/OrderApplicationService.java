@@ -21,10 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -103,13 +100,14 @@ public class OrderApplicationService {
         log.debug("order id generated & saved");
 
         // generate payment QR link
+        String operationToken = getOperationToken();
         CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
                 paymentService.generatePaymentLink(reservedOrderId), customExecutor
         );
 
         // decrease order storage
         CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                productStorageService.decreaseOrderStorage(customerOrder.getProductSummary()), customExecutor
+                productStorageService.decreaseOrderStorage(customerOrder.getProductSummary(), operationToken), customExecutor
         );
         CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
         String paymentLink;
@@ -118,20 +116,16 @@ public class OrderApplicationService {
             paymentLink = paymentQRLinkFuture.get();
         } catch (InterruptedException | ExecutionException e) {
             log.error("error during reserve order", e);
+            CompletableFuture.runAsync(() ->
+                    productStorageService.revokeOrderStorageChange(operationToken), customExecutor
+            );
+            // if decreaseOrderStorageFuture got timeout, the order storage should get revoked
             if (decreaseOrderStorageFuture.isCompletedExceptionally())
                 throw new OrderStorageDecreaseException();
-            if (paymentQRLinkFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally()) {
-                CompletableFuture.runAsync(() ->
-                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), customExecutor
-                );
+            if (paymentQRLinkFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally())
                 throw new PaymentQRLinkGenerationException();
-            }
-            if (validateResultFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally()) {
-                CompletableFuture.runAsync(() ->
-                        productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), customExecutor
-                );
+            if (validateResultFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally())
                 throw new ProductInfoValidationException();
-            }
             throw new OrderCreationUnknownException();
         }
         log.debug("order storage decreased");
@@ -149,7 +143,7 @@ public class OrderApplicationService {
             log.debug("notify business owner asynchronously");
             messengerService.notifyBusinessOwner(new HashMap<>());
             decreaseActualStorageFuture = CompletableFuture.runAsync(() ->
-                    productStorageService.decreaseActualStorage(customerOrder.getProductSummary()), customExecutor
+                    productStorageService.decreaseActualStorage(customerOrder.getProductSummary(), customerOrder.getId().toString()), customExecutor
             );
         }
         customerOrder.setPaymentStatus(paymentStatus);
@@ -160,6 +154,8 @@ public class OrderApplicationService {
             } catch (InterruptedException | ExecutionException e) {
                 log.error("error during confirm order", e);
                 if (decreaseActualStorageFuture.isCompletedExceptionally())
+                    // actual storage will not revoked
+                    // when user confirm again, decreaseActualStorage api is idempotent with same orderId
                     throw new ActualStorageDecreaseException();
             }
         }
@@ -199,9 +195,10 @@ public class OrderApplicationService {
         CompletableFuture<Void> decreaseOrderStorageFuture = null;
         CompletableFuture<Void> allDoneFuture;
         boolean decreaseCallRequired = customerOrder.getExpired() && customerOrder.getRevoked();
+        String operationToken = getOperationToken();
         if (decreaseCallRequired) {
             decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                    productStorageService.decreaseOrderStorage(customerOrder.getProductSummary()), customExecutor
+                    productStorageService.decreaseOrderStorage(customerOrder.getProductSummary(), operationToken), customExecutor
             );
             customerOrder.setRevoked(Boolean.FALSE);
             orderRepository.save(customerOrder);
@@ -217,18 +214,17 @@ public class OrderApplicationService {
             log.error("error during place order again", e);
             if (decreaseCallRequired) {
                 // order expired
-                if (decreaseOrderStorageFuture.isCompletedExceptionally())
+                CompletableFuture.runAsync(() ->
+                        productStorageService.revokeOrderStorageChange(operationToken), customExecutor
+                );
+                if (decreaseOrderStorageFuture.isCompletedExceptionally()) {
                     throw new OrderStorageDecreaseException();
-                if (paymentQRLinkFuture.isCompletedExceptionally()) {
-                    CompletableFuture.runAsync(() ->
-                            productStorageService.increaseOrderStorage(customerOrder.getProductSummary()), customExecutor
-                    );
-                    throw new PaymentQRLinkGenerationException();
                 }
             } else {
                 // order not expired
-                if (paymentQRLinkFuture.isCompletedExceptionally())
-                    throw new PaymentQRLinkGenerationException();
+            }
+            if (paymentQRLinkFuture.isCompletedExceptionally()) {
+                throw new PaymentQRLinkGenerationException();
             }
             throw new OrderCreationUnknownException();
         }
@@ -262,7 +258,8 @@ public class OrderApplicationService {
         try {
             if (!stringIntegerHashMap.keySet().isEmpty()) {
                 log.info("release product(s) :: " + stringIntegerHashMap.toString());
-                productStorageService.increaseOrderStorage(stringIntegerHashMap);
+                String changeId = getOperationToken();
+                productStorageService.increaseOrderStorage(stringIntegerHashMap, changeId);
                 /** mark revoked orders */
                 expiredOrderList.forEach(revokedOrder -> {
                     revokedOrder.setRevoked(Boolean.TRUE);
@@ -285,5 +282,9 @@ public class OrderApplicationService {
         if (!byId.get().getProfileId().equals(profileId))
             throw new OrderAccessException();
         return byId.get();
+    }
+
+    private String getOperationToken() {
+        return UUID.randomUUID().toString();
     }
 }
