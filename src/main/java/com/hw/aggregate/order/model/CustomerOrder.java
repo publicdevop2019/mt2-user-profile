@@ -67,6 +67,9 @@ public class CustomerOrder extends Auditable {
     @Column
     private Boolean revoked;
 
+    @Version
+    private Integer version;
+
     public CustomerOrder() {
     }
 

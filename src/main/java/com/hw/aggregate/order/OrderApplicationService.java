@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @Slf4j
@@ -79,7 +78,7 @@ public class OrderApplicationService {
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
     public OrderCustomerRepresentation getOrderForCustomer(String authUserId, Long profileId, Long orderId) {
-        return new OrderCustomerRepresentation(getOrderForCustomer(profileId, orderId));
+        return new OrderCustomerRepresentation(getOrderForCustomerReadOnly(profileId, orderId));
     }
 
     @ProfileExistAndOwnerOnly
@@ -136,7 +135,14 @@ public class OrderApplicationService {
     @ProfileExistAndOwnerOnly
     @Transactional
     public OrderConfirmStatusRepresentation confirmOrderPaymentStatus(String authUserId, Long profileId, ConfirmOrderPaymentCommand confirmOrderPaymentCommand) {
-        CustomerOrder customerOrder = getOrderForCustomer(profileId, confirmOrderPaymentCommand.orderId);
+        OrderConfirmStatusRepresentation confirmStatusRepresentation = new OrderConfirmStatusRepresentation();
+        CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, confirmOrderPaymentCommand.orderId);
+
+        if (customerOrder.getPaymentStatus().equals(CustomerOrderPaymentStatus.paid)) {
+            confirmStatusRepresentation.put("paymentStatus", Boolean.TRUE);
+            return confirmStatusRepresentation;
+        }
+
         Boolean paymentStatus = paymentService.confirmPaymentStatus(confirmOrderPaymentCommand.orderId.toString());
         CompletableFuture<Void> decreaseActualStorageFuture = null;
         if (paymentStatus) {
@@ -159,7 +165,6 @@ public class OrderApplicationService {
                     throw new ActualStorageDecreaseException();
             }
         }
-        OrderConfirmStatusRepresentation confirmStatusRepresentation = new OrderConfirmStatusRepresentation();
         confirmStatusRepresentation.put("paymentStatus", paymentStatus);
         return confirmStatusRepresentation;
     }
@@ -180,12 +185,26 @@ public class OrderApplicationService {
     @ProfileExistAndOwnerOnly
     @Transactional
     public OrderPaymentLinkRepresentation placeOrderAgain(String authUserId, Long profileId, Long orderId, PlaceOrderAgainCommand placeOrderAgainCommand) {
-        CustomerOrder customerOrder = getOrderForCustomer(profileId, orderId);
-
+        log.info("place order {} again", orderId);
+        CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, orderId);
+        // if order already paid, just return paymentLink
+        //@todo add paymentLink field in order entity
+        if (customerOrder.getPaymentStatus().equals(CustomerOrderPaymentStatus.paid)) {
+            // generate payment QR link
+            CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
+                    paymentService.generatePaymentLink(String.valueOf(orderId)), customExecutor
+            );
+            try {
+                String paymentLink = paymentQRLinkFuture.get();
+                return new OrderPaymentLinkRepresentation(paymentLink);
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+        log.info("updating order address & paymentType if applicable");
         customerOrder.setAddress(placeOrderAgainCommand.getAddress());
         customerOrder.setPaymentType(placeOrderAgainCommand.getPaymentType());
-        customerOrder.setExpired(Boolean.FALSE);
-        customerOrder.updateModifiedByUserAt();
+
 
         // generate payment QR link
         CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
@@ -197,11 +216,13 @@ public class OrderApplicationService {
         boolean decreaseCallRequired = customerOrder.getExpired() && customerOrder.getRevoked();
         String operationToken = getOperationToken();
         if (decreaseCallRequired) {
+            log.info("order has expired, reserving order storage again");
             decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
                     productStorageService.decreaseOrderStorage(customerOrder.getProductSummary(), operationToken), customExecutor
             );
             customerOrder.setRevoked(Boolean.FALSE);
-            orderRepository.save(customerOrder);
+            customerOrder.setExpired(Boolean.FALSE);
+            customerOrder.updateModifiedByUserAt();
             allDoneFuture = CompletableFuture.allOf(paymentQRLinkFuture, decreaseOrderStorageFuture);
         } else {
             allDoneFuture = CompletableFuture.allOf(paymentQRLinkFuture);
@@ -210,9 +231,11 @@ public class OrderApplicationService {
         try {
             allDoneFuture.get();
             paymentLink = paymentQRLinkFuture.get();
+            orderRepository.saveAndFlush(customerOrder);
         } catch (InterruptedException | ExecutionException e) {
             log.error("error during place order again", e);
             if (decreaseCallRequired) {
+                log.error("revoke last operation", e);
                 // order expired
                 CompletableFuture.runAsync(() ->
                         productStorageService.revokeOrderStorageChange(operationToken), customExecutor
@@ -234,22 +257,23 @@ public class OrderApplicationService {
     @ProfileExistAndOwnerOnly
     @Transactional
     public void deleteOrder(String authUserId, Long profileId, DeleteOrderCustomerCommand deleteOrderCustomerCommand) {
-        CustomerOrder customerOrder = getOrderForCustomer(profileId, deleteOrderCustomerCommand.orderId);
+        CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, deleteOrderCustomerCommand.orderId);
         orderRepository.delete(customerOrder);
     }
 
     @Transactional
     @Scheduled(fixedRateString = "${fixedRate.in.milliseconds}")
     public void releaseExpiredOrder() {
-        log.info("start of scheduler");
+        String changeId = getOperationToken();
+        log.info("Expired order scheduler started, optToken generated {}", changeId);
+        long l = Instant.now().toEpochMilli() - expireAfter * 60 * 1000;
+        Instant instant = Instant.ofEpochMilli(l);
+        Date from = Date.from(instant);
+        List<CustomerOrder> expiredOrderList = orderRepository.findUnpaidExpiredNonRevokedOrders(from);
+        List<Long> collect = expiredOrderList.stream().map(e -> e.getId()).collect(Collectors.toList());
+        log.info("Expired order(s) found {}", collect.toString());
         Map<String, Integer> stringIntegerHashMap = new HashMap<>();
-        List<CustomerOrder> all = orderRepository.findAll();
-        Stream<CustomerOrder> unpaidOrders = all.stream().filter(e -> e.getPaymentStatus().equals(CustomerOrderPaymentStatus.unpaid));
-        Stream<CustomerOrder> expiredOrders = unpaidOrders.filter(e -> (e.getModifiedByUserAt().toInstant().toEpochMilli() + expireAfter * 60 * 1000 < Instant.now().toEpochMilli()) && (Boolean.FALSE.equals(e.getRevoked())));
-        List<CustomerOrder> expiredOrderList = expiredOrders.collect(Collectors.toList());
         expiredOrderList.forEach(expiredOrder -> {
-            expiredOrder.setExpired(Boolean.TRUE);
-            expiredOrder.setRevoked(Boolean.FALSE);
             Map<String, Integer> orderProductMap = expiredOrder.getProductSummary();
             orderProductMap.forEach((key, value) -> {
                 stringIntegerHashMap.merge(key, value, Integer::sum);
@@ -257,25 +281,36 @@ public class OrderApplicationService {
         });
         try {
             if (!stringIntegerHashMap.keySet().isEmpty()) {
-                log.info("release product(s) :: " + stringIntegerHashMap.toString());
-                String changeId = getOperationToken();
+                log.info("Release product(s) in order(s) :: " + stringIntegerHashMap.toString());
                 productStorageService.increaseOrderStorage(stringIntegerHashMap, changeId);
                 /** mark revoked orders */
                 expiredOrderList.forEach(revokedOrder -> {
+                    revokedOrder.setExpired(Boolean.TRUE);
                     revokedOrder.setRevoked(Boolean.TRUE);
                 });
             }
+            log.info("Expired order(s) released");
+            orderRepository.saveAll(expiredOrderList);
+            orderRepository.flush();
         } catch (Exception ex) {
-            log.error("error during revoking storage");
+            log.error("Error during release storage, revoke last operation", ex);
+            CompletableFuture.runAsync(() ->
+                    productStorageService.revokeOrderStorageChange(changeId)
+            );
             throw new OrderSchedulerProductRecycleException();
         }
-        expiredOrderList.forEach(e -> {
-            orderRepository.save(e);
-        });
-        log.debug("order scheduler execute success");
     }
 
-    private CustomerOrder getOrderForCustomer(Long profileId, Long orderId) {
+    private CustomerOrder getOrderForCustomerToUpdate(Long profileId, Long orderId) {
+        Optional<CustomerOrder> byId = orderRepository.findByIdForUpdate(orderId);
+        if (byId.isEmpty())
+            throw new OrderNotExistException();
+        if (!byId.get().getProfileId().equals(profileId))
+            throw new OrderAccessException();
+        return byId.get();
+    }
+
+    private CustomerOrder getOrderForCustomerReadOnly(Long profileId, Long orderId) {
         Optional<CustomerOrder> byId = orderRepository.findById(orderId);
         if (byId.isEmpty())
             throw new OrderNotExistException();
