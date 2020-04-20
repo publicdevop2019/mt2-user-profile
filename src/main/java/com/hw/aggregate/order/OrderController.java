@@ -35,7 +35,7 @@ public class OrderController {
 
     @PostMapping("profiles/{profileId}/orders")
     public ResponseEntity<?> reserveOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody CreateOrderCommand newOrder) {
-        OrderPaymentLinkRepresentation orderPaymentLinkRepresentation = orderService.reserveOrder(ServiceUtility.getUserId(authorization), profileId, newOrder);
+        OrderPaymentLinkRepresentation orderPaymentLinkRepresentation = orderService.createNew(ServiceUtility.getUserId(authorization), profileId, newOrder);
         return ResponseEntity.ok().header("Location", orderPaymentLinkRepresentation.paymentLink).build();
     }
 
@@ -47,7 +47,13 @@ public class OrderController {
 
     @GetMapping("profiles/{profileId}/orders/{orderId}/confirm")
     public ResponseEntity<?> confirmOrderPaymentStatus(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
-        OrderConfirmStatusRepresentation orderConfirmStatusRepresentation = orderService.confirmOrderPaymentStatus(ServiceUtility.getUserId(authorization), profileId, new ConfirmOrderPaymentCommand(orderId));
+        ConfirmOrderPaymentCommand confirmOrderPaymentCommand = new ConfirmOrderPaymentCommand(orderId);
+        OrderConfirmStatusRepresentation orderConfirmStatusRepresentation = orderService.confirmPayment(ServiceUtility.getUserId(authorization), profileId, confirmOrderPaymentCommand);
+        if (orderConfirmStatusRepresentation.get("paymentStatus")) {
+            orderService.confirmOrder(ServiceUtility.getUserId(authorization), profileId, confirmOrderPaymentCommand);
+        } else {
+            orderService.placeAgain(ServiceUtility.getUserId(authorization), profileId, orderId, null);
+        }
         return ResponseEntity.ok(orderConfirmStatusRepresentation);
     }
 
@@ -60,7 +66,9 @@ public class OrderController {
 
     @PutMapping("profiles/{profileId}/orders/{orderId}/replace")
     public ResponseEntity<?> placeOrderAgain(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody PlaceOrderAgainCommand newOrder) {
-        OrderPaymentLinkRepresentation orderPaymentLinkRepresentation = orderService.placeOrderAgain(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder);
+        OrderPaymentLinkRepresentation orderPaymentLinkRepresentation = orderService.placeAgain(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder);
+        if (orderPaymentLinkRepresentation.paymentState)
+            orderService.confirmOrder(ServiceUtility.getUserId(authorization), profileId, new ConfirmOrderPaymentCommand(orderId));
         return ResponseEntity.ok().header("Location", orderPaymentLinkRepresentation.paymentLink).build();
     }
 

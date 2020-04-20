@@ -29,6 +29,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(value = {
             OrderAlreadyPaidException.class,
+            StateChangeException.class,
             OrderNotExistException.class,
             OrderPaymentMismatchException.class,
             ProductInfoValidationException.class,

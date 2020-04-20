@@ -1,9 +1,10 @@
 package com.hw.aggregate.order.model;
 
-import com.hw.aggregate.order.exception.OrderAlreadyPaidException;
 import com.hw.aggregate.order.exception.OrderPaymentMismatchException;
+import com.hw.aggregate.order.exception.StateChangeException;
 import com.hw.shared.Auditable;
 import lombok.Data;
+import lombok.Getter;
 
 import javax.persistence.*;
 import javax.validation.Valid;
@@ -48,24 +49,21 @@ public class CustomerOrder extends Auditable {
     private String paymentType;
 
     @Column
+    private String paymentLink;
+
+    @Column
     @NotNull
     private BigDecimal paymentAmt;
 
     @Column
     private String paymentDate;
 
-
     @Column
-    private CustomerOrderPaymentStatus paymentStatus;
+    @Getter
+    private OrderState orderState;
 
     @Column
     private Date modifiedByUserAt;
-
-    @Column
-    private Boolean expired;
-
-    @Column
-    private Boolean revoked;
 
     @Version
     private Integer version;
@@ -96,33 +94,16 @@ public class CustomerOrder extends Auditable {
     }
 
     public void updateModifiedByUserAt() {
-        if (paymentStatus != null && paymentStatus.equals(CustomerOrderPaymentStatus.paid))
-            throw new OrderAlreadyPaidException();
         this.modifiedByUserAt = Date.from(Instant.now());
     }
 
     public void setAddress(CustomerOrderAddress address) {
-        if (paymentStatus != null && paymentStatus.equals(CustomerOrderPaymentStatus.paid))
-            throw new OrderAlreadyPaidException();
         this.address = new CustomerOrderAddress(address.getFullName(), address.getLine1(), address.getLine2()
                 , address.getPostalCode(), address.getPhoneNumber(), address.getCity(), address.getProvince(), address.getCountry());
     }
 
     public void setPaymentType(String paymentType) {
-        if (paymentStatus != null && paymentStatus.equals(CustomerOrderPaymentStatus.paid))
-            throw new OrderAlreadyPaidException();
         this.paymentType = paymentType;
-    }
-
-    /**
-     * update payment status, ex through if order is already paid
-     *
-     * @param paymentStatus
-     */
-    public void setPaymentStatus(Boolean paymentStatus) {
-        if (this.paymentStatus != null && paymentStatus && this.paymentStatus.equals(CustomerOrderPaymentStatus.paid))
-            throw new OrderAlreadyPaidException();
-        this.paymentStatus = paymentStatus ? CustomerOrderPaymentStatus.paid : CustomerOrderPaymentStatus.unpaid;
     }
 
     public static CustomerOrder create(Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
@@ -136,10 +117,9 @@ public class CustomerOrder extends Auditable {
         this.address = address;
         this.paymentType = paymentType;
         this.paymentAmt = paymentAmt;
-        this.paymentStatus = CustomerOrderPaymentStatus.unpaid;
-        this.expired = Boolean.FALSE;
-        this.revoked = Boolean.FALSE;
         this.modifiedByUserAt = Date.from(Instant.now());
+        validatePaymentAmount();
+        toNotPaidReserved();
     }
 
     /**
@@ -169,7 +149,42 @@ public class CustomerOrder extends Auditable {
         return stringIntegerHashMap;
     }
 
-    public void validatePaymentAmount() {
+    public void toNotPaidReserved() {
+        // new order or recycled order
+        if ((id == null && orderState == null) || id != null && orderState.equals(OrderState.NOT_PAID_RECYCLED)) {
+            orderState = OrderState.NOT_PAID_RESERVED;
+        } else {
+            throw new StateChangeException();
+        }
+    }
+
+    public void toNotPaidRecycled() {
+        if (orderState != OrderState.NOT_PAID_RESERVED)
+            throw new StateChangeException();
+        orderState = OrderState.NOT_PAID_RECYCLED;
+    }
+
+    public void toPaidReserved() {
+        if (orderState == OrderState.NOT_PAID_RESERVED || orderState == OrderState.PAID_RECYCLED) {
+            orderState = OrderState.PAID_RESERVED;
+        } else {
+            throw new StateChangeException();
+        }
+    }
+
+    public void toConfirmed() {
+        if (orderState != OrderState.PAID_RESERVED)
+            throw new StateChangeException();
+        orderState = OrderState.CONFIRMED;
+    }
+
+    public void toPaidRecycled() {
+        if (orderState != OrderState.NOT_PAID_RECYCLED)
+            throw new StateChangeException();
+        orderState = OrderState.PAID_RECYCLED;
+    }
+
+    private void validatePaymentAmount() {
         BigDecimal reduce = readOnlyProductList.stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
         if (paymentAmt.compareTo(reduce) != 0)
             throw new OrderPaymentMismatchException();

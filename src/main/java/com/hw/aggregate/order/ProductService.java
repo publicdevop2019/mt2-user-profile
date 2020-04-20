@@ -52,7 +52,7 @@ public class ProductService {
         changeStorage(increaseUrl, productMap, optToken);
     }
 
-    public void revokeOrderStorageChange(String optToken) {
+    public void rollbackChange(String optToken) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(headers);

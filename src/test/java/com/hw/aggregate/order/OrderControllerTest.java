@@ -70,7 +70,6 @@ public class OrderControllerTest {
         }
         customerOrder.setReadOnlyProductList(new ArrayList<>(customerOrderItems));
         customerOrder.setPaymentAmt(new BigDecimal(100));
-        customerOrder.setPaymentStatus(true);
         customerOrder.setId(1500L);
         return customerOrder;
     }
