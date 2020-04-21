@@ -10,6 +10,7 @@ import com.hw.aggregate.order.representation.*;
 import com.hw.clazz.ProfileExistAndOwnerOnly;
 import com.hw.shared.EurekaRegistryHelper;
 import com.hw.shared.ResourceServiceTokenHelper;
+import javassist.runtime.Inner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,8 +19,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionCallbackWithoutResult;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import javax.persistence.EntityManager;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -63,6 +69,13 @@ public class OrderApplicationService {
     @Qualifier("CustomPool")
     private Executor customExecutor;
 
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private EntityManager entityManager;
+
+
     @Transactional(readOnly = true)
     public OrderSummaryAdminRepresentation getAllOrdersForAdmin() {
         return new OrderSummaryAdminRepresentation(orderRepository.findAll());
@@ -84,6 +97,7 @@ public class OrderApplicationService {
     @ProfileExistAndOwnerOnly
     @Transactional
     public OrderPaymentLinkRepresentation createNew(String authUserId, Long profileId, CreateOrderCommand newOrder) {
+        log.debug("start of createNew");
         CustomerOrder customerOrder = CustomerOrder.create(profileId, newOrder.getProductList(), newOrder.getAddress(), newOrder.getPaymentType(), newOrder.getPaymentAmt());
 
         // validate order product info
@@ -98,6 +112,7 @@ public class OrderApplicationService {
 
         // generate payment QR link
         String operationToken = getOperationToken();
+        log.debug("optToken generated {}", operationToken);
         CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
                 paymentService.generatePaymentLink(reservedOrderId), customExecutor
         );
@@ -134,6 +149,7 @@ public class OrderApplicationService {
     @ProfileExistAndOwnerOnly
     @Transactional
     public OrderConfirmStatusRepresentation confirmPayment(String authUserId, Long profileId, ConfirmOrderPaymentCommand confirmOrderPaymentCommand) {
+        log.debug("start of confirmPayment");
         CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, confirmOrderPaymentCommand.orderId);
         Boolean paymentStatus = paymentService.confirmPaymentStatus(confirmOrderPaymentCommand.orderId.toString());
         if (paymentStatus) {
@@ -152,25 +168,29 @@ public class OrderApplicationService {
     }
 
     @ProfileExistAndOwnerOnly
-    @Transactional
     public void confirmOrder(String authUserId, Long profileId, ConfirmOrderPaymentCommand confirmOrderPaymentCommand) {
-        CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, confirmOrderPaymentCommand.orderId);
-        customerOrder.toConfirmed();
-        CompletableFuture<Void> decreaseActualStorageFuture = CompletableFuture.runAsync(() ->
-                productStorageService.decreaseActualStorage(customerOrder.getProductSummary(), customerOrder.getId().toString()), customExecutor
-        );
-        try {
-            decreaseActualStorageFuture.get();
-            log.info("notify business owner asynchronously");
-            orderRepository.saveAndFlush(customerOrder);
-            messengerService.notifyBusinessOwner(new HashMap<>());
-        } catch (InterruptedException | ExecutionException e) {
-            log.error("error during confirm order", e);
-            if (decreaseActualStorageFuture.isCompletedExceptionally())
-                // actual storage will not revoked
-                // when user confirm again, decreaseActualStorage api is idempotent with same orderId
-                throw new ActualStorageDecreaseException();
-        }
+        log.debug("start of confirmOrder");
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus status) {
+                CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, confirmOrderPaymentCommand.orderId);
+                customerOrder.toConfirmed();
+                String operationToken = getOperationToken();
+                CompletableFuture<Void> decreaseActualStorageFuture = CompletableFuture.runAsync(() ->
+                        productStorageService.decreaseActualStorage(customerOrder.getProductSummary(), operationToken), customExecutor
+                );
+                try {
+                    decreaseActualStorageFuture.get();
+                    entityManager.persist(customerOrder);
+                } catch (Exception e) {
+                    log.error("error during confirm order, rollback last change", e);
+                    productStorageService.rollbackChange(operationToken);
+                    throw new ActualStorageDecreaseException();
+                }
+            }
+        });
+        messengerService.notifyBusinessOwner(new HashMap<>());
     }
 
     @Transactional
@@ -279,26 +299,21 @@ public class OrderApplicationService {
         }
     }
 
-    @Transactional
     @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.resubmit}")
     public void resubmitOrder() {
-        String changeId = getOperationToken();
-        log.info("Resubmit order scheduler started, optToken generated {}", changeId);
+        log.debug("start of resubmitOrder");
         List<CustomerOrder> paidReserved = orderRepository.findPaidReserved();
-        List<Long> collect = paidReserved.stream().map(CustomerOrder::getId).collect(Collectors.toList());
-        log.info("Paid reserved order(s) found {}", collect.toString());
-        try {
-            if (collect.size() > 0) {
-                // submit one order for now
-                // @TODO batch job ??
-                CustomerOrder customerOrder = paidReserved.get(0);
-                log.info("Resubmit order {}", customerOrder.getId());
-                confirmOrder(null, customerOrder.getProfileId(), new ConfirmOrderPaymentCommand(customerOrder.getId()));
-            }
-            log.info("Paid reserved order released");
-        } catch (Exception ex) {
-            log.error("Error during resubmit order", ex);
-            throw new OrderResubmitException();
+        log.info("Paid reserved order(s) found {}", paidReserved.stream().map(CustomerOrder::getId).collect(Collectors.toList()));
+        if (paidReserved.size() > 0) {
+            // submit one order for now
+            paidReserved.forEach(order -> {
+                try {
+                    confirmOrder(null, order.getProfileId(), new ConfirmOrderPaymentCommand(order.getId()));
+                    log.info("Resubmit order {} success", order.getId());
+                } catch (Exception e) {
+                    log.error("Resubmit order {} failed", order.getId(), e);
+                }
+            });
         }
     }
 

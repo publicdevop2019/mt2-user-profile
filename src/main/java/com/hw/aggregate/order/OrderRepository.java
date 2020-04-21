@@ -23,7 +23,6 @@ public interface OrderRepository extends JpaRepository<CustomerOrder, Long> {
     @Query("SELECT p FROM #{#entityName} as p WHERE p.modifiedByUserAt < ?1 AND p.orderState = 0")
     List<CustomerOrder> findExpiredNotPaidReserved(Date expireAt);
 
-    @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
     @Query("SELECT p FROM #{#entityName} as p WHERE p.orderState = 2")
     List<CustomerOrder> findPaidReserved();
 }
