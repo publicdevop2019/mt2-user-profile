@@ -42,7 +42,10 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             MaxAddressCountException.class
     })
     protected ResponseEntity<?> handle400Exception(RuntimeException ex, WebRequest request) {
-        return handleExceptionInternal(ex, new ErrorMessage(ex), new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
+        ErrorMessage errorMessage = new ErrorMessage(ex);
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.set("Error-Id", errorMessage.errorId);
+        return handleExceptionInternal(ex, errorMessage, httpHeaders, HttpStatus.BAD_REQUEST, request);
     }
 
     @ExceptionHandler(value = {
@@ -52,7 +55,10 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             PaymentQRLinkGenerationException.class,
     })
     protected ResponseEntity<?> handle500Exception(RuntimeException ex, WebRequest request) {
-        return handleExceptionInternal(ex, new ErrorMessage(ex), new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR, request);
+        ErrorMessage errorMessage = new ErrorMessage(ex);
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.set("Error-Id", errorMessage.errorId);
+        return handleExceptionInternal(ex, errorMessage, httpHeaders, HttpStatus.INTERNAL_SERVER_ERROR, request);
     }
 
     @ExceptionHandler(value = {
@@ -62,6 +68,9 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             AddressAccessException.class,
     })
     protected ResponseEntity<?> handle403Exception(RuntimeException ex, WebRequest request) {
-        return handleExceptionInternal(ex, new ErrorMessage(ex), new HttpHeaders(), HttpStatus.FORBIDDEN, request);
+        ErrorMessage errorMessage = new ErrorMessage(ex);
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.set("Error-Id", errorMessage.errorId);
+        return handleExceptionInternal(ex, errorMessage, httpHeaders, HttpStatus.FORBIDDEN, request);
     }
 }
