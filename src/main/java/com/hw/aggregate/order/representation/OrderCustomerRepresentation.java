@@ -3,6 +3,7 @@ package com.hw.aggregate.order.representation;
 import com.hw.aggregate.order.model.CustomerOrder;
 import com.hw.aggregate.order.model.CustomerOrderAddress;
 import com.hw.aggregate.order.model.CustomerOrderItem;
+import com.hw.aggregate.order.model.OrderState;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -17,6 +18,8 @@ public class OrderCustomerRepresentation {
 
     private String paymentType;
 
+    private OrderState orderState;
+
     private BigDecimal paymentAmt;
 
     public OrderCustomerRepresentation(CustomerOrder customerOrder) {
@@ -24,5 +27,6 @@ public class OrderCustomerRepresentation {
         this.productList = customerOrder.getReadOnlyProductList();
         this.paymentType = customerOrder.getPaymentType();
         this.paymentAmt = customerOrder.getPaymentAmt();
+        this.orderState = customerOrder.getOrderState();
     }
 }
