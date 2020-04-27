@@ -10,7 +10,6 @@ import com.hw.aggregate.order.representation.*;
 import com.hw.clazz.ProfileExistAndOwnerOnly;
 import com.hw.shared.EurekaRegistryHelper;
 import com.hw.shared.ResourceServiceTokenHelper;
-import javassist.runtime.Inner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -229,28 +228,38 @@ public class OrderApplicationService {
                     customerOrder.setPaymentType(placeOrderAgainCommand.getPaymentType());
             }
             representation = new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), Boolean.FALSE);
+        } else if (customerOrder.getOrderState().equals(OrderState.NOT_PAID_RESERVED)) {
+            if (placeOrderAgainCommand != null && (placeOrderAgainCommand.getPaymentType() != null || placeOrderAgainCommand.getAddress() != null)) {
+                log.info("updating order address & paymentType if applicable");
+                if (placeOrderAgainCommand.getAddress() != null)
+                    customerOrder.setAddress(placeOrderAgainCommand.getAddress());
+                if (placeOrderAgainCommand.getPaymentType() != null)
+                    customerOrder.setPaymentType(placeOrderAgainCommand.getPaymentType());
+            }
+            representation = new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), Boolean.FALSE);
         } else {
             throw new StateChangeException();
         }
-
-        // decrease order storage
-        String operationToken = getOperationToken();
-        CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                productStorageService.decreaseOrderStorage(customerOrder.getProductSummary(), operationToken), customExecutor
-        );
-        customerOrder.updateModifiedByUserAt();
-        try {
-            decreaseOrderStorageFuture.get();
-            orderRepository.saveAndFlush(customerOrder);
-        } catch (Exception e) {
-            log.error("error during place order again, rollback last operation", e);
-            CompletableFuture.runAsync(() ->
-                    productStorageService.rollbackChange(operationToken), customExecutor
+        if (!customerOrder.getOrderState().equals(OrderState.NOT_PAID_RESERVED)) {
+            // decrease order storage
+            String operationToken = getOperationToken();
+            CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
+                    productStorageService.decreaseOrderStorage(customerOrder.getProductSummary(), operationToken), customExecutor
             );
-            if (decreaseOrderStorageFuture.isCompletedExceptionally()) {
-                throw new OrderStorageDecreaseException();
+            customerOrder.updateModifiedByUserAt();
+            try {
+                decreaseOrderStorageFuture.get();
+                orderRepository.saveAndFlush(customerOrder);
+            } catch (Exception e) {
+                log.error("error during place order again, rollback last operation", e);
+                CompletableFuture.runAsync(() ->
+                        productStorageService.rollbackChange(operationToken), customExecutor
+                );
+                if (decreaseOrderStorageFuture.isCompletedExceptionally()) {
+                    throw new OrderStorageDecreaseException();
+                }
+                throw new OrderCreationUnknownException();
             }
-            throw new OrderCreationUnknownException();
         }
         return representation;
     }

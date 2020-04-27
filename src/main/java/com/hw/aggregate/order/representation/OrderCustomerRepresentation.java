@@ -11,7 +11,7 @@ import java.util.ArrayList;
 
 @Data
 public class OrderCustomerRepresentation {
-
+    private Long id;
     private CustomerOrderAddress address;
 
     private ArrayList<CustomerOrderItem> productList;
@@ -23,6 +23,7 @@ public class OrderCustomerRepresentation {
     private BigDecimal paymentAmt;
 
     public OrderCustomerRepresentation(CustomerOrder customerOrder) {
+        this.id = customerOrder.getId();
         this.address = customerOrder.getAddress();
         this.productList = customerOrder.getReadOnlyProductList();
         this.paymentType = customerOrder.getPaymentType();
