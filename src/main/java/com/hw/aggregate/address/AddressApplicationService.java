@@ -54,8 +54,8 @@ public class AddressApplicationService {
         if (byProfileId.stream().anyMatch(e -> e.equals(address))) {
             throw new DuplicateAddressException();
         }
-        Address save = addressRepository.save(address);
-        return new AddressRepresentation(save);
+        Address savedAddress = addressRepository.save(address);
+        return new AddressRepresentation(savedAddress);
     }
 
     @ProfileExistAndOwnerOnly

@@ -28,13 +28,13 @@ public class AddressController {
     @GetMapping("profiles/{profileId}/addresses/{addressId}")
     public ResponseEntity<?> getAddressInById(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "addressId") Long addressId) {
         AddressRepresentation addressInById = addressApplicationService.getAddressInById(ServiceUtility.getUserId(authorization), profileId, addressId);
-        return ResponseEntity.ok(addressInById.address);
+        return ResponseEntity.ok(addressInById);
     }
 
     @PostMapping("profiles/{profileId}/addresses")
     public ResponseEntity<?> createAddress(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody CreateAddressCommand address) {
         AddressRepresentation address1 = addressApplicationService.createAddress(ServiceUtility.getUserId(authorization), profileId, address);
-        return ResponseEntity.ok().header("Location", address1.address.getId().toString()).build();
+        return ResponseEntity.ok().header("Location", address1.getId().toString()).build();
     }
 
     @PutMapping("profiles/{profileId}/addresses/{addressId}")
