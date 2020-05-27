@@ -2,9 +2,7 @@ package com.hw.aggregate.cart.model;
 
 import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
 import com.hw.clazz.ProductOptionMapper;
-import lombok.AccessLevel;
 import lombok.Data;
-import lombok.Setter;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotEmpty;
@@ -14,13 +12,10 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "Cart")
-@SequenceGenerator(name = "cartId_gen", sequenceName = "cartId_gen", initialValue = 100)
 @Data
 public class CartItem {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO, generator = "cartId_gen")
-    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "fk_profile")
@@ -50,11 +45,12 @@ public class CartItem {
 
     }
 
-    public static CartItem create(Long profileId, String name, List<CustomerOrderItemAddOn> selectedOptions, String finalPrice, String imageUrlSmall, String productId) {
-        return new CartItem(profileId, name, selectedOptions, finalPrice, imageUrlSmall, productId);
+    public static CartItem create(Long id, Long profileId, String name, List<CustomerOrderItemAddOn> selectedOptions, String finalPrice, String imageUrlSmall, String productId) {
+        return new CartItem(id, profileId, name, selectedOptions, finalPrice, imageUrlSmall, productId);
     }
 
-    private CartItem(Long profileId, String name, List<CustomerOrderItemAddOn> selectedOptions, String finalPrice, String imageUrlSmall, String productId) {
+    private CartItem(Long id, Long profileId, String name, List<CustomerOrderItemAddOn> selectedOptions, String finalPrice, String imageUrlSmall, String productId) {
+        this.id = id;
         this.name = name;
         this.selectedOptions = selectedOptions;
         this.finalPrice = finalPrice;

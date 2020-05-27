@@ -11,6 +11,7 @@ import com.hw.aggregate.address.model.Address;
 import com.hw.aggregate.address.representation.AddressRepresentation;
 import com.hw.aggregate.address.representation.AddressSummaryRepresentation;
 import com.hw.clazz.ProfileExistAndOwnerOnly;
+import com.hw.shared.IdGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,9 @@ public class AddressApplicationService {
 
     @Autowired
     private AddressRepository addressRepository;
+
+    @Autowired
+    private IdGenerator idGenerator;
 
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
@@ -48,6 +52,7 @@ public class AddressApplicationService {
         if (byProfileId.size() == 5)
             throw new MaxAddressCountException();
         Address address = Address.create(
+                idGenerator.getId(),
                 profileId, createAddressCommand.getFullName(), createAddressCommand.getLine1(),
                 createAddressCommand.getLine2(), createAddressCommand.getPostalCode(), createAddressCommand.getPhoneNumber(),
                 createAddressCommand.getCity(), createAddressCommand.getProvince(), createAddressCommand.getCountry());

@@ -9,6 +9,7 @@ import com.hw.aggregate.order.model.OrderState;
 import com.hw.aggregate.order.representation.*;
 import com.hw.clazz.ProfileExistAndOwnerOnly;
 import com.hw.shared.EurekaRegistryHelper;
+import com.hw.shared.IdGenerator;
 import com.hw.shared.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -65,6 +66,9 @@ public class OrderApplicationService {
     private CartApplicationService cartApplicationService;
 
     @Autowired
+    private IdGenerator idGenerator;
+
+    @Autowired
     @Qualifier("CustomPool")
     private Executor customExecutor;
 
@@ -97,7 +101,7 @@ public class OrderApplicationService {
     @Transactional
     public OrderPaymentLinkRepresentation createNew(String authUserId, Long profileId, CreateOrderCommand newOrder) {
         log.debug("start of createNew");
-        CustomerOrder customerOrder = CustomerOrder.create(profileId, newOrder.getProductList(), newOrder.getAddress(), newOrder.getPaymentType(), newOrder.getPaymentAmt());
+        CustomerOrder customerOrder = CustomerOrder.create(idGenerator.getId(), profileId, newOrder.getProductList(), newOrder.getAddress(), newOrder.getPaymentType(), newOrder.getPaymentAmt());
 
         // validate order product info
         CompletableFuture<Void> validateResultFuture = CompletableFuture.runAsync(() ->

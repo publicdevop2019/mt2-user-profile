@@ -16,14 +16,12 @@ import java.util.*;
 
 @Entity
 @Table(name = "OrderDetail")
-@SequenceGenerator(name = "orderId_gen", sequenceName = "orderId_gen", initialValue = 100)
 @Data
 public class CustomerOrder extends Auditable {
     /**
      * id setter is required to correctly work with BeanPropertyRowMapper for spring batch
      */
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO, generator = "orderId_gen")
     private Long id;
 
     @Column(name = "fk_profile")
@@ -106,11 +104,12 @@ public class CustomerOrder extends Auditable {
         this.paymentType = paymentType;
     }
 
-    public static CustomerOrder create(Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
-        return new CustomerOrder(profileId, productList, address, paymentType, paymentAmt);
+    public static CustomerOrder create(Long id, Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
+        return new CustomerOrder(id, profileId, productList, address, paymentType, paymentAmt);
     }
 
-    private CustomerOrder(Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
+    private CustomerOrder(Long id, Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
+        this.id = id;
         this.profileId = profileId;
         this.readOnlyProductList = new ArrayList<>(productList);
         this.writeOnlyProductList = productList;
@@ -151,7 +150,7 @@ public class CustomerOrder extends Auditable {
 
     public void toNotPaidReserved() {
         // new order or recycled order
-        if ((id == null && orderState == null) || id != null && orderState.equals(OrderState.NOT_PAID_RECYCLED)) {
+        if (orderState == null || id != null && orderState.equals(OrderState.NOT_PAID_RECYCLED)) {
             orderState = OrderState.NOT_PAID_RESERVED;
         } else {
             throw new StateChangeException();

@@ -10,6 +10,7 @@ import com.hw.aggregate.cart.model.CartItem;
 import com.hw.aggregate.cart.representation.CartItemRepresentation;
 import com.hw.aggregate.cart.representation.CartSummaryRepresentation;
 import com.hw.clazz.ProfileExistAndOwnerOnly;
+import com.hw.shared.IdGenerator;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,9 @@ public class CartApplicationService {
     @Autowired
     private CartRepository cartRepository;
 
+    @Autowired
+    private IdGenerator idGenerator;
+
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
     public CartSummaryRepresentation getCartItems(String authUserId, Long profileId) {
@@ -37,6 +41,7 @@ public class CartApplicationService {
         if (byProfileId.size() == 10)
             throw new MaxCartItemException();
         CartItem cartItem = CartItem.create(
+                idGenerator.getId(),
                 profileId, addCartItemCommand.getName(), addCartItemCommand.getSelectedOptions(),
                 addCartItemCommand.getFinalPrice(), addCartItemCommand.getImageUrlSmall(), addCartItemCommand.getProductId());
         CartItem save = cartRepository.save(cartItem);

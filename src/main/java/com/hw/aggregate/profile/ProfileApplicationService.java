@@ -5,6 +5,7 @@ import com.hw.aggregate.profile.exception.ProfileAlreadyExistException;
 import com.hw.aggregate.profile.exception.ProfileNotExistException;
 import com.hw.aggregate.profile.model.Profile;
 import com.hw.aggregate.profile.representation.ProfileRepresentation;
+import com.hw.shared.IdGenerator;
 import com.hw.shared.ServiceUtility;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,8 @@ public class ProfileApplicationService {
 
     @Autowired
     private ProfileRepo profileRepo;
+    @Autowired
+    private IdGenerator idGenerator;
 
     @Transactional(readOnly = true)
     public ProfileRepresentation searchProfile(String authorization) {
@@ -34,6 +37,7 @@ public class ProfileApplicationService {
         if (profileByResourceOwnerId.isPresent())
             throw new ProfileAlreadyExistException();
         Profile profile = new Profile();
+        profile.setId(idGenerator.getId());
         profile.setResourceOwnerId(Long.parseLong(resourceOwnerId));
         Profile save = profileRepo.save(profile);
         return new ProfileRepresentation(save);

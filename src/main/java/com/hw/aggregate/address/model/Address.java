@@ -1,9 +1,7 @@
 package com.hw.aggregate.address.model;
 
 import com.hw.shared.Auditable;
-import lombok.AccessLevel;
 import lombok.Data;
-import lombok.Setter;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotEmpty;
@@ -16,8 +14,6 @@ import java.util.Objects;
 @Data
 public class Address extends Auditable {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO, generator = "addressId_gen")
-    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "fk_profile")
@@ -67,11 +63,12 @@ public class Address extends Auditable {
 
     }
 
-    public static Address create(Long profileId, String fullName, String line1, String line2, String postalCode, String phoneNumber, String city, String province, String country) {
-        return new Address(profileId, fullName, line1, line2, postalCode, phoneNumber, city, province, country);
+    public static Address create(Long id, Long profileId, String fullName, String line1, String line2, String postalCode, String phoneNumber, String city, String province, String country) {
+        return new Address(id, profileId, fullName, line1, line2, postalCode, phoneNumber, city, province, country);
     }
 
-    private Address(Long profileId, String fullName, String line1, String line2, String postalCode, String phoneNumber, String city, String province, String country) {
+    private Address(Long id, Long profileId, String fullName, String line1, String line2, String postalCode, String phoneNumber, String city, String province, String country) {
+        this.id = id;
         this.profileId = profileId;
         this.fullName = fullName;
         this.line1 = line1;
