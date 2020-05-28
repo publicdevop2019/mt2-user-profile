@@ -23,10 +23,13 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import static com.hw.shared.AppConstant.HTTP_HEADER_ERROR_ID;
+
 @Slf4j
 @ControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
+
     @ExceptionHandler(value = {
             OrderAlreadyPaidException.class,
             StateChangeException.class,
@@ -41,10 +44,10 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             DuplicateAddressException.class,
             MaxAddressCountException.class
     })
-    protected ResponseEntity<?> handle400Exception(RuntimeException ex, WebRequest request) {
+    protected ResponseEntity<Object> handle400Exception(RuntimeException ex, WebRequest request) {
         ErrorMessage errorMessage = new ErrorMessage(ex);
         HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.set("Error-Id", errorMessage.errorId);
+        httpHeaders.set(HTTP_HEADER_ERROR_ID, errorMessage.getErrorId());
         return handleExceptionInternal(ex, errorMessage, httpHeaders, HttpStatus.BAD_REQUEST, request);
     }
 
@@ -54,10 +57,10 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             OrderCreationUnknownException.class,
             PaymentQRLinkGenerationException.class,
     })
-    protected ResponseEntity<?> handle500Exception(RuntimeException ex, WebRequest request) {
+    protected ResponseEntity<Object> handle500Exception(RuntimeException ex, WebRequest request) {
         ErrorMessage errorMessage = new ErrorMessage(ex);
         HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.set("Error-Id", errorMessage.errorId);
+        httpHeaders.set(HTTP_HEADER_ERROR_ID, errorMessage.getErrorId());
         return handleExceptionInternal(ex, errorMessage, httpHeaders, HttpStatus.INTERNAL_SERVER_ERROR, request);
     }
 
@@ -67,10 +70,10 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             CartItemAccessException.class,
             AddressAccessException.class,
     })
-    protected ResponseEntity<?> handle403Exception(RuntimeException ex, WebRequest request) {
+    protected ResponseEntity<Object> handle403Exception(RuntimeException ex, WebRequest request) {
         ErrorMessage errorMessage = new ErrorMessage(ex);
         HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.set("Error-Id", errorMessage.errorId);
+        httpHeaders.set(HTTP_HEADER_ERROR_ID, errorMessage.getErrorId());
         return handleExceptionInternal(ex, errorMessage, httpHeaders, HttpStatus.FORBIDDEN, request);
     }
 }

@@ -3,6 +3,7 @@ package com.hw.aggregate.cart.model;
 import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
 import com.hw.clazz.ProductOptionMapper;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotEmpty;
@@ -13,6 +14,7 @@ import java.util.Objects;
 @Entity
 @Table(name = "Cart")
 @Data
+@NoArgsConstructor
 public class CartItem {
 
     @Id
@@ -23,7 +25,6 @@ public class CartItem {
 
     @NotNull
     @NotEmpty
-    @Column(nullable = false)
     private String name;
 
     @Column(length = 10000)
@@ -31,19 +32,12 @@ public class CartItem {
     private List<CustomerOrderItemAddOn> selectedOptions;
 
     @NotNull
-    @Column
     private String finalPrice;
 
-    @Column
     private String imageUrlSmall;
 
     @NotNull
-    @Column
     private String productId;
-
-    public CartItem() {
-
-    }
 
     public static CartItem create(Long id, Long profileId, String name, List<CustomerOrderItemAddOn> selectedOptions, String finalPrice, String imageUrlSmall, String productId) {
         return new CartItem(id, profileId, name, selectedOptions, finalPrice, imageUrlSmall, productId);
@@ -55,7 +49,6 @@ public class CartItem {
         this.selectedOptions = selectedOptions;
         this.finalPrice = finalPrice;
         this.imageUrlSmall = imageUrlSmall;
-        this.productId = productId;
         this.productId = productId;
         this.profileId = profileId;
     }

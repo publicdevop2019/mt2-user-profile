@@ -5,6 +5,7 @@ import com.hw.aggregate.order.exception.StateChangeException;
 import com.hw.shared.Auditable;
 import lombok.Data;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
 import javax.validation.Valid;
@@ -17,6 +18,7 @@ import java.util.*;
 @Entity
 @Table(name = "OrderDetail")
 @Data
+@NoArgsConstructor
 public class CustomerOrder extends Auditable {
     /**
      * id setter is required to correctly work with BeanPropertyRowMapper for spring batch
@@ -46,28 +48,20 @@ public class CustomerOrder extends Auditable {
     @NotEmpty
     private String paymentType;
 
-    @Column
     private String paymentLink;
 
-    @Column
     @NotNull
     private BigDecimal paymentAmt;
 
-    @Column
     private String paymentDate;
 
-    @Column
     @Getter
     private OrderState orderState;
 
-    @Column
     private Date modifiedByUserAt;
 
     @Version
     private Integer version;
-
-    public CustomerOrder() {
-    }
 
     @Override
     public boolean equals(Object o) {
@@ -131,12 +125,12 @@ public class CustomerOrder extends Auditable {
         readOnlyProductList.forEach(e -> {
             int defaultAmount = 1;
             if (e.getSelectedOptions() != null) {
-                Optional<CustomerOrderItemAddOn> qty = e.getSelectedOptions().stream().filter(el -> el.title.equals("qty")).findFirst();
-                if (qty.isPresent() && !qty.get().options.isEmpty()) {
+                Optional<CustomerOrderItemAddOn> qty = e.getSelectedOptions().stream().filter(el -> el.getTitle().equals("qty")).findFirst();
+                if (qty.isPresent() && !qty.get().getOptions().isEmpty()) {
                     /**
                      * deduct amount based on qty value, otherwise default is 1
                      */
-                    defaultAmount = Integer.parseInt(qty.get().options.get(0).optionValue);
+                    defaultAmount = Integer.parseInt(qty.get().getOptions().get(0).getOptionValue());
                 }
             }
             if (stringIntegerHashMap.containsKey(e.getProductId())) {

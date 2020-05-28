@@ -6,8 +6,9 @@ import lombok.Data;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Data
 public class AddressSummaryRepresentation {
-    public List<AddressSummaryCustomerRepresentation> addressList;
+    private List<AddressSummaryCustomerRepresentation> addressList;
 
     public AddressSummaryRepresentation(List<Address> addressList) {
         this.addressList = addressList.stream().map(AddressSummaryRepresentation.AddressSummaryCustomerRepresentation::new).collect(Collectors.toList());

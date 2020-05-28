@@ -9,8 +9,10 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Data
 public class OrderSummaryCustomerRepresentation {
-    public List<OrderCustomerRepresentation> orderList;
+
+    private List<OrderCustomerRepresentation> orderList;
 
     public OrderSummaryCustomerRepresentation(List<CustomerOrder> orderList) {
         this.orderList = orderList.stream().map(OrderSummaryCustomerRepresentation.OrderCustomerRepresentation::new).collect(Collectors.toList());

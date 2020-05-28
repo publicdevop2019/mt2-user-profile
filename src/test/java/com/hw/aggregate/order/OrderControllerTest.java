@@ -7,6 +7,8 @@ import com.hw.aggregate.order.model.CustomerOrderItem;
 import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
 import com.hw.aggregate.order.model.CustomerOrderItemAddOnSelection;
 import com.hw.aggregate.order.representation.OrderSummaryAdminRepresentation;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -14,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -23,6 +26,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RunWith(MockitoJUnitRunner.class)
+@Slf4j
 public class OrderControllerTest {
 
     ObjectMapper objectMapper = new ObjectMapper();
@@ -43,7 +47,7 @@ public class OrderControllerTest {
      * @throws JsonProcessingException
      */
     @Test
-    @Ignore
+    @Ignore("see above")
     public void getAllOrdersForAdmin() throws JsonProcessingException {
         List<CustomerOrder> customerOrders = new ArrayList<>();
         for (int a = 0; a < 600; a++) {
@@ -54,12 +58,11 @@ public class OrderControllerTest {
         long start = System.currentTimeMillis();
         Mockito.doReturn(customerOrders1).when(orderApplicationService).getAllOrdersForAdmin();
         ResponseEntity<?> allOrdersForAdmin = orderController.getAllOrdersForAdmin();
+        Assert.assertEquals(HttpStatus.OK, allOrdersForAdmin.getStatusCode());
         Object body = allOrdersForAdmin.getBody();
-        System.out.println("elapse:: " + (System.currentTimeMillis() - start));
+        log.info("elapse:: " + (System.currentTimeMillis() - start));
         String s = objectMapper.writeValueAsString(body);
-        System.out.println("output:: " + s);
-
-
+        Assert.assertNotNull(s);
     }
 
     private CustomerOrder getCustomerOrder() {

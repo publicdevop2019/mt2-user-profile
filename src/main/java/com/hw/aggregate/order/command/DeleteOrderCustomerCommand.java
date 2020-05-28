@@ -1,7 +1,10 @@
 package com.hw.aggregate.order.command;
 
+import lombok.Data;
+
+@Data
 public class DeleteOrderCustomerCommand {
-    public Long orderId;
+    private Long orderId;
 
     public DeleteOrderCustomerCommand(Long orderId) {
         this.orderId = orderId;

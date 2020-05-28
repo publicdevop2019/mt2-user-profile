@@ -1,9 +1,11 @@
 package com.hw.aggregate.cart.representation;
 
 import com.hw.aggregate.cart.model.CartItem;
+import lombok.Data;
 
+@Data
 public class CartItemRepresentation {
-    public String cartItemId;
+    private String cartItemId;
 
     public CartItemRepresentation(CartItem cartItem) {
         cartItemId = cartItem.getId().toString();

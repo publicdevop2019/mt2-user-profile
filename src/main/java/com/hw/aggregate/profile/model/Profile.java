@@ -18,22 +18,18 @@ public class Profile extends Auditable {
     @Id
     private Long id;
 
-    @Column
     @OneToMany(cascade = {CascadeType.ALL})
     @JoinColumn(name = "fk_profile")
     private List<Address> addressList;
 
-    @Column
     @OneToMany(cascade = {CascadeType.ALL})
     @JoinColumn(name = "fk_profile")
     private List<CustomerOrder> orderList;
 
-    @Column
     @OneToMany(cascade = {CascadeType.ALL})
     @JoinColumn(name = "fk_profile")
     private List<CartItem> cartList;
 
-    @Column
     private Long resourceOwnerId;
 
 }

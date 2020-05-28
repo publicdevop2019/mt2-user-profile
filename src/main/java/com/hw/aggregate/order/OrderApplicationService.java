@@ -108,16 +108,13 @@ public class OrderApplicationService {
                 productStorageService.validateProductInfo(customerOrder.getReadOnlyProductList()), customExecutor
         );
 
-        // generate order id, use db generate orderId
-        CustomerOrder save = orderRepository.save(customerOrder);
-        String reservedOrderId = save.getId().toString();
-        log.debug("order id {} generated", reservedOrderId);
+        log.debug("order with id {} generated", customerOrder.getId().toString());
 
         // generate payment QR link
         String operationToken = getOperationToken();
         log.debug("optToken generated {}", operationToken);
         CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
-                paymentService.generatePaymentLink(reservedOrderId), customExecutor
+                paymentService.generatePaymentLink(customerOrder.getId().toString()), customExecutor
         );
 
         // decrease order storage
@@ -125,12 +122,11 @@ public class OrderApplicationService {
                 productStorageService.decreaseOrderStorage(customerOrder.getProductSummary(), operationToken), customExecutor
         );
         CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
-        String paymentLink;
+        String paymentLink = null;
         try {
             allDoneFuture.get();
             paymentLink = paymentQRLinkFuture.get();
-            save.setPaymentLink(paymentLink);
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (ExecutionException e) {
             log.error("error during reserve order", e);
             CompletableFuture.runAsync(() ->
                     productStorageService.rollbackChange(operationToken), customExecutor
@@ -142,10 +138,16 @@ public class OrderApplicationService {
                 throw new PaymentQRLinkGenerationException();
             if (validateResultFuture.isCompletedExceptionally() && !decreaseOrderStorageFuture.isCompletedExceptionally())
                 throw new ProductInfoValidationException();
+            Thread.currentThread().interrupt();
             throw new OrderCreationUnknownException();
+        } catch (InterruptedException e) {
+            log.warn("thread was interrupted", e);
+            Thread.currentThread().interrupt();
         }
+        customerOrder.setPaymentLink(paymentLink);
         log.debug("order storage decreased");
         cartApplicationService.clearCartItem(profileId);
+        orderRepository.save(customerOrder);
         return new OrderPaymentLinkRepresentation(paymentLink, Boolean.FALSE);
     }
 
@@ -153,9 +155,9 @@ public class OrderApplicationService {
     @Transactional
     public OrderConfirmStatusRepresentation confirmPayment(String authUserId, Long profileId, ConfirmOrderPaymentCommand confirmOrderPaymentCommand) {
         log.debug("start of confirmPayment");
-        CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, confirmOrderPaymentCommand.orderId);
-        Boolean paymentStatus = paymentService.confirmPaymentStatus(confirmOrderPaymentCommand.orderId.toString());
-        if (paymentStatus) {
+        CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, confirmOrderPaymentCommand.getOrderId());
+        Boolean paymentStatus = paymentService.confirmPaymentStatus(confirmOrderPaymentCommand.getOrderId().toString());
+        if (Boolean.TRUE.equals(paymentStatus)) {
             if (customerOrder.getOrderState().equals(OrderState.NOT_PAID_RESERVED)) {
                 customerOrder.toPaidReserved();
             } else if (customerOrder.getOrderState().equals(OrderState.NOT_PAID_RECYCLED)) {
@@ -177,7 +179,7 @@ public class OrderApplicationService {
         transactionTemplate.execute(new TransactionCallbackWithoutResult() {
             @Override
             protected void doInTransactionWithoutResult(TransactionStatus status) {
-                CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, confirmOrderPaymentCommand.orderId);
+                CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, confirmOrderPaymentCommand.getOrderId());
                 customerOrder.toConfirmed();
                 String operationToken = getOperationToken();
                 CompletableFuture<Void> decreaseActualStorageFuture = CompletableFuture.runAsync(() ->
@@ -216,28 +218,11 @@ public class OrderApplicationService {
         CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, orderId);
         OrderPaymentLinkRepresentation representation;
         if (customerOrder.getOrderState().equals(OrderState.PAID_RECYCLED)) {
-            customerOrder.toPaidReserved();
-            if (placeOrderAgainCommand != null && placeOrderAgainCommand.getAddress() != null) {
-                log.info("updating order address");
-                customerOrder.setAddress(placeOrderAgainCommand.getAddress());
-            }
-            representation = new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), Boolean.TRUE);
+            representation = paidRecycledLogic(placeOrderAgainCommand, customerOrder);
         } else if (customerOrder.getOrderState().equals(OrderState.NOT_PAID_RECYCLED)) {
-            customerOrder.toNotPaidReserved();
-            if (placeOrderAgainCommand != null && (placeOrderAgainCommand.getPaymentType() != null || placeOrderAgainCommand.getAddress() != null)) {
-                log.info("updating order address & paymentType if applicable");
-                if (placeOrderAgainCommand.getAddress() != null)
-                    customerOrder.setAddress(placeOrderAgainCommand.getAddress());
-            }
-            representation = new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), Boolean.FALSE);
+            representation = notPaidRecycledLogic(placeOrderAgainCommand, customerOrder);
         } else if (customerOrder.getOrderState().equals(OrderState.NOT_PAID_RESERVED)) {
-            if (placeOrderAgainCommand != null && (placeOrderAgainCommand.getPaymentType() != null || placeOrderAgainCommand.getAddress() != null)) {
-                log.info("updating order address & paymentType if applicable");
-                if (placeOrderAgainCommand.getAddress() != null)
-                    customerOrder.setAddress(placeOrderAgainCommand.getAddress());
-            }
-            orderRepository.saveAndFlush(customerOrder);
-            return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), Boolean.FALSE);
+            return notPaidReservedLogic(placeOrderAgainCommand, customerOrder);
         } else {
             throw new StateChangeException();
         }
@@ -264,10 +249,43 @@ public class OrderApplicationService {
         return representation;
     }
 
+    private OrderPaymentLinkRepresentation notPaidReservedLogic(PlaceOrderAgainCommand placeOrderAgainCommand, CustomerOrder customerOrder) {
+        if (placeOrderAgainCommand != null && (placeOrderAgainCommand.getPaymentType() != null || placeOrderAgainCommand.getAddress() != null)) {
+            log.info("updating order address & paymentType if applicable");
+            if (placeOrderAgainCommand.getAddress() != null)
+                customerOrder.setAddress(placeOrderAgainCommand.getAddress());
+        }
+        orderRepository.saveAndFlush(customerOrder);
+        return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), Boolean.FALSE);
+    }
+
+    private OrderPaymentLinkRepresentation notPaidRecycledLogic(PlaceOrderAgainCommand placeOrderAgainCommand, CustomerOrder customerOrder) {
+        OrderPaymentLinkRepresentation representation;
+        customerOrder.toNotPaidReserved();
+        if (placeOrderAgainCommand != null && (placeOrderAgainCommand.getPaymentType() != null || placeOrderAgainCommand.getAddress() != null)) {
+            log.info("updating order address & paymentType if applicable");
+            if (placeOrderAgainCommand.getAddress() != null)
+                customerOrder.setAddress(placeOrderAgainCommand.getAddress());
+        }
+        representation = new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), Boolean.FALSE);
+        return representation;
+    }
+
+    private OrderPaymentLinkRepresentation paidRecycledLogic(PlaceOrderAgainCommand placeOrderAgainCommand, CustomerOrder customerOrder) {
+        OrderPaymentLinkRepresentation representation;
+        customerOrder.toPaidReserved();
+        if (placeOrderAgainCommand != null && placeOrderAgainCommand.getAddress() != null) {
+            log.info("updating order address");
+            customerOrder.setAddress(placeOrderAgainCommand.getAddress());
+        }
+        representation = new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), Boolean.TRUE);
+        return representation;
+    }
+
     @ProfileExistAndOwnerOnly
     @Transactional
     public void deleteOrder(String authUserId, Long profileId, DeleteOrderCustomerCommand deleteOrderCustomerCommand) {
-        CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, deleteOrderCustomerCommand.orderId);
+        CustomerOrder customerOrder = getOrderForCustomerToUpdate(profileId, deleteOrderCustomerCommand.getOrderId());
         orderRepository.delete(customerOrder);
     }
 
@@ -285,9 +303,7 @@ public class OrderApplicationService {
         Map<String, Integer> stringIntegerHashMap = new HashMap<>();
         expiredOrderList.forEach(expiredOrder -> {
             Map<String, Integer> orderProductMap = expiredOrder.getProductSummary();
-            orderProductMap.forEach((key, value) -> {
-                stringIntegerHashMap.merge(key, value, Integer::sum);
-            });
+            orderProductMap.forEach((key, value) -> stringIntegerHashMap.merge(key, value, Integer::sum));
         });
         try {
             if (!stringIntegerHashMap.keySet().isEmpty()) {
@@ -313,7 +329,7 @@ public class OrderApplicationService {
         log.debug("start of resubmitOrder");
         List<CustomerOrder> paidReserved = orderRepository.findPaidReserved();
         log.info("Paid reserved order(s) found {}", paidReserved.stream().map(CustomerOrder::getId).collect(Collectors.toList()));
-        if (paidReserved.size() > 0) {
+        if (!paidReserved.isEmpty()) {
             // submit one order for now
             paidReserved.forEach(order -> {
                 try {

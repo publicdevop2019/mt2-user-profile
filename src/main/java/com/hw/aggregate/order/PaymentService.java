@@ -62,8 +62,7 @@ public class PaymentService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(headers);
         ResponseEntity<HashMap<String, Boolean>> exchange = tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + confirmUrl + "/" + orderId, HttpMethod.GET, hashMapHttpEntity, responseType);
-        Boolean paymentStatus = exchange.getBody().get("paymentStatus");
-        return paymentStatus;
+        return exchange.getBody().get("paymentStatus");
 
     }
 }

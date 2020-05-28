@@ -1,7 +1,9 @@
 package com.hw.aggregate.address.model;
 
+import com.hw.aggregate.address.command.CreateAddressCommand;
 import com.hw.shared.Auditable;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotEmpty;
@@ -12,6 +14,7 @@ import java.util.Objects;
 @Table(name = "Address")
 @SequenceGenerator(name = "addressId_gen", sequenceName = "addressId_gen", initialValue = 100)
 @Data
+@NoArgsConstructor
 public class Address extends Auditable {
     @Id
     private Long id;
@@ -21,63 +24,51 @@ public class Address extends Auditable {
 
     @NotNull
     @NotEmpty
-    @Column(nullable = false)
     private String fullName;
 
     @NotNull
     @NotEmpty
-    @Column(nullable = false)
     private String line1;
 
     @NotNull
     @NotEmpty
-    @Column(nullable = false)
     private String line2;
 
     @NotNull
     @NotEmpty
-    @Column(nullable = false)
     private String postalCode;
 
     @NotNull
     @NotEmpty
-    @Column(nullable = false)
     private String phoneNumber;
 
     @NotNull
     @NotEmpty
-    @Column(nullable = false)
     private String city;
 
     @NotNull
     @NotEmpty
-    @Column(nullable = false)
     private String province;
 
     @NotNull
     @NotEmpty
-    @Column(nullable = false)
     private String country;
 
-    public Address() {
-
+    public static Address create(Long id, Long profileId, CreateAddressCommand command) {
+        return new Address(id, profileId, command);
     }
 
-    public static Address create(Long id, Long profileId, String fullName, String line1, String line2, String postalCode, String phoneNumber, String city, String province, String country) {
-        return new Address(id, profileId, fullName, line1, line2, postalCode, phoneNumber, city, province, country);
-    }
-
-    private Address(Long id, Long profileId, String fullName, String line1, String line2, String postalCode, String phoneNumber, String city, String province, String country) {
+    private Address(Long id, Long profileId, CreateAddressCommand command) {
         this.id = id;
         this.profileId = profileId;
-        this.fullName = fullName;
-        this.line1 = line1;
-        this.line2 = line2;
-        this.postalCode = postalCode;
-        this.phoneNumber = phoneNumber;
-        this.city = city;
-        this.province = province;
-        this.country = country;
+        this.fullName = command.getFullName();
+        this.line1 = command.getLine1();
+        this.line2 = command.getLine2();
+        this.postalCode = command.getPostalCode();
+        this.phoneNumber = command.getPhoneNumber();
+        this.city = command.getCity();
+        this.province = command.getProvince();
+        this.country = command.getCountry();
     }
 
     @Override

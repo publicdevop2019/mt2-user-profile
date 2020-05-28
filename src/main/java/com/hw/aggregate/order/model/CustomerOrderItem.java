@@ -19,6 +19,9 @@ public class CustomerOrderItem implements Serializable {
 
     private static final long serialVersionUID = 1;
 
+    @ManyToOne
+    private transient CustomerOrder customerOrder;
+
     @NotNull
     @NotEmpty
     @Column(nullable = false)
@@ -31,16 +34,13 @@ public class CustomerOrderItem implements Serializable {
     @NotNull
     @Column
     private String finalPrice;
-
-    @Column
-    private String imageUrlSmall;
-
     @NotNull
     @Column
     private String productId;
 
-    @ManyToOne
-    transient private CustomerOrder customerOrder;
+    @Column
+    private String imageUrlSmall;
+
 
     @Override
     public boolean equals(Object o) {

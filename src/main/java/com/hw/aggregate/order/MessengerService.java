@@ -30,10 +30,6 @@ public class MessengerService {
     @Autowired
     private ResourceServiceTokenHelper tokenHelper;
 
-    /**
-     * @param contentMap
-     * @todo generify
-     */
     @Async
     public void notifyBusinessOwner(Map<String, String> contentMap) {
         String body = null;

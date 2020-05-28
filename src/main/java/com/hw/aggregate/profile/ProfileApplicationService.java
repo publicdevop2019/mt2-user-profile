@@ -32,7 +32,7 @@ public class ProfileApplicationService {
 
     @Transactional
     public ProfileRepresentation createProfile(CreateProfileCommand createProfileCommand) {
-        String resourceOwnerId = ServiceUtility.getUserId(createProfileCommand.authorization);
+        String resourceOwnerId = ServiceUtility.getUserId(createProfileCommand.getAuthorization());
         Optional<Profile> profileByResourceOwnerId = profileRepo.findProfileByResourceOwnerId(Long.parseLong(resourceOwnerId));
         if (profileByResourceOwnerId.isPresent())
             throw new ProfileAlreadyExistException();

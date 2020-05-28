@@ -2,7 +2,6 @@ package com.hw.aggregate.cart;
 
 import com.hw.aggregate.cart.command.CreateCartItemCommand;
 import com.hw.aggregate.cart.command.DeleteCartItemCommand;
-import com.hw.aggregate.cart.command.UpdateCartItemAddOnCommand;
 import com.hw.aggregate.cart.exception.CartItemAccessException;
 import com.hw.aggregate.cart.exception.CartItemNotExistException;
 import com.hw.aggregate.cart.exception.MaxCartItemException;
@@ -11,7 +10,6 @@ import com.hw.aggregate.cart.representation.CartItemRepresentation;
 import com.hw.aggregate.cart.representation.CartSummaryRepresentation;
 import com.hw.clazz.ProfileExistAndOwnerOnly;
 import com.hw.shared.IdGenerator;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,17 +48,8 @@ public class CartApplicationService {
 
     @ProfileExistAndOwnerOnly
     @Transactional
-    //not used
-    public void updateCartItem(String authUserId, Long profileId, Long cartItemId, UpdateCartItemAddOnCommand updateCartItemAddOnCommand) {
-        CartItem cartItemForCustomer = getCartItemForCustomer(profileId, cartItemId);
-        BeanUtils.copyProperties(updateCartItemAddOnCommand, cartItemForCustomer);
-        cartRepository.save(cartItemForCustomer);
-    }
-
-    @ProfileExistAndOwnerOnly
-    @Transactional
     public void deleteCartItem(String authUserId, Long profileId, DeleteCartItemCommand deleteCartItemCommand) {
-        CartItem cartItemForCustomer = getCartItemForCustomer(profileId, deleteCartItemCommand.cartItemId);
+        CartItem cartItemForCustomer = getCartItemForCustomer(profileId, deleteCartItemCommand.getCartItemId());
         cartRepository.delete(cartItemForCustomer);
     }
 

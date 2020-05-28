@@ -53,9 +53,7 @@ public class AddressApplicationService {
             throw new MaxAddressCountException();
         Address address = Address.create(
                 idGenerator.getId(),
-                profileId, createAddressCommand.getFullName(), createAddressCommand.getLine1(),
-                createAddressCommand.getLine2(), createAddressCommand.getPostalCode(), createAddressCommand.getPhoneNumber(),
-                createAddressCommand.getCity(), createAddressCommand.getProvince(), createAddressCommand.getCountry());
+                profileId, createAddressCommand);
         if (byProfileId.stream().anyMatch(e -> e.equals(address))) {
             throw new DuplicateAddressException();
         }
@@ -74,7 +72,7 @@ public class AddressApplicationService {
     @ProfileExistAndOwnerOnly
     @Transactional
     public void deleteAddress(String authUserId, Long profileId, DeleteAddressCommand deleteAddressCommand) {
-        Address addressForCustomer = getAddressForCustomer(profileId, deleteAddressCommand.addressId);
+        Address addressForCustomer = getAddressForCustomer(profileId, deleteAddressCommand.getAddressId());
         addressRepository.delete(addressForCustomer);
     }
 

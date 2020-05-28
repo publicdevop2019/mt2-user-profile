@@ -20,9 +20,7 @@ public class MapConverter implements AttributeConverter<Map<String, String>, Str
             return null;
         }
         HashMap<String, String> stringStringHashMap = new HashMap<>();
-        Arrays.stream(s.split(",")).forEach(e -> {
-            stringStringHashMap.put(e.split(":")[0], e.split(":")[1]);
-        });
+        Arrays.stream(s.split(",")).forEach(e -> stringStringHashMap.put(e.split(":")[0], e.split(":")[1]));
         return stringStringHashMap;
     }
 }

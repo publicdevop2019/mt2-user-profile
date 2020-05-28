@@ -1,7 +1,10 @@
 package com.hw.aggregate.address.command;
 
+import lombok.Data;
+
+@Data
 public class DeleteAddressCommand {
-    public Long addressId;
+    private Long addressId;
 
     public DeleteAddressCommand(Long addressId) {
         this.addressId = addressId;

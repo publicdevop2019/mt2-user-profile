@@ -1,7 +1,10 @@
 package com.hw.aggregate.profile.command;
 
+import lombok.Data;
+
+@Data
 public class CreateProfileCommand {
-    public String authorization;
+    private String authorization;
 
     public CreateProfileCommand(String authorization) {
         this.authorization = authorization;

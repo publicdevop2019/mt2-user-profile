@@ -11,9 +11,9 @@ public class CustomerOrderItemAddOn implements Serializable {
 
     private static final long serialVersionUID = 1;
 
-    public String title;
+    private String title;
 
-    public List<CustomerOrderItemAddOnSelection> options;
+    private List<CustomerOrderItemAddOnSelection> options;
 
     @Override
     public boolean equals(Object o) {

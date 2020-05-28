@@ -14,13 +14,13 @@ public class ProfileController {
     private ProfileApplicationService profileApplicationService;
 
     @GetMapping("profiles/search")
-    public ResponseEntity<?> searchProfile(@RequestHeader("authorization") String authorization) {
-        return ResponseEntity.ok(profileApplicationService.searchProfile(authorization).profileId);
+    public ResponseEntity<String> searchProfile(@RequestHeader("authorization") String authorization) {
+        return ResponseEntity.ok(profileApplicationService.searchProfile(authorization).getProfileId());
     }
 
     @PostMapping("profiles")
-    public ResponseEntity<?> createProfile(@RequestHeader("authorization") String authorization) {
+    public ResponseEntity<Void> createProfile(@RequestHeader("authorization") String authorization) {
         ProfileRepresentation profile1 = profileApplicationService.createProfile(new CreateProfileCommand(authorization));
-        return ResponseEntity.ok().header("Location", profile1.profileId).build();
+        return ResponseEntity.ok().header("Location", profile1.getProfileId()).build();
     }
 }

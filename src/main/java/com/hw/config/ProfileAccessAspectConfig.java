@@ -23,6 +23,7 @@ public class ProfileAccessAspectConfig {
 
     @Pointcut("@annotation(com.hw.clazz.ProfileExistAndOwnerOnly)")
     public void restrictAccess() {
+        // for aop purpose
     }
 
     @Around(value = "com.hw.config.ProfileAccessAspectConfig.restrictAccess()")

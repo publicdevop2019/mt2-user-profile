@@ -1,8 +1,11 @@
 package com.hw.aggregate.order.representation;
 
+import lombok.Data;
+
+@Data
 public class OrderPaymentLinkRepresentation {
-    public String paymentLink;
-    public Boolean paymentState;
+    private String paymentLink;
+    private Boolean paymentState;
 
     public OrderPaymentLinkRepresentation(String paymentLink, Boolean paymentState) {
         this.paymentLink = paymentLink;

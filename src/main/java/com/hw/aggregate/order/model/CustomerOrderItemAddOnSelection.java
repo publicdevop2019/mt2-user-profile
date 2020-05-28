@@ -11,7 +11,7 @@ public class CustomerOrderItemAddOnSelection implements Serializable {
 
     private static final long serialVersionUID = 1;
 
-    public String optionValue;
+    private String optionValue;
 
-    public String priceVar;
+    private String priceVar;
 }
