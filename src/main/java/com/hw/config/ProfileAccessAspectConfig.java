@@ -21,7 +21,7 @@ public class ProfileAccessAspectConfig {
     @Autowired
     ProfileRepo profileRepo;
 
-    @Pointcut("@annotation(com.hw.clazz.ProfileExistAndOwnerOnly)")
+    @Pointcut("@annotation(com.hw.config.ProfileExistAndOwnerOnly)")
     public void restrictAccess() {
         // for aop purpose
     }

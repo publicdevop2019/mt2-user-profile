@@ -1,6 +1,8 @@
 package com.hw.aggregate.order.representation;
 
-import java.util.HashMap;
+import lombok.Data;
 
-public class OrderConfirmStatusRepresentation extends HashMap<String, Boolean> {
+@Data
+public class OrderConfirmStatusRepresentation {
+    private Boolean paymentStatus;
 }

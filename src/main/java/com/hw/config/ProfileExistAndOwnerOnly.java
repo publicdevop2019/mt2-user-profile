@@ -1,4 +1,4 @@
-package com.hw.clazz;
+package com.hw.config;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

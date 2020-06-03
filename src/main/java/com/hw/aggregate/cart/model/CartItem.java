@@ -1,15 +1,19 @@
 package com.hw.aggregate.cart.model;
 
+import com.hw.aggregate.cart.CartRepository;
+import com.hw.aggregate.cart.command.CreateCartItemCommand;
+import com.hw.aggregate.cart.exception.CartItemAccessException;
+import com.hw.aggregate.cart.exception.CartItemNotExistException;
+import com.hw.aggregate.cart.exception.MaxCartItemException;
 import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
-import com.hw.clazz.ProductOptionMapper;
+import com.hw.aggregate.order.model.ProductOptionMapper;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import javax.validation.constraints.NotBlank;
 import java.util.List;
-import java.util.Objects;
+import java.util.Optional;
 
 @Entity
 @Table(name = "Cart")
@@ -23,54 +27,53 @@ public class CartItem {
     @Column(name = "fk_profile")
     private Long profileId;
 
-    @NotNull
-    @NotEmpty
+    @NotBlank
+    @Column(nullable = false)
     private String name;
 
     @Column(length = 10000)
     @Convert(converter = ProductOptionMapper.class)
     private List<CustomerOrderItemAddOn> selectedOptions;
 
-    @NotNull
+    @NotBlank
+    @Column(nullable = false)
     private String finalPrice;
 
     private String imageUrlSmall;
 
-    @NotNull
+    @NotBlank
+    @Column(nullable = false)
     private String productId;
 
-    public static CartItem create(Long id, Long profileId, String name, List<CustomerOrderItemAddOn> selectedOptions, String finalPrice, String imageUrlSmall, String productId) {
-        return new CartItem(id, profileId, name, selectedOptions, finalPrice, imageUrlSmall, productId);
+    public static CartItem create(Long id, Long profileId, CreateCartItemCommand command, CartRepository cartRepository) {
+        List<CartItem> byProfileId = cartRepository.findByProfileId(profileId);
+        if (byProfileId.size() == 10)
+            throw new MaxCartItemException();
+        return cartRepository.save(new CartItem(id, profileId, command));
     }
 
-    private CartItem(Long id, Long profileId, String name, List<CustomerOrderItemAddOn> selectedOptions, String finalPrice, String imageUrlSmall, String productId) {
+    private CartItem(Long id, Long profileId, CreateCartItemCommand command) {
         this.id = id;
-        this.name = name;
-        this.selectedOptions = selectedOptions;
-        this.finalPrice = finalPrice;
-        this.imageUrlSmall = imageUrlSmall;
-        this.productId = productId;
         this.profileId = profileId;
+        this.name = command.getName();
+        this.selectedOptions = command.getSelectedOptions();
+        this.finalPrice = command.getFinalPrice();
+        this.imageUrlSmall = command.getImageUrlSmall();
+        this.productId = command.getProductId();
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        CartItem product = (CartItem) o;
-        return Objects.equals(name, product.name) &&
-                /**
-                 * use deepEquals for JPA persistentBag workaround, otherwise equals will return incorrect result
-                 */
-                Objects.deepEquals(selectedOptions != null ? selectedOptions.toArray() : new Object[0], product.selectedOptions != null ? product.selectedOptions.toArray() : new Object[0]) &&
-                Objects.equals(finalPrice, product.finalPrice) &&
-                Objects.equals(imageUrlSmall, product.imageUrlSmall) &&
-                Objects.equals(profileId, product.profileId) &&
-                Objects.equals(productId, product.productId);
+    public static CartItem get(Long profileId, Long cartItemId, CartRepository cartRepository) {
+        Optional<CartItem> byId = cartRepository.findById(cartItemId);
+        if (byId.isEmpty())
+            throw new CartItemNotExistException();
+        if (!byId.get().getProfileId().equals(profileId))
+            throw new CartItemAccessException();
+        return byId.get();
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(name, selectedOptions, finalPrice, imageUrlSmall, productId, profileId);
+    public static void delete(Long profileId, Long cartItemId, CartRepository cartRepository) {
+        CartItem.get(profileId, cartItemId, cartRepository);
+        cartRepository.deleteById(cartItemId);
     }
+
 }

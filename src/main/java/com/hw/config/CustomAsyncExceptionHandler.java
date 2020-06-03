@@ -1,4 +1,4 @@
-package com.hw.clazz;
+package com.hw.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;

@@ -1,10 +1,9 @@
 package com.hw.aggregate.order.command;
 
-import com.hw.aggregate.order.model.CustomerOrderAddress;
+import com.hw.aggregate.order.model.CustomerOrderAddressCommand;
 import lombok.Data;
 
 @Data
 public class PlaceOrderAgainCommand {
-    private CustomerOrderAddress address;
-    private String paymentType;
+    private CustomerOrderAddressCommand address;
 }

@@ -50,7 +50,14 @@ public class PaymentService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
         ResponseEntity<HashMap<String, String>> exchange = tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + paymentUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
-        return exchange.getBody().get("paymentLink");
+        String result = null;
+        if (exchange.getBody() != null) {
+            result = exchange.getBody().get("paymentLink");
+        } else {
+            log.error("unable to extract payment link from response");
+        }
+        return result;
+
     }
 
     public Boolean confirmPaymentStatus(String orderId) {
@@ -62,7 +69,13 @@ public class PaymentService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(headers);
         ResponseEntity<HashMap<String, Boolean>> exchange = tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + confirmUrl + "/" + orderId, HttpMethod.GET, hashMapHttpEntity, responseType);
-        return exchange.getBody().get("paymentStatus");
+        Boolean result = null;
+        if (exchange.getBody() != null) {
+            result = exchange.getBody().get("paymentStatus");
+        } else {
+            log.error("unable to extract paymentStatus from response");
+        }
+        return result;
 
     }
 }

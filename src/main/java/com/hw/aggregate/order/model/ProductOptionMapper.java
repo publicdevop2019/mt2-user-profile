@@ -1,7 +1,4 @@
-package com.hw.clazz;
-
-import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
-import com.hw.aggregate.order.model.CustomerOrderItemAddOnSelection;
+package com.hw.aggregate.order.model;
 
 import javax.persistence.AttributeConverter;
 import java.util.ArrayList;
@@ -15,7 +12,7 @@ public class ProductOptionMapper implements AttributeConverter<List<CustomerOrde
     public String convertToDatabaseColumn(List<CustomerOrderItemAddOn> productOptions) {
         /**
          *  e.g.
-         *  qty:1&1*2&2*3&3,color:white&0.35*black&0.37
+         *  qty:1&1=2&2+3&3,color:white&0.35=black&0.37
          */
         if (productOptions == null || productOptions.isEmpty())
             return "";

@@ -6,9 +6,7 @@ import lombok.NoArgsConstructor;
 
 import javax.persistence.Column;
 import javax.persistence.Embeddable;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import java.util.Objects;
+import javax.validation.constraints.NotBlank;
 
 @Embeddable
 @Data
@@ -16,63 +14,35 @@ import java.util.Objects;
 @NoArgsConstructor
 public class CustomerOrderAddress {
 
-    @NotNull
-    @NotEmpty
+    @NotBlank
     @Column(nullable = false)
-    private String fullName;
+    private String orderAddressFullName;
 
-    @NotNull
-    @NotEmpty
+    @NotBlank
     @Column(nullable = false)
-    private String line1;
+    private String orderAddressLine1;
 
-    @NotNull
-    @NotEmpty
+    @Column
+    private String orderAddressLine2;
+
+    @NotBlank
     @Column(nullable = false)
-    private String line2;
+    private String orderAddressPostalCode;
 
-    @NotNull
-    @NotEmpty
+    @NotBlank
     @Column(nullable = false)
-    private String postalCode;
+    private String orderAddressPhoneNumber;
 
-    @NotNull
-    @NotEmpty
+    @NotBlank
     @Column(nullable = false)
-    private String phoneNumber;
+    private String orderAddressCity;
 
-    @NotNull
-    @NotEmpty
+    @NotBlank
     @Column(nullable = false)
-    private String city;
+    private String orderAddressProvince;
 
-    @NotNull
-    @NotEmpty
+    @NotBlank
     @Column(nullable = false)
-    private String province;
+    private String orderAddressCountry;
 
-    @NotNull
-    @NotEmpty
-    @Column(nullable = false)
-    private String country;
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        CustomerOrderAddress address = (CustomerOrderAddress) o;
-        return Objects.equals(fullName, address.fullName) &&
-                Objects.equals(line1, address.line1) &&
-                Objects.equals(line2, address.line2) &&
-                Objects.equals(postalCode, address.postalCode) &&
-                Objects.equals(phoneNumber, address.phoneNumber) &&
-                Objects.equals(city, address.city) &&
-                Objects.equals(province, address.province) &&
-                Objects.equals(country, address.country);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(fullName, line1, line2, postalCode, phoneNumber, city, province, country);
-    }
 }

@@ -1,6 +1,7 @@
 package com.hw.aggregate.order;
 
-import com.hw.aggregate.order.command.*;
+import com.hw.aggregate.order.command.CreateOrderCommand;
+import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
 import com.hw.aggregate.order.representation.*;
 import com.hw.shared.ServiceUtility;
 import lombok.extern.slf4j.Slf4j;
@@ -44,34 +45,26 @@ public class OrderController {
 
     @GetMapping("profiles/{profileId}/orders/{orderId}/confirm")
     public ResponseEntity<OrderConfirmStatusRepresentation> confirmOrderPaymentStatus(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
-        ConfirmOrderPaymentCommand confirmOrderPaymentCommand = new ConfirmOrderPaymentCommand(orderId);
-        OrderConfirmStatusRepresentation orderConfirmStatusRepresentation = orderService.confirmPayment(ServiceUtility.getUserId(authorization), profileId, confirmOrderPaymentCommand);
-        if (Boolean.TRUE.equals(orderConfirmStatusRepresentation.get("paymentStatus"))) {
-            orderService.confirmOrder(ServiceUtility.getUserId(authorization), profileId, confirmOrderPaymentCommand);
+        OrderConfirmStatusRepresentation orderConfirmStatusRepresentation = orderService.confirmPayment(ServiceUtility.getUserId(authorization), profileId, orderId);
+        if (Boolean.TRUE.equals(orderConfirmStatusRepresentation.getPaymentStatus())) {
+            orderService.confirmOrder(ServiceUtility.getUserId(authorization), profileId, orderId);
         } else {
             orderService.placeAgain(ServiceUtility.getUserId(authorization), profileId, orderId, null);
         }
         return ResponseEntity.ok(orderConfirmStatusRepresentation);
     }
 
-    //not used
-    @PutMapping("/orders/{orderId}")
-    public ResponseEntity<Void> updateOrderAdmin(@PathVariable(name = "orderId") Long orderId, @RequestBody UpdateOrderAdminCommand newOrder) {
-        orderService.updateOrderAdmin(orderId, newOrder);
-        return ResponseEntity.ok().build();
-    }
-
     @PutMapping("profiles/{profileId}/orders/{orderId}/replace")
     public ResponseEntity<Void> placeOrderAgain(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody PlaceOrderAgainCommand newOrder) {
         OrderPaymentLinkRepresentation orderPaymentLinkRepresentation = orderService.placeAgain(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder);
         if (Boolean.TRUE.equals(orderPaymentLinkRepresentation.getPaymentState()))
-            orderService.confirmOrder(ServiceUtility.getUserId(authorization), profileId, new ConfirmOrderPaymentCommand(orderId));
+            orderService.confirmOrder(ServiceUtility.getUserId(authorization), profileId, orderId);
         return ResponseEntity.ok().header("Location", orderPaymentLinkRepresentation.getPaymentLink()).build();
     }
 
     @DeleteMapping("profiles/{profileId}/orders/{orderId}")
     public ResponseEntity<Void> deleteOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
-        orderService.deleteOrder(ServiceUtility.getUserId(authorization), profileId, new DeleteOrderCustomerCommand(orderId));
+        orderService.deleteOrder(ServiceUtility.getUserId(authorization), profileId, orderId);
         return ResponseEntity.ok().build();
     }
 }

@@ -1,7 +1,9 @@
 package com.hw.aggregate.order.model;
 
+import com.hw.aggregate.order.OrderRepository;
+import com.hw.aggregate.order.exception.OrderAccessException;
+import com.hw.aggregate.order.exception.OrderNotExistException;
 import com.hw.aggregate.order.exception.OrderPaymentMismatchException;
-import com.hw.aggregate.order.exception.StateChangeException;
 import com.hw.shared.Auditable;
 import lombok.Data;
 import lombok.Getter;
@@ -14,6 +16,7 @@ import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "OrderDetail")
@@ -44,13 +47,14 @@ public class CustomerOrder extends Auditable {
     @CollectionTable(name = "order_product_snapshot", joinColumns = @JoinColumn(name = "order_id"))
     private List<CustomerOrderItem> writeOnlyProductList;
 
-    @NotNull
     @NotEmpty
+    @Column(nullable = false)
     private String paymentType;
 
     private String paymentLink;
 
     @NotNull
+    @Column(nullable = false)
     private BigDecimal paymentAmt;
 
     private String paymentDate;
@@ -58,61 +62,61 @@ public class CustomerOrder extends Auditable {
     @Getter
     private OrderState orderState;
 
+    @NotNull
+    @Column(nullable = false)
     private Date modifiedByUserAt;
 
     @Version
     private Integer version;
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        CustomerOrder that = (CustomerOrder) o;
-        return
-                Objects.equals(id, that.id) &&
-                        Objects.equals(address, that.address) &&
-                        /**
-                         * use deepEquals for JPA persistentBag workaround, otherwise equals will return incorrect result
-                         */
-                        Objects.deepEquals(readOnlyProductList.toArray(), that.readOnlyProductList.toArray()) &&
-                        Objects.equals(paymentType, that.paymentType) &&
-                        Objects.equals(profileId, that.profileId) &&
-                        Objects.equals(paymentAmt, that.paymentAmt);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, address, readOnlyProductList, paymentType, paymentAmt, profileId);
-    }
-
     public void updateModifiedByUserAt() {
         this.modifiedByUserAt = Date.from(Instant.now());
     }
 
-    public void setAddress(CustomerOrderAddress address) {
-        this.address = new CustomerOrderAddress(address.getFullName(), address.getLine1(), address.getLine2()
-                , address.getPostalCode(), address.getPhoneNumber(), address.getCity(), address.getProvince(), address.getCountry());
-    }
-
-    public void setPaymentType(String paymentType) {
-        this.paymentType = paymentType;
-    }
-
-    public static CustomerOrder create(Long id, Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
+    public static CustomerOrder create(Long id, Long profileId, List<CustomerOrderItemCommand> productList, CustomerOrderAddressCommand address, String paymentType, BigDecimal paymentAmt) {
         return new CustomerOrder(id, profileId, productList, address, paymentType, paymentAmt);
     }
 
-    private CustomerOrder(Long id, Long profileId, List<CustomerOrderItem> productList, CustomerOrderAddress address, String paymentType, BigDecimal paymentAmt) {
+    private CustomerOrder(Long id, Long profileId, List<CustomerOrderItemCommand> productList, CustomerOrderAddressCommand address, String paymentType, BigDecimal paymentAmt) {
         this.id = id;
         this.profileId = profileId;
-        this.readOnlyProductList = new ArrayList<>(productList);
-        this.writeOnlyProductList = productList;
-        this.address = address;
+        List<CustomerOrderItem> collect2 = productList.stream().map(e -> {
+            CustomerOrderItem customerOrderItem = new CustomerOrderItem();
+            customerOrderItem.setFinalPrice(e.getFinalPrice());
+            customerOrderItem.setProductId(e.getProductId());
+            customerOrderItem.setName(e.getName());
+            customerOrderItem.setImageUrlSmall(e.getImageUrlSmall());
+            List<CustomerOrderItemAddOn> collect1 = null;
+            if (e.getSelectedOptions() != null) {
+                collect1 = e.getSelectedOptions().stream().map(e2 -> {
+                    CustomerOrderItemAddOn customerOrderItemAddOn = new CustomerOrderItemAddOn();
+                    customerOrderItemAddOn.setTitle(e2.getTitle());
+                    List<CustomerOrderItemAddOnSelection> collect = e2.getOptions().stream()
+                            .map(e3 -> new CustomerOrderItemAddOnSelection(e3.getOptionValue(), e3.getPriceVar())).collect(Collectors.toList());
+                    customerOrderItemAddOn.setOptions(collect);
+                    return customerOrderItemAddOn;
+                }).collect(Collectors.toList());
+            }
+            customerOrderItem.setSelectedOptions(collect1);
+            return customerOrderItem;
+        }).collect(Collectors.toList());
+        this.readOnlyProductList = new ArrayList<>(collect2);
+        this.writeOnlyProductList = collect2;
+        CustomerOrderAddress customerOrderAddress = new CustomerOrderAddress();
+        customerOrderAddress.setOrderAddressCity(address.getCity());
+        customerOrderAddress.setOrderAddressCountry(address.getCountry());
+        customerOrderAddress.setOrderAddressFullName(address.getFullName());
+        customerOrderAddress.setOrderAddressLine1(address.getLine1());
+        customerOrderAddress.setOrderAddressLine2(address.getLine2());
+        customerOrderAddress.setOrderAddressPhoneNumber(address.getPhoneNumber());
+        customerOrderAddress.setOrderAddressProvince(address.getProvince());
+        customerOrderAddress.setOrderAddressPostalCode(address.getPostalCode());
+        this.address = customerOrderAddress;
         this.paymentType = paymentType;
         this.paymentAmt = paymentAmt;
         this.modifiedByUserAt = Date.from(Instant.now());
+        this.orderState = OrderState.NOT_PAID_RESERVED;
         validatePaymentAmount();
-        toNotPaidReserved();
     }
 
     /**
@@ -142,45 +146,29 @@ public class CustomerOrder extends Auditable {
         return stringIntegerHashMap;
     }
 
-    public void toNotPaidReserved() {
-        // new order or recycled order
-        if (orderState == null || id != null && orderState.equals(OrderState.NOT_PAID_RECYCLED)) {
-            orderState = OrderState.NOT_PAID_RESERVED;
-        } else {
-            throw new StateChangeException();
-        }
-    }
-
-    public void toNotPaidRecycled() {
-        if (orderState != OrderState.NOT_PAID_RESERVED)
-            throw new StateChangeException();
-        orderState = OrderState.NOT_PAID_RECYCLED;
-    }
-
-    public void toPaidReserved() {
-        if (orderState == OrderState.NOT_PAID_RESERVED || orderState == OrderState.PAID_RECYCLED) {
-            orderState = OrderState.PAID_RESERVED;
-        } else {
-            throw new StateChangeException();
-        }
-    }
-
-    public void toConfirmed() {
-        if (orderState != OrderState.PAID_RESERVED)
-            throw new StateChangeException();
-        orderState = OrderState.CONFIRMED;
-    }
-
-    public void toPaidRecycled() {
-        if (orderState != OrderState.NOT_PAID_RECYCLED)
-            throw new StateChangeException();
-        orderState = OrderState.PAID_RECYCLED;
-    }
-
     private void validatePaymentAmount() {
         BigDecimal reduce = readOnlyProductList.stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
         if (paymentAmt.compareTo(reduce) != 0)
             throw new OrderPaymentMismatchException();
+    }
+
+    public static CustomerOrder get(Long profileId, Long orderId, OrderRepository orderRepository) {
+        Optional<CustomerOrder> byId = orderRepository.findById(orderId);
+        checkAccess(byId, profileId);
+        return byId.get();
+    }
+
+    public static CustomerOrder getForUpdate(Long profileId, Long orderId, OrderRepository orderRepository) {
+        Optional<CustomerOrder> byId = orderRepository.findByIdForUpdate(orderId);
+        checkAccess(byId, profileId);
+        return byId.get();
+    }
+
+    private static void checkAccess(Optional<CustomerOrder> byId, Long profileId) {
+        if (byId.isEmpty())
+            throw new OrderNotExistException();
+        if (!byId.get().getProfileId().equals(profileId))
+            throw new OrderAccessException();
     }
 }
 

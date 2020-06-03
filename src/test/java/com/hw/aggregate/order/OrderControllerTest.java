@@ -2,11 +2,13 @@ package com.hw.aggregate.order;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hw.aggregate.order.command.CreateOrderCommand;
+import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
 import com.hw.aggregate.order.model.CustomerOrder;
 import com.hw.aggregate.order.model.CustomerOrderItem;
 import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
 import com.hw.aggregate.order.model.CustomerOrderItemAddOnSelection;
-import com.hw.aggregate.order.representation.OrderSummaryAdminRepresentation;
+import com.hw.aggregate.order.representation.*;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -25,6 +27,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import static com.hw.aggregate.Helper.rJwt;
+import static com.hw.aggregate.Helper.rLong;
+import static org.mockito.ArgumentMatchers.*;
+
 @RunWith(MockitoJUnitRunner.class)
 @Slf4j
 public class OrderControllerTest {
@@ -32,7 +38,7 @@ public class OrderControllerTest {
     ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
-    OrderController orderController = new OrderController();
+    OrderController orderController;
 
     @Mock
     OrderApplicationService orderApplicationService;
@@ -113,5 +119,89 @@ public class OrderControllerTest {
 
     private String getRandomString() {
         return UUID.randomUUID().toString();
+    }
+
+    @Test
+    public void testGetAllOrdersForAdmin() {
+        OrderSummaryAdminRepresentation mock = Mockito.mock(OrderSummaryAdminRepresentation.class);
+        Mockito.doReturn(mock).when(orderApplicationService).getAllOrdersForAdmin();
+        ResponseEntity<List<OrderSummaryAdminRepresentation.OrderAdminRepresentation>> allOrdersForAdmin = orderController.getAllOrdersForAdmin();
+        Mockito.verify(orderApplicationService, Mockito.times(1)).getAllOrdersForAdmin();
+    }
+
+    @Test
+    public void getAllOrdersForCustomer() {
+        OrderSummaryCustomerRepresentation mock = Mockito.mock(OrderSummaryCustomerRepresentation.class);
+        Mockito.doReturn(mock).when(orderApplicationService).getAllOrders(anyString(), anyLong());
+        ResponseEntity<List<OrderSummaryCustomerRepresentation.OrderCustomerRepresentation>> allOrdersForCustomer = orderController.getAllOrdersForCustomer(rJwt(), rLong());
+        Mockito.verify(orderApplicationService, Mockito.times(1)).getAllOrders(anyString(), anyLong());
+    }
+
+    @Test
+    public void reserveOrder() {
+        OrderPaymentLinkRepresentation mock = Mockito.mock(OrderPaymentLinkRepresentation.class);
+        Mockito.doReturn(mock).when(orderApplicationService).createNew(anyString(), anyLong(), any(CreateOrderCommand.class));
+        Mockito.doReturn("mock").when(mock).getPaymentLink();
+        ResponseEntity<Void> voidResponseEntity = orderController.reserveOrder(rJwt(), rLong(), new CreateOrderCommand());
+        Assert.assertNotNull(voidResponseEntity.getHeaders().getLocation());
+    }
+
+    @Test
+    public void getOrderById() {
+        OrderCustomerRepresentation mock = Mockito.mock(OrderCustomerRepresentation.class);
+        Mockito.doReturn(mock).when(orderApplicationService).getOrderForCustomer(anyString(), anyLong(), anyLong());
+
+        ResponseEntity<OrderCustomerRepresentation> orderById = orderController.getOrderById(rJwt(), rLong(), rLong());
+        Assert.assertNotNull(orderById.getBody());
+    }
+
+    @Test
+    public void confirmOrderPaymentStatus() {
+        OrderConfirmStatusRepresentation mock = Mockito.mock(OrderConfirmStatusRepresentation.class);
+        Mockito.doReturn(mock).when(orderApplicationService).confirmPayment(anyString(), anyLong(), anyLong());
+        Mockito.doNothing().when(orderApplicationService).confirmOrder(anyString(), anyLong(), anyLong());
+        Mockito.doReturn(Boolean.TRUE).when(mock).getPaymentStatus();
+        ResponseEntity<OrderConfirmStatusRepresentation> orderConfirmStatusRepresentationResponseEntity = orderController.confirmOrderPaymentStatus(rJwt(), rLong(), rLong());
+        Mockito.verify(orderApplicationService, Mockito.times(1)).confirmOrder(anyString(), anyLong(), anyLong());
+    }
+
+    @Test
+    public void confirmOrderPaymentStatus_2() {
+        OrderConfirmStatusRepresentation mock = Mockito.mock(OrderConfirmStatusRepresentation.class);
+        OrderPaymentLinkRepresentation mock1 = Mockito.mock(OrderPaymentLinkRepresentation.class);
+        Mockito.doReturn(mock).when(orderApplicationService).confirmPayment(anyString(), anyLong(), anyLong());
+        Mockito.doReturn(mock1).when(orderApplicationService).placeAgain(anyString(), anyLong(), anyLong(), any());
+        Mockito.doReturn(Boolean.FALSE).when(mock).getPaymentStatus();
+        ResponseEntity<OrderConfirmStatusRepresentation> orderConfirmStatusRepresentationResponseEntity = orderController.confirmOrderPaymentStatus(rJwt(), rLong(), rLong());
+        Mockito.verify(orderApplicationService, Mockito.times(1)).placeAgain(anyString(), anyLong(), anyLong(), any());
+    }
+
+    @Test
+    public void placeOrderAgain() {
+        OrderPaymentLinkRepresentation mock = Mockito.mock(OrderPaymentLinkRepresentation.class);
+        Mockito.doReturn(mock).when(orderApplicationService).placeAgain(anyString(), anyLong(), anyLong(), any(PlaceOrderAgainCommand.class));
+        Mockito.doReturn(Boolean.FALSE).when(mock).getPaymentState();
+        Mockito.doReturn("").when(mock).getPaymentLink();
+        ResponseEntity<Void> voidResponseEntity = orderController.placeOrderAgain(rJwt(), rLong(), rLong(), new PlaceOrderAgainCommand());
+        Assert.assertNotNull(voidResponseEntity.getHeaders().getLocation());
+    }
+
+    @Test
+    public void placeOrderAgain_2() {
+        OrderPaymentLinkRepresentation mock = Mockito.mock(OrderPaymentLinkRepresentation.class);
+        Mockito.doReturn(mock).when(orderApplicationService).placeAgain(anyString(), anyLong(), anyLong(), any(PlaceOrderAgainCommand.class));
+        Mockito.doReturn(Boolean.TRUE).when(mock).getPaymentState();
+        Mockito.doReturn("").when(mock).getPaymentLink();
+        Mockito.doNothing().when(orderApplicationService).confirmOrder(anyString(), anyLong(), anyLong());
+        ResponseEntity<Void> voidResponseEntity = orderController.placeOrderAgain(rJwt(), rLong(), rLong(), new PlaceOrderAgainCommand());
+        Assert.assertNotNull(voidResponseEntity.getHeaders().getLocation());
+        Mockito.verify(orderApplicationService, Mockito.times(1)).confirmOrder(anyString(), anyLong(), anyLong());
+    }
+
+    @Test
+    public void deleteOrder() {
+        Mockito.doNothing().when(orderApplicationService).deleteOrder(anyString(), anyLong(), anyLong());
+        ResponseEntity<Void> voidResponseEntity = orderController.deleteOrder(rJwt(), rLong(), rLong());
+        Mockito.verify(orderApplicationService, Mockito.times(1)).deleteOrder(anyString(), anyLong(), anyLong());
     }
 }
