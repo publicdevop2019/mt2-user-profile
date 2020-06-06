@@ -65,7 +65,7 @@ public class PaymentService {
     }
 
     public Boolean confirmPaymentStatus(String orderId) {
-        log.debug("start of confirm order");
+        log.debug("start of confirm payment status");
         ParameterizedTypeReference<HashMap<String, Boolean>> responseType =
                 new ParameterizedTypeReference<>() {
                 };

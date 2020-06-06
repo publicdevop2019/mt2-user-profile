@@ -100,7 +100,7 @@ public class OrderApplicationService {
     @ProfileExistAndOwnerOnly
     @Transactional
     public OrderConfirmStatusRepresentation confirmPayment(String userId, Long profileId, Long orderId) {
-        log.debug("start of confirmPayment");
+        log.debug("start of confirmPayment {}", orderId);
         CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put("order", customerOrder);
@@ -110,7 +110,7 @@ public class OrderApplicationService {
 
     @ProfileExistAndOwnerOnly
     public void confirmOrder(String userId, Long profileId, Long orderId) {
-        log.debug("start of confirmOrder");
+        log.debug("start of confirmOrder {}", orderId);
         new TransactionTemplate(transactionManager)
                 .execute(new TransactionCallbackWithoutResult() {
                     @Override

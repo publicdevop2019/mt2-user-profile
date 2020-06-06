@@ -59,13 +59,16 @@ public class CustomStateMachineBuilder {
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    private CustomStateMachineEventListener customStateMachineEventListener;
+
     public StateMachine<OrderState, OrderEvent> buildMachine(OrderState initialState) {
         StateMachineBuilder.Builder<OrderState, OrderEvent> builder = StateMachineBuilder.builder();
         try {
             builder.configureConfiguration()
                     .withConfiguration()
                     .autoStartup(true)
-//                    .taskExecutor(customExecutor)
+                    .listener(customStateMachineEventListener)
             ;
             builder.configureStates()
                     .withStates()
@@ -151,27 +154,27 @@ public class CustomStateMachineBuilder {
                 allDoneFuture.get();
                 customerOrder.setPaymentLink(paymentQRLinkFuture.get());
             } catch (ExecutionException ex) {
-                log.error("error during async call", ex);
-                rollbackTransaction(transactionId);
+                log.error("error during prepare order async call", ex);
                 if (decreaseOrderStorageFuture.isCompletedExceptionally())
-                    throw new OrderStorageDecreaseException();
+                    context.getStateMachine().setStateMachineError(new OrderStorageDecreaseException());
                 if (paymentQRLinkFuture.isCompletedExceptionally())
-                    throw new PaymentQRLinkGenerationException();
+                    context.getStateMachine().setStateMachineError(new PaymentQRLinkGenerationException());
                 if (validateResultFuture.isCompletedExceptionally())
-                    throw new ProductInfoValidationException();
-                throw new OrderCreationUnknownException();
+                    context.getStateMachine().setStateMachineError(new ProductInfoValidationException());
+                return false;
             } catch (InterruptedException e) {
                 log.warn("thread was interrupted", e);
-                rollbackTransaction(transactionId);
+                context.getStateMachine().setStateMachineError(e);
                 Thread.currentThread().interrupt();
+                return false;
             }
             //clear user cart
             try {
                 cartApplicationService.clearCartItem(customerOrder.getProfileId());
             } catch (Exception ex) {
                 log.error("error during clear cart", ex);
-                rollbackTransaction(transactionId);
-                throw new CartClearException();
+                context.getStateMachine().setStateMachineError(new CartClearException());
+                return false;
             }
             // save reserved order
             customerOrder.setOrderState(context.getTarget().getId());
@@ -179,8 +182,8 @@ public class CustomStateMachineBuilder {
                 customerOrderRepository.saveAndFlush(customerOrder);
             } catch (Exception ex) {
                 log.error("error during data persist", ex);
-                rollbackTransaction(transactionId);
-                throw new OrderPersistenceException();
+                context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                return false;
             }
             return true;
         };
@@ -195,31 +198,18 @@ public class CustomStateMachineBuilder {
                 productService.decreaseOrderStorage(customerOrder.getProductSummary(), transactionId);
             } catch (Exception ex) {
                 log.error("error during decrease order storage");
-                rollbackTransaction(transactionId);
-                throw new OrderStorageDecreaseException();
+                context.getStateMachine().setStateMachineError(new OrderStorageDecreaseException());
+                return false;
             }
             try {
                 customerOrderRepository.saveAndFlush(customerOrder);
             } catch (Exception ex) {
                 log.error("error during data persist", ex);
-                rollbackTransaction(transactionId);
-                throw new OrderPersistenceException();
+                context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                return false;
             }
             return true;
         };
-    }
-
-    // @todo dynamic catch transaction to revoke
-    private void rollbackTransaction(String transactionId) {
-        CompletableFuture.runAsync(() ->
-                cartApplicationService.rollbackTransaction(transactionId), customExecutor
-        );
-        CompletableFuture.runAsync(() ->
-                paymentService.rollbackTransaction(transactionId), customExecutor
-        );
-        CompletableFuture.runAsync(() ->
-                productService.rollbackTransaction(transactionId), customExecutor
-        );
     }
 
     private Action<OrderState, OrderEvent> sendNotification() {
@@ -238,15 +228,15 @@ public class CustomStateMachineBuilder {
                 productService.decreaseActualStorage(customerOrder.getProductSummary(), transactionId);
             } catch (Exception ex) {
                 log.error("error during decreaseActualStorage");
-                rollbackTransaction(transactionId);
-                throw new ActualStorageDecreaseException();
+                context.getStateMachine().setStateMachineError(new ActualStorageDecreaseException());
+                return false;
             }
             try {
                 customerOrderRepository.saveAndFlush(customerOrder);
             } catch (Exception ex) {
                 log.error("error during data persist", ex);
-                rollbackTransaction(transactionId);
-                throw new OrderPersistenceException();
+                context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                return false;
             }
             return true;
         };
@@ -266,7 +256,8 @@ public class CustomStateMachineBuilder {
                 customerOrderRepository.saveAndFlush(customerOrder);
             } catch (Exception ex) {
                 log.error("error during data persist", ex);
-                throw new OrderPersistenceException();
+                context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                return false;
             }
             return Boolean.TRUE.equals(paymentStatus);
         };
