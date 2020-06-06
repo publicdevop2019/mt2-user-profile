@@ -9,6 +9,7 @@ import com.hw.shared.Auditable;
 import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.util.StringUtils;
 
 import javax.persistence.*;
 import javax.validation.Valid;
@@ -65,6 +66,8 @@ public class CustomerOrder extends Auditable {
     private Boolean paid;
 
     @Getter
+    @Column(length = 25)
+    @Convert(converter = OrderState.DBConverter.class)
     private OrderState orderState;
 
     @NotNull
@@ -177,18 +180,24 @@ public class CustomerOrder extends Auditable {
             throw new OrderAccessException();
     }
 
-    public void updateAddress(PlaceOrderAgainCommand placeOrderAgainCommand) {
-        if (placeOrderAgainCommand.getAddress() != null) {
-            CustomerOrderAddress customerOrderAddress = new CustomerOrderAddress();
-            customerOrderAddress.setOrderAddressCity(placeOrderAgainCommand.getAddress().getCity());
-            customerOrderAddress.setOrderAddressCountry(placeOrderAgainCommand.getAddress().getCountry());
-            customerOrderAddress.setOrderAddressFullName(placeOrderAgainCommand.getAddress().getFullName());
-            customerOrderAddress.setOrderAddressLine1(placeOrderAgainCommand.getAddress().getLine1());
-            customerOrderAddress.setOrderAddressLine2(placeOrderAgainCommand.getAddress().getLine2());
-            customerOrderAddress.setOrderAddressPhoneNumber(placeOrderAgainCommand.getAddress().getPhoneNumber());
-            customerOrderAddress.setOrderAddressProvince(placeOrderAgainCommand.getAddress().getProvince());
-            customerOrderAddress.setOrderAddressPostalCode(placeOrderAgainCommand.getAddress().getPostalCode());
-            setAddress(customerOrderAddress);
+    public void updateAddress(PlaceOrderAgainCommand command) {
+        if (command.getAddress() != null
+                && StringUtils.hasText(command.getAddress().getCountry())
+                && StringUtils.hasText(command.getAddress().getProvince())
+                && StringUtils.hasText(command.getAddress().getCity())
+                && StringUtils.hasText(command.getAddress().getPostalCode())
+                && StringUtils.hasText(command.getAddress().getLine1())
+                && StringUtils.hasText(command.getAddress().getFullName())
+                && StringUtils.hasText(command.getAddress().getPhoneNumber())
+        ) {
+            address.setOrderAddressCountry(command.getAddress().getCountry());
+            address.setOrderAddressProvince(command.getAddress().getProvince());
+            address.setOrderAddressCity(command.getAddress().getCity());
+            address.setOrderAddressPostalCode(command.getAddress().getPostalCode());
+            address.setOrderAddressLine1(command.getAddress().getLine1());
+            address.setOrderAddressLine2(command.getAddress().getLine2());
+            address.setOrderAddressFullName(command.getAddress().getFullName());
+            address.setOrderAddressPhoneNumber(command.getAddress().getPhoneNumber());
         }
         updateModifiedByUserAt();
     }

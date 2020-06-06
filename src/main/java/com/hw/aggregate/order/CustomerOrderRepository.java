@@ -1,6 +1,7 @@
 package com.hw.aggregate.order;
 
 import com.hw.aggregate.order.model.CustomerOrder;
+import com.hw.aggregate.order.model.OrderState;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -20,9 +21,9 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
     Optional<CustomerOrder> findByIdForUpdate(Long id);
 
     @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
-    @Query("SELECT p FROM #{#entityName} as p WHERE p.modifiedByUserAt < ?1 AND p.orderState = 0")
+    @Query("SELECT p FROM #{#entityName} as p WHERE p.modifiedByUserAt < ?1 AND p.orderState = 'NOT_PAID_RESERVED'")
     List<CustomerOrder> findExpiredNotPaidReserved(Date expireAt);
 
-    @Query("SELECT p FROM #{#entityName} as p WHERE p.orderState = 2")
+    @Query("SELECT p FROM #{#entityName} as p WHERE p.orderState = 'PAID_RESERVED'")
     List<CustomerOrder> findPaidReserved();
 }

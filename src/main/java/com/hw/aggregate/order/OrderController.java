@@ -48,7 +48,7 @@ public class OrderController {
     }
 
     @PutMapping("profiles/{profileId}/orders/{orderId}/replace")
-    public ResponseEntity<Void> placeOrderAgain(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody PlaceOrderAgainCommand newOrder) {
+    public ResponseEntity<Void> reserveAgain(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody PlaceOrderAgainCommand newOrder) {
         return ResponseEntity.ok().header("Location", orderService.reserveAgain(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder).getPaymentLink()).build();
     }
 

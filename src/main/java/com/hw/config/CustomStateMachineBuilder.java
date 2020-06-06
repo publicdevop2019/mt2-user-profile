@@ -204,6 +204,7 @@ public class CustomStateMachineBuilder {
                 context.getStateMachine().setStateMachineError(new OrderStorageDecreaseException());
                 return false;
             }
+            customerOrder.setOrderState(context.getTarget().getId());
             try {
                 customerOrderRepository.saveAndFlush(customerOrder);
             } catch (Exception ex) {
@@ -234,6 +235,7 @@ public class CustomStateMachineBuilder {
                 context.getStateMachine().setStateMachineError(new ActualStorageDecreaseException());
                 return false;
             }
+            customerOrder.setOrderState(context.getTarget().getId());
             try {
                 customerOrderRepository.saveAndFlush(customerOrder);
             } catch (Exception ex) {

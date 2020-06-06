@@ -128,7 +128,7 @@ public class OrderApplicationService {
     @ProfileExistAndOwnerOnly
     @Transactional
     public OrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceOrderAgainCommand command) {
-        log.info("place order {} again", orderId);
+        log.info("reserve order {} again", orderId);
         CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
         customerOrder.updateAddress(command);
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
