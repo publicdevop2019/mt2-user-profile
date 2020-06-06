@@ -33,6 +33,8 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.hw.shared.AppConstant.SSM_ORDER;
+
 @Service
 @Slf4j
 @EnableScheduling
@@ -92,7 +94,7 @@ public class OrderApplicationService {
         CustomerOrder customerOrder = CustomerOrder.create(idGenerator.getId(), profileId, command.getProductList(), command.getAddress(), command.getPaymentType(), command.getPaymentAmt());
         log.debug("order with id {} generated", customerOrder.getId().toString());
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put("order", customerOrder);
+        stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
         stateMachine.sendEvent(OrderEvent.NEW_ORDER);
         return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
@@ -103,7 +105,7 @@ public class OrderApplicationService {
         log.debug("start of confirmPayment {}", orderId);
         CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put("order", customerOrder);
+        stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
         stateMachine.sendEvent(OrderEvent.CONFIRM_PAYMENT);
         return new OrderConfirmStatusRepresentation(customerOrder.getPaid());
     }
@@ -117,7 +119,7 @@ public class OrderApplicationService {
                     protected void doInTransactionWithoutResult(TransactionStatus status) {
                         CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
                         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-                        stateMachine.getExtendedState().getVariables().put("order", customerOrder);
+                        stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
                         stateMachine.sendEvent(OrderEvent.CONFIRM_ORDER);
                     }
                 });
@@ -130,7 +132,7 @@ public class OrderApplicationService {
         CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
         customerOrder.updateAddress(command);
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put("order", customerOrder);
+        stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
         stateMachine.sendEvent(OrderEvent.RESERVE);
         return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }

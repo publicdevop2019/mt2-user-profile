@@ -5,4 +5,6 @@ public class AppConstant {
     }
 
     public static final String HTTP_HEADER_ERROR_ID = "Error-Id";
+    public static final String TX_ID = "TX_ID";
+    public static final String SSM_ORDER = "Order";
 }

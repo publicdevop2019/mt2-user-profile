@@ -24,6 +24,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import static com.hw.shared.AppConstant.SSM_ORDER;
+import static com.hw.shared.AppConstant.TX_ID;
+
 /**
  * each guard is an unit of work, roll back when failure happen
  */
@@ -124,17 +127,17 @@ public class CustomStateMachineBuilder {
     private Action<OrderState, OrderEvent> autoConfirm() {
         return context -> {
             log.info("start of autoConfirm");
-            CustomerOrder customerOrder = context.getExtendedState().get("order", CustomerOrder.class);
+            CustomerOrder customerOrder = context.getExtendedState().get(SSM_ORDER, CustomerOrder.class);
             orderApplicationService.confirmOrder(customerOrder.getCreatedBy(), customerOrder.getProfileId(), customerOrder.getId());
         };
     }
 
     private Guard<OrderState, OrderEvent> prepareNewOrder() {
         return context -> {
-            String transactionId = getTransactionId();
-            context.getExtendedState().getVariables().put("transactionId", transactionId);
-            CustomerOrder customerOrder = context.getExtendedState().get("order", CustomerOrder.class);
-            log.info("start of prepareNewOrder of {}, transaction id {}", customerOrder.getId(), transactionId);
+            String txId = getTransactionId();
+            context.getExtendedState().getVariables().put(TX_ID, txId);
+            CustomerOrder customerOrder = context.getExtendedState().get(SSM_ORDER, CustomerOrder.class);
+            log.info("start of prepareNewOrder of {}, tx id {}", customerOrder.getId(), txId);
             // validate order product info
             CompletableFuture<Void> validateResultFuture = CompletableFuture.runAsync(() ->
                     productService.validateProductInfo(customerOrder.getReadOnlyProductList()), customExecutor
@@ -147,7 +150,7 @@ public class CustomStateMachineBuilder {
 
             // decrease order storage
             CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                    productService.decreaseOrderStorage(customerOrder.getProductSummary(), transactionId), customExecutor
+                    productService.decreaseOrderStorage(customerOrder.getProductSummary(), txId), customExecutor
             );
             CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
             try {
@@ -192,7 +195,7 @@ public class CustomStateMachineBuilder {
     private Guard<OrderState, OrderEvent> reserveOrder() {
         return context -> {
             log.info("start of decreaseOrderStorage");
-            CustomerOrder customerOrder = context.getExtendedState().get("order", CustomerOrder.class);
+            CustomerOrder customerOrder = context.getExtendedState().get(SSM_ORDER, CustomerOrder.class);
             String transactionId = getTransactionId();
             try {
                 productService.decreaseOrderStorage(customerOrder.getProductSummary(), transactionId);
@@ -222,7 +225,7 @@ public class CustomStateMachineBuilder {
     private Guard<OrderState, OrderEvent> confirmOrder() {
         return context -> {
             log.info("start of decreaseActualStorage");
-            CustomerOrder customerOrder = context.getExtendedState().get("order", CustomerOrder.class);
+            CustomerOrder customerOrder = context.getExtendedState().get(SSM_ORDER, CustomerOrder.class);
             String transactionId = getTransactionId();
             try {
                 productService.decreaseActualStorage(customerOrder.getProductSummary(), transactionId);
@@ -245,7 +248,7 @@ public class CustomStateMachineBuilder {
     private Guard<OrderState, OrderEvent> updatePaymentStatus() {
         return context -> {
             log.info("start of updatePaymentStatus");
-            CustomerOrder customerOrder = context.getExtendedState().get("order", CustomerOrder.class);
+            CustomerOrder customerOrder = context.getExtendedState().get(SSM_ORDER, CustomerOrder.class);
             Boolean paymentStatus = paymentService.confirmPaymentStatus(customerOrder.getId().toString());
             log.info("result {}", paymentStatus.toString());
             customerOrder.setPaid(paymentStatus);
