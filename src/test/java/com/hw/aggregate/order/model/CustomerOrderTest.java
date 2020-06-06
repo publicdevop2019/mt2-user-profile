@@ -1,6 +1,6 @@
 package com.hw.aggregate.order.model;
 
-import com.hw.aggregate.order.OrderRepository;
+import com.hw.aggregate.order.CustomerOrderRepository;
 import com.hw.aggregate.order.exception.OrderAccessException;
 import com.hw.aggregate.order.exception.OrderNotExistException;
 import org.junit.Assert;
@@ -16,14 +16,14 @@ public class CustomerOrderTest {
 
     @Test(expected = OrderNotExistException.class)
     public void get_not_exist() {
-        OrderRepository mock = Mockito.mock(OrderRepository.class);
+        CustomerOrderRepository mock = Mockito.mock(CustomerOrderRepository.class);
         Mockito.doReturn(Optional.empty()).when(mock).findById(anyLong());
         CustomerOrder customerOrder = CustomerOrder.get(rLong(), rLong(), mock);
     }
 
     @Test(expected = OrderAccessException.class)
     public void get_wrong_access() {
-        OrderRepository mock = Mockito.mock(OrderRepository.class);
+        CustomerOrderRepository mock = Mockito.mock(CustomerOrderRepository.class);
         CustomerOrder mock1 = Mockito.mock(CustomerOrder.class);
         Mockito.doReturn(Optional.of(mock1)).when(mock).findById(anyLong());
         Mockito.doReturn(100L).when(mock1).getProfileId();
@@ -32,7 +32,7 @@ public class CustomerOrderTest {
 
     @Test
     public void get() {
-        OrderRepository mock = Mockito.mock(OrderRepository.class);
+        CustomerOrderRepository mock = Mockito.mock(CustomerOrderRepository.class);
         CustomerOrder mock1 = Mockito.mock(CustomerOrder.class);
         Mockito.doReturn(Optional.of(mock1)).when(mock).findById(anyLong());
         Long aLong = rLong();

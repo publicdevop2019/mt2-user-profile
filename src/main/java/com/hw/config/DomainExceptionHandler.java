@@ -32,7 +32,6 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(value = {
             OrderAlreadyPaidException.class,
-            StateChangeException.class,
             OrderNotExistException.class,
             OrderPaymentMismatchException.class,
             ProductInfoValidationException.class,
@@ -56,6 +55,7 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             OrderStorageDecreaseException.class,
             OrderCreationUnknownException.class,
             PaymentQRLinkGenerationException.class,
+            StateMachineCreationException.class,
     })
     protected ResponseEntity<Object> handle500Exception(RuntimeException ex, WebRequest request) {
         ErrorMessage errorMessage = new ErrorMessage(ex);

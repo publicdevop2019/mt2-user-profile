@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface OrderRepository extends JpaRepository<CustomerOrder, Long> {
+public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Long> {
     List<CustomerOrder> findByProfileId(Long profileId);
 
     @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)

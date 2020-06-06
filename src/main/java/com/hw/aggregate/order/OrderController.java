@@ -2,7 +2,10 @@ package com.hw.aggregate.order;
 
 import com.hw.aggregate.order.command.CreateOrderCommand;
 import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
-import com.hw.aggregate.order.representation.*;
+import com.hw.aggregate.order.representation.OrderConfirmStatusRepresentation;
+import com.hw.aggregate.order.representation.OrderCustomerRepresentation;
+import com.hw.aggregate.order.representation.OrderSummaryAdminRepresentation;
+import com.hw.aggregate.order.representation.OrderSummaryCustomerRepresentation;
 import com.hw.shared.ServiceUtility;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,9 +24,7 @@ public class OrderController {
 
     @GetMapping("orders")
     public ResponseEntity<List<OrderSummaryAdminRepresentation.OrderAdminRepresentation>> getAllOrdersForAdmin() {
-        List<OrderSummaryAdminRepresentation.OrderAdminRepresentation> adminRepresentations = orderService.getAllOrdersForAdmin().getAdminRepresentations();
-        return ResponseEntity.ok(adminRepresentations);
-
+        return ResponseEntity.ok(orderService.getAllOrdersForAdmin().getAdminRepresentations());
     }
 
     @GetMapping("profiles/{profileId}/orders")
@@ -33,33 +34,22 @@ public class OrderController {
 
     @PostMapping("profiles/{profileId}/orders")
     public ResponseEntity<Void> reserveOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody CreateOrderCommand newOrder) {
-        OrderPaymentLinkRepresentation orderPaymentLinkRepresentation = orderService.createNew(ServiceUtility.getUserId(authorization), profileId, newOrder);
-        return ResponseEntity.ok().header("Location", orderPaymentLinkRepresentation.getPaymentLink()).build();
+        return ResponseEntity.ok().header("Location", orderService.createNew(ServiceUtility.getUserId(authorization), profileId, newOrder).getPaymentLink()).build();
     }
 
     @GetMapping("profiles/{profileId}/orders/{orderId}")
     public ResponseEntity<OrderCustomerRepresentation> getOrderById(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
-        OrderCustomerRepresentation orderForCustomer = orderService.getOrderForCustomer(ServiceUtility.getUserId(authorization), profileId, orderId);
-        return ResponseEntity.ok(orderForCustomer);
+        return ResponseEntity.ok(orderService.getOrderForCustomer(ServiceUtility.getUserId(authorization), profileId, orderId));
     }
 
     @GetMapping("profiles/{profileId}/orders/{orderId}/confirm")
     public ResponseEntity<OrderConfirmStatusRepresentation> confirmOrderPaymentStatus(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
-        OrderConfirmStatusRepresentation orderConfirmStatusRepresentation = orderService.confirmPayment(ServiceUtility.getUserId(authorization), profileId, orderId);
-        if (Boolean.TRUE.equals(orderConfirmStatusRepresentation.getPaymentStatus())) {
-            orderService.confirmOrder(ServiceUtility.getUserId(authorization), profileId, orderId);
-        } else {
-            orderService.placeAgain(ServiceUtility.getUserId(authorization), profileId, orderId, null);
-        }
-        return ResponseEntity.ok(orderConfirmStatusRepresentation);
+        return ResponseEntity.ok(orderService.confirmPayment(ServiceUtility.getUserId(authorization), profileId, orderId));
     }
 
     @PutMapping("profiles/{profileId}/orders/{orderId}/replace")
     public ResponseEntity<Void> placeOrderAgain(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody PlaceOrderAgainCommand newOrder) {
-        OrderPaymentLinkRepresentation orderPaymentLinkRepresentation = orderService.placeAgain(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder);
-        if (Boolean.TRUE.equals(orderPaymentLinkRepresentation.getPaymentState()))
-            orderService.confirmOrder(ServiceUtility.getUserId(authorization), profileId, orderId);
-        return ResponseEntity.ok().header("Location", orderPaymentLinkRepresentation.getPaymentLink()).build();
+        return ResponseEntity.ok().header("Location", orderService.reserveAgain(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder).getPaymentLink()).build();
     }
 
     @DeleteMapping("profiles/{profileId}/orders/{orderId}")

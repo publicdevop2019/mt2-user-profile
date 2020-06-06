@@ -1,15 +1,13 @@
 package com.hw.aggregate.order;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hw.aggregate.cart.CartApplicationService;
 import com.hw.aggregate.order.command.CreateOrderCommand;
 import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
-import com.hw.aggregate.order.exception.*;
+import com.hw.aggregate.order.exception.OrderSchedulerProductRecycleException;
 import com.hw.aggregate.order.model.CustomerOrder;
-import com.hw.aggregate.order.model.CustomerOrderAddress;
 import com.hw.aggregate.order.model.OrderEvent;
 import com.hw.aggregate.order.model.OrderState;
 import com.hw.aggregate.order.representation.*;
+import com.hw.config.CustomStateMachineBuilder;
 import com.hw.config.ProfileExistAndOwnerOnly;
 import com.hw.shared.EurekaRegistryHelper;
 import com.hw.shared.IdGenerator;
@@ -18,8 +16,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.statemachine.StateMachine;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -31,8 +31,6 @@ import javax.persistence.EntityManager;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 @Service
@@ -47,32 +45,20 @@ public class OrderApplicationService {
     private Long expireAfter;
 
     @Autowired
-    private ObjectMapper mapper;
-
-    @Autowired
     private ResourceServiceTokenHelper tokenHelper;
 
     @Autowired
-    private OrderRepository orderRepository;
-
-    @Autowired
-    private PaymentService paymentService;
+    private CustomerOrderRepository customerOrderRepository;
 
     @Autowired
     private ProductService productStorageService;
-
-    @Autowired
-    private MessengerService messengerService;
-
-    @Autowired
-    private CartApplicationService cartApplicationService;
 
     @Autowired
     private IdGenerator idGenerator;
 
     @Autowired
     @Qualifier("CustomPool")
-    private Executor customExecutor;
+    private TaskExecutor customExecutor;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -80,226 +66,125 @@ public class OrderApplicationService {
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    private CustomStateMachineBuilder customStateMachineBuilder;
 
     @Transactional(readOnly = true)
     public OrderSummaryAdminRepresentation getAllOrdersForAdmin() {
-        return new OrderSummaryAdminRepresentation(orderRepository.findAll());
+        return new OrderSummaryAdminRepresentation(customerOrderRepository.findAll());
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
-    public OrderSummaryCustomerRepresentation getAllOrders(String authUserId, Long profileId) {
-        return new OrderSummaryCustomerRepresentation(orderRepository.findByProfileId(profileId));
+    public OrderSummaryCustomerRepresentation getAllOrders(String userId, Long profileId) {
+        return new OrderSummaryCustomerRepresentation(customerOrderRepository.findByProfileId(profileId));
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
-    public OrderCustomerRepresentation getOrderForCustomer(String authUserId, Long profileId, Long orderId) {
-        return new OrderCustomerRepresentation(CustomerOrder.get(profileId, orderId, orderRepository));
+    public OrderCustomerRepresentation getOrderForCustomer(String userId, Long profileId, Long orderId) {
+        return new OrderCustomerRepresentation(CustomerOrder.get(profileId, orderId, customerOrderRepository));
     }
 
     @ProfileExistAndOwnerOnly
-    @Transactional
-    public OrderPaymentLinkRepresentation createNew(String authUserId, Long profileId, CreateOrderCommand newOrder) {
+    public OrderPaymentLinkRepresentation createNew(String userId, Long profileId, CreateOrderCommand command) {
         log.debug("start of createNew");
-        CustomerOrder customerOrder = CustomerOrder.create(idGenerator.getId(), profileId, newOrder.getProductList(), newOrder.getAddress(), newOrder.getPaymentType(), newOrder.getPaymentAmt());
-
+        CustomerOrder customerOrder = CustomerOrder.create(idGenerator.getId(), profileId, command.getProductList(), command.getAddress(), command.getPaymentType(), command.getPaymentAmt());
         log.debug("order with id {} generated", customerOrder.getId().toString());
-
-        // validate order product info
-        CompletableFuture<Void> validateResultFuture = CompletableFuture.runAsync(() ->
-                productStorageService.validateProductInfo(customerOrder.getReadOnlyProductList()), customExecutor
-        );
-
-        // generate payment QR link
-        String operationToken = getOperationToken();
-        log.debug("optToken generated {}", operationToken);
-        CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
-                paymentService.generatePaymentLink(customerOrder.getId().toString()), customExecutor
-        );
-
-        // decrease order storage
-        CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                productStorageService.decreaseOrderStorage(customerOrder.getProductSummary(), operationToken), customExecutor
-        );
-        CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
-        String paymentLink = null;
-        try {
-            allDoneFuture.get();
-            paymentLink = paymentQRLinkFuture.get();
-        } catch (ExecutionException e) {
-            log.error("error during reserve order", e);
-            CompletableFuture.runAsync(() ->
-                    productStorageService.rollbackChange(operationToken), customExecutor
-            );
-            // if decreaseOrderStorageFuture got timeout, the order storage should get rollback
-            if (decreaseOrderStorageFuture.isCompletedExceptionally())
-                throw new OrderStorageDecreaseException();
-            if (paymentQRLinkFuture.isCompletedExceptionally())
-                throw new PaymentQRLinkGenerationException();
-            if (validateResultFuture.isCompletedExceptionally())
-                throw new ProductInfoValidationException();
-            throw new OrderCreationUnknownException();
-        } catch (InterruptedException e) {
-            log.warn("thread was interrupted", e);
-            CompletableFuture.runAsync(() ->
-                    productStorageService.rollbackChange(operationToken), customExecutor
-            );
-            Thread.currentThread().interrupt();
-        }
-        customerOrder.setPaymentLink(paymentLink);
-        log.debug("order storage decreased");
-        cartApplicationService.clearCartItem(profileId);
-        orderRepository.saveAndFlush(customerOrder);
-        return new OrderPaymentLinkRepresentation(paymentLink, false);
+        StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        stateMachine.getExtendedState().getVariables().put("order", customerOrder);
+        stateMachine.sendEvent(OrderEvent.NEW_ORDER);
+        return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional
-    public OrderConfirmStatusRepresentation confirmPayment(String authUserId, Long profileId, Long orderId) {
+    public OrderConfirmStatusRepresentation confirmPayment(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmPayment");
-        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, orderRepository);
-        Boolean paymentStatus = paymentService.confirmPaymentStatus(orderId.toString());
-        if (Boolean.TRUE.equals(paymentStatus)) {
-            OrderEvent.CONFIRM_PAYMENT.nextState(customerOrder);
-            orderRepository.saveAndFlush(customerOrder);
-        }
-        OrderConfirmStatusRepresentation confirmStatusRepresentation = new OrderConfirmStatusRepresentation();
-        confirmStatusRepresentation.setPaymentStatus(paymentStatus);
-        return confirmStatusRepresentation;
+        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
+        StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        stateMachine.getExtendedState().getVariables().put("order", customerOrder);
+        stateMachine.sendEvent(OrderEvent.CONFIRM_PAYMENT);
+        return new OrderConfirmStatusRepresentation(customerOrder.getPaid());
     }
 
     @ProfileExistAndOwnerOnly
-    public void confirmOrder(String authUserId, Long profileId, Long orderId) {
+    public void confirmOrder(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmOrder");
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        transactionTemplate.execute(new TransactionCallbackWithoutResult() {
-            @Override
-            protected void doInTransactionWithoutResult(TransactionStatus status) {
-                CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, orderRepository);
-                String operationToken = getOperationToken();
-                CompletableFuture<Void> decreaseActualStorageFuture = CompletableFuture.runAsync(() ->
-                        productStorageService.decreaseActualStorage(customerOrder.getProductSummary(), operationToken), customExecutor
-                );
-                try {
-                    decreaseActualStorageFuture.get();
-                    OrderEvent.DECREASE_ACTUAL_STORAGE.nextState(customerOrder);
-                    entityManager.persist(customerOrder);
-                } catch (Exception e) {
-                    log.error("error during confirm order, rollback last change", e);
-                    productStorageService.rollbackChange(operationToken);
-                    throw new ActualStorageDecreaseException();
-                }
-            }
-        });
-        messengerService.notifyBusinessOwner(new HashMap<>());
+        new TransactionTemplate(transactionManager)
+                .execute(new TransactionCallbackWithoutResult() {
+                    @Override
+                    protected void doInTransactionWithoutResult(TransactionStatus status) {
+                        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
+                        StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+                        stateMachine.getExtendedState().getVariables().put("order", customerOrder);
+                        stateMachine.sendEvent(OrderEvent.CONFIRM_ORDER);
+                    }
+                });
     }
 
-    /**
-     * only address and payment_method can be updated
-     */
     @ProfileExistAndOwnerOnly
     @Transactional
-    public OrderPaymentLinkRepresentation placeAgain(String authUserId, Long profileId, Long orderId, PlaceOrderAgainCommand placeOrderAgainCommand) {
+    public OrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceOrderAgainCommand command) {
         log.info("place order {} again", orderId);
-        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, orderRepository);
-        OrderPaymentLinkRepresentation representation;
-        updateAddressIfApplicable(placeOrderAgainCommand, customerOrder);
-        if (customerOrder.getOrderState().equals(OrderState.PAID_RECYCLED)) {
-            representation = new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), true);
-        } else if (customerOrder.getOrderState().equals(OrderState.NOT_PAID_RECYCLED)) {
-            representation = new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), false);
-        } else if (customerOrder.getOrderState().equals(OrderState.NOT_PAID_RESERVED)) {
-            orderRepository.saveAndFlush(customerOrder);
-            return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), false);
-        } else {
-            throw new StateChangeException();
-        }
-        // decrease order storage
-        String operationToken = getOperationToken();
-        CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                productStorageService.decreaseOrderStorage(customerOrder.getProductSummary(), operationToken), customExecutor
-        );
-        customerOrder.updateModifiedByUserAt();
-        try {
-            decreaseOrderStorageFuture.get();
-            // if db throws ex then revoke is required
-            OrderEvent.RESERVE.nextState(customerOrder);
-            orderRepository.saveAndFlush(customerOrder);
-        } catch (Exception e) {
-            log.error("error during place order again, rollback last operation", e);
-            CompletableFuture.runAsync(() ->
-                    productStorageService.rollbackChange(operationToken), customExecutor
-            );
-            if (decreaseOrderStorageFuture.isCompletedExceptionally()) {
-                throw new OrderStorageDecreaseException();
-            }
-            throw new OrderCreationUnknownException();
-        }
-        return representation;
-    }
-
-    private void updateAddressIfApplicable(PlaceOrderAgainCommand placeOrderAgainCommand, CustomerOrder customerOrder) {
-        if (placeOrderAgainCommand.getAddress() != null) {
-            CustomerOrderAddress customerOrderAddress = new CustomerOrderAddress();
-            customerOrderAddress.setOrderAddressCity(placeOrderAgainCommand.getAddress().getCity());
-            customerOrderAddress.setOrderAddressCountry(placeOrderAgainCommand.getAddress().getCountry());
-            customerOrderAddress.setOrderAddressFullName(placeOrderAgainCommand.getAddress().getFullName());
-            customerOrderAddress.setOrderAddressLine1(placeOrderAgainCommand.getAddress().getLine1());
-            customerOrderAddress.setOrderAddressLine2(placeOrderAgainCommand.getAddress().getLine2());
-            customerOrderAddress.setOrderAddressPhoneNumber(placeOrderAgainCommand.getAddress().getPhoneNumber());
-            customerOrderAddress.setOrderAddressProvince(placeOrderAgainCommand.getAddress().getProvince());
-            customerOrderAddress.setOrderAddressPostalCode(placeOrderAgainCommand.getAddress().getPostalCode());
-            customerOrder.setAddress(customerOrderAddress);
-        }
+        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
+        customerOrder.updateAddress(command);
+        StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        stateMachine.getExtendedState().getVariables().put("order", customerOrder);
+        stateMachine.sendEvent(OrderEvent.RESERVE);
+        return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional
-    public void deleteOrder(String authUserId, Long profileId, Long orderId) {
-        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, orderRepository);
-        orderRepository.delete(customerOrder);
+    public void deleteOrder(String userId, Long profileId, Long orderId) {
+        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
+        customerOrderRepository.delete(customerOrder);
     }
 
-    @Transactional
     @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.release}")
     public void releaseExpiredOrder() {
-        String changeId = getOperationToken();
-        log.info("Expired order scheduler started, optToken generated {}", changeId);
-        long l = Instant.now().toEpochMilli() - expireAfter * 60 * 1000;
-        Instant instant = Instant.ofEpochMilli(l);
-        Date from = Date.from(instant);
-        List<CustomerOrder> expiredOrderList = orderRepository.findExpiredNotPaidReserved(from);
-        List<Long> collect = expiredOrderList.stream().map(CustomerOrder::getId).collect(Collectors.toList());
-        log.info("Expired order(s) found {}", collect.toString());
-        Map<String, Integer> stringIntegerHashMap = new HashMap<>();
-        expiredOrderList.forEach(expiredOrder -> {
-            Map<String, Integer> orderProductMap = expiredOrder.getProductSummary();
-            orderProductMap.forEach((key, value) -> stringIntegerHashMap.merge(key, value, Integer::sum));
-        });
-        try {
-            if (!stringIntegerHashMap.keySet().isEmpty()) {
-                log.info("Release product(s) in order(s) :: " + stringIntegerHashMap.toString());
-                productStorageService.increaseOrderStorage(stringIntegerHashMap, changeId);
-                /** update order state*/
-                expiredOrderList.forEach(OrderEvent.RECYCLE_ORDER_STORAGE::nextState);
-            }
-            log.info("Expired order(s) released");
-            orderRepository.saveAll(expiredOrderList);
-            orderRepository.flush();
-        } catch (Exception ex) {
-            log.error("Error during release storage, revoke last operation", ex);
-            CompletableFuture.runAsync(() ->
-                    productStorageService.rollbackChange(changeId)
-            );
-            throw new OrderSchedulerProductRecycleException();
-        }
+        new TransactionTemplate(transactionManager)
+                .execute(new TransactionCallbackWithoutResult() {
+                    @Override
+                    protected void doInTransactionWithoutResult(TransactionStatus status) {
+                        String transactionId = getTransactionId();
+                        log.info("Expired order scheduler started, transactionId generated {}", transactionId);
+                        Date from = Date.from(Instant.ofEpochMilli(Instant.now().toEpochMilli() - expireAfter * 60 * 1000));
+                        List<CustomerOrder> expiredOrderList = customerOrderRepository.findExpiredNotPaidReserved(from);
+                        log.info("Expired order(s) found {}", expiredOrderList.stream().map(CustomerOrder::getId).collect(Collectors.toList()).toString());
+                        Map<String, Integer> stringIntegerHashMap = new HashMap<>();
+                        expiredOrderList.forEach(expiredOrder -> {
+                            Map<String, Integer> orderProductMap = expiredOrder.getProductSummary();
+                            orderProductMap.forEach((key, value) -> stringIntegerHashMap.merge(key, value, Integer::sum));
+                        });
+                        try {
+                            if (!stringIntegerHashMap.keySet().isEmpty()) {
+                                log.info("Release product(s) in order(s) :: " + stringIntegerHashMap.toString());
+                                productStorageService.increaseOrderStorage(stringIntegerHashMap, transactionId);
+                                /** update order state*/
+                                expiredOrderList.forEach(e -> {
+                                    e.setOrderState(OrderState.NOT_PAID_RECYCLED);
+                                });
+                            }
+                            log.info("Expired order(s) released");
+                            customerOrderRepository.saveAll(expiredOrderList);
+                            customerOrderRepository.flush();
+                        } catch (Exception ex) {
+                            log.error("Error during release storage, revoke last operation", ex);
+                            CompletableFuture.runAsync(() ->
+                                    productStorageService.rollbackTransaction(transactionId), customExecutor
+                            );
+                            throw new OrderSchedulerProductRecycleException();
+                        }
+                    }
+                });
     }
 
     @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.resubmit}")
     public void resubmitOrder() {
         log.debug("start of resubmitOrder");
-        List<CustomerOrder> paidReserved = orderRepository.findPaidReserved();
+        List<CustomerOrder> paidReserved = customerOrderRepository.findPaidReserved();
         log.info("Paid reserved order(s) found {}", paidReserved.stream().map(CustomerOrder::getId).collect(Collectors.toList()));
         if (!paidReserved.isEmpty()) {
             // submit one order for now
@@ -314,7 +199,8 @@ public class OrderApplicationService {
         }
     }
 
-    private String getOperationToken() {
+    private String getTransactionId() {
         return UUID.randomUUID().toString();
     }
+
 }

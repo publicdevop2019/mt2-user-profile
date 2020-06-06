@@ -6,4 +6,5 @@ public enum OrderState {
     PAID_RESERVED,
     PAID_RECYCLED,
     CONFIRMED,
+    DRAFT,
 }

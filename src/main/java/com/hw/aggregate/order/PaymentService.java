@@ -32,6 +32,10 @@ public class PaymentService {
     @Autowired
     private ObjectMapper mapper;
 
+    public void rollbackTransaction(String transactionId) {
+
+    }
+
     public String generatePaymentLink(String orderId) {
         HashMap<String, String> stringStringHashMap = new HashMap<>();
         stringStringHashMap.put("orderId", orderId);

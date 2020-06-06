@@ -2,10 +2,12 @@ package com.hw.aggregate.order;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hw.aggregate.order.exception.ActualStorageDecreaseException;
 import com.hw.aggregate.order.exception.ProductInfoValidationException;
 import com.hw.aggregate.order.model.CustomerOrderItem;
 import com.hw.shared.EurekaRegistryHelper;
 import com.hw.shared.ResourceServiceTokenHelper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -17,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Slf4j
 public class ProductService {
 
     @Autowired
@@ -52,14 +55,14 @@ public class ProductService {
         changeStorage(increaseUrl, productMap, optToken);
     }
 
-    public void rollbackChange(String optToken) {
+    public void rollbackTransaction(String optToken) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(headers);
         tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + revokeUrl + "?optToken=" + optToken, HttpMethod.PUT, hashMapHttpEntity, String.class);
     }
 
-    public void decreaseActualStorage(Map<String, Integer> productMap, String optToken) {
+    public void decreaseActualStorage(Map<String, Integer> productMap, String optToken) throws ActualStorageDecreaseException {
         changeStorage(soldUrl, productMap, optToken);
     }
 

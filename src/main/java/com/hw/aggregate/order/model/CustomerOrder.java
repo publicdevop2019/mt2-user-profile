@@ -1,6 +1,7 @@
 package com.hw.aggregate.order.model;
 
-import com.hw.aggregate.order.OrderRepository;
+import com.hw.aggregate.order.CustomerOrderRepository;
+import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
 import com.hw.aggregate.order.exception.OrderAccessException;
 import com.hw.aggregate.order.exception.OrderNotExistException;
 import com.hw.aggregate.order.exception.OrderPaymentMismatchException;
@@ -59,6 +60,10 @@ public class CustomerOrder extends Auditable {
 
     private String paymentDate;
 
+    @NotNull
+    @Column
+    private Boolean paid;
+
     @Getter
     private OrderState orderState;
 
@@ -115,7 +120,8 @@ public class CustomerOrder extends Auditable {
         this.paymentType = paymentType;
         this.paymentAmt = paymentAmt;
         this.modifiedByUserAt = Date.from(Instant.now());
-        this.orderState = OrderState.NOT_PAID_RESERVED;
+        this.orderState = OrderState.DRAFT;
+        this.paid = false;
         validatePaymentAmount();
     }
 
@@ -152,13 +158,13 @@ public class CustomerOrder extends Auditable {
             throw new OrderPaymentMismatchException();
     }
 
-    public static CustomerOrder get(Long profileId, Long orderId, OrderRepository orderRepository) {
+    public static CustomerOrder get(Long profileId, Long orderId, CustomerOrderRepository orderRepository) {
         Optional<CustomerOrder> byId = orderRepository.findById(orderId);
         checkAccess(byId, profileId);
         return byId.get();
     }
 
-    public static CustomerOrder getForUpdate(Long profileId, Long orderId, OrderRepository orderRepository) {
+    public static CustomerOrder getForUpdate(Long profileId, Long orderId, CustomerOrderRepository orderRepository) {
         Optional<CustomerOrder> byId = orderRepository.findByIdForUpdate(orderId);
         checkAccess(byId, profileId);
         return byId.get();
@@ -169,6 +175,22 @@ public class CustomerOrder extends Auditable {
             throw new OrderNotExistException();
         if (!byId.get().getProfileId().equals(profileId))
             throw new OrderAccessException();
+    }
+
+    public void updateAddress(PlaceOrderAgainCommand placeOrderAgainCommand) {
+        if (placeOrderAgainCommand.getAddress() != null) {
+            CustomerOrderAddress customerOrderAddress = new CustomerOrderAddress();
+            customerOrderAddress.setOrderAddressCity(placeOrderAgainCommand.getAddress().getCity());
+            customerOrderAddress.setOrderAddressCountry(placeOrderAgainCommand.getAddress().getCountry());
+            customerOrderAddress.setOrderAddressFullName(placeOrderAgainCommand.getAddress().getFullName());
+            customerOrderAddress.setOrderAddressLine1(placeOrderAgainCommand.getAddress().getLine1());
+            customerOrderAddress.setOrderAddressLine2(placeOrderAgainCommand.getAddress().getLine2());
+            customerOrderAddress.setOrderAddressPhoneNumber(placeOrderAgainCommand.getAddress().getPhoneNumber());
+            customerOrderAddress.setOrderAddressProvince(placeOrderAgainCommand.getAddress().getProvince());
+            customerOrderAddress.setOrderAddressPostalCode(placeOrderAgainCommand.getAddress().getPostalCode());
+            setAddress(customerOrderAddress);
+        }
+        updateModifiedByUserAt();
     }
 }
 

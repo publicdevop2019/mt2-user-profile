@@ -18,6 +18,12 @@
     <build>
         <finalName>UserProfile</finalName>
     </build>
-
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.statemachine</groupId>
+            <artifactId>spring-statemachine-core</artifactId>
+            <version>2.2.0.RELEASE</version>
+        </dependency>
+    </dependencies>
 
 </project>

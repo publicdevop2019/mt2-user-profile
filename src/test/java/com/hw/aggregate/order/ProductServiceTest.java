@@ -79,7 +79,7 @@ public class ProductServiceTest {
         ResponseEntity resp = Mockito.mock(ResponseEntity.class);
         Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        productService.rollbackChange(rStr());
+        productService.rollbackTransaction(rStr());
         Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
     }
 

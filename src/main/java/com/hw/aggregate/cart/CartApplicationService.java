@@ -41,4 +41,8 @@ public class CartApplicationService {
     public void clearCartItem(Long profileId) {
         cartRepository.deleteInBatch(cartRepository.findByProfileId(profileId));
     }
+
+    @Transactional
+    public void rollbackTransaction(String transactionId) {
+    }
 }
