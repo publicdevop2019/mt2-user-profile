@@ -1,20 +1,14 @@
 package com.hw.aggregate.order;
 
 import com.hw.aggregate.cart.CartApplicationService;
-import com.hw.aggregate.order.command.CreateOrderCommand;
-import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
 import com.hw.aggregate.order.model.*;
-import com.hw.aggregate.order.representation.OrderConfirmStatusRepresentation;
-import com.hw.aggregate.order.representation.OrderPaymentLinkRepresentation;
 import com.hw.shared.IdGenerator;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -23,15 +17,13 @@ import javax.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-import static com.hw.aggregate.Helper.rLong;
 import static com.hw.aggregate.Helper.rStr;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
 @Slf4j
@@ -58,113 +50,6 @@ public class OrderApplicationServiceTest {
     PlatformTransactionManager platformTransactionManager;
     @Mock
     EntityManager entityManager;
-
-    @Test
-    public void createNew() {
-        CustomerOrder customerOrder = getCustomerOrder();
-        when(idGenerator.getId()).thenReturn(rLong());
-        Mockito.doAnswer(
-                (InvocationOnMock invocation) -> {
-                    ((Runnable) invocation.getArguments()[0]).run();
-                    return completableFuture;
-                }
-        ).when(customExecutor).execute(any(Runnable.class));
-        Mockito.doNothing().when(productService).validateProductInfo(any(List.class));
-        Mockito.doReturn("Test").when(paymentService).generatePaymentLink(anyString());
-        Mockito.doNothing().when(productService).decreaseOrderStorage(anyMap(), anyString());
-        Mockito.doNothing().when(cartApplicationService).clearCartItem(anyLong());
-        Mockito.doReturn(customerOrder).when(orderRepository).saveAndFlush(any(CustomerOrder.class));
-
-        CreateOrderCommand createOrderCommand = new CreateOrderCommand();
-        CustomerOrderAddressCommand addressCommand = new CustomerOrderAddressCommand();
-        createOrderCommand.setAddress(addressCommand);
-        createOrderCommand.setPaymentAmt(customerOrder.getPaymentAmt());
-        createOrderCommand.setPaymentType(customerOrder.getPaymentType());
-        createOrderCommand.setProductList(List.of(getCustomerOrderItemCommand()));
-
-        OrderPaymentLinkRepresentation aNew = orderApplicationService.createNew(rStr(), rLong(), createOrderCommand);
-        Assert.assertNotNull(aNew);
-        Assert.assertNotEquals("", aNew.getPaymentLink());
-        Assert.assertNotEquals(Boolean.TRUE, aNew.getPaymentStatus());
-    }
-
-    @Test
-    public void confirmPayment() {
-        Long aLong = rLong();
-        CustomerOrder customerOrder = getCustomerOrder();
-        customerOrder.setCreatedBy(aLong.toString());
-        customerOrder.setProfileId(aLong);
-        customerOrder.setOrderState(OrderState.NOT_PAID_RECYCLED);
-        Mockito.doReturn(Optional.of(customerOrder)).when(orderRepository).findByIdForUpdate(anyLong());
-        Mockito.doReturn(Boolean.TRUE).when(paymentService).confirmPaymentStatus(anyString());
-        OrderConfirmStatusRepresentation orderConfirmStatusRepresentation = orderApplicationService.confirmPayment(rStr(), aLong, rLong());
-        Assert.assertTrue(orderConfirmStatusRepresentation.getPaymentStatus());
-    }
-
-    @Test
-    public void confirmOrder() {
-        Long aLong = rLong();
-        CustomerOrder customerOrder = getCustomerOrder();
-        customerOrder.setCreatedBy(aLong.toString());
-        customerOrder.setProfileId(aLong);
-        customerOrder.setOrderState(OrderState.PAID_RESERVED);
-        Mockito.doReturn(Optional.of(customerOrder)).when(orderRepository).findByIdForUpdate(anyLong());
-        Mockito.doNothing().when(messengerService).notifyBusinessOwner(anyMap());
-        Mockito.doAnswer(
-                (InvocationOnMock invocation) -> {
-                    ((Runnable) invocation.getArguments()[0]).run();
-                    return completableFuture;
-                }
-        ).when(customExecutor).execute(any(Runnable.class));
-        Mockito.doNothing().when(productService).decreaseActualStorage(anyMap(), anyString());
-        Mockito.doNothing().when(entityManager).persist(any());
-        orderApplicationService.confirmOrder(rStr(), aLong, rLong());
-        Mockito.verify(messengerService, Mockito.times(1)).notifyBusinessOwner(anyMap());
-        Mockito.verify(productService, Mockito.times(0)).rollbackTransaction(anyString());
-        Assert.assertEquals(OrderState.CONFIRMED, customerOrder.getOrderState());
-    }
-
-
-    @Test
-    public void placeAgain_PAID_RECYCLED() {
-        Long aLong = rLong();
-        CustomerOrder customerOrder = getCustomerOrder();
-        customerOrder.setCreatedBy(aLong.toString());
-        customerOrder.setProfileId(aLong);
-        customerOrder.setOrderState(OrderState.PAID_RECYCLED);
-        customerOrder.setPaymentLink(rStr());
-        Mockito.doReturn(Optional.of(customerOrder)).when(orderRepository).findByIdForUpdate(anyLong());
-        Mockito.doAnswer(
-                (InvocationOnMock invocation) -> {
-                    ((Runnable) invocation.getArguments()[0]).run();
-                    return completableFuture;
-                }
-        ).when(customExecutor).execute(any(Runnable.class));
-        Mockito.doNothing().when(productService).decreaseOrderStorage(anyMap(), anyString());
-        Mockito.doReturn(customerOrder).when(orderRepository).saveAndFlush(any(CustomerOrder.class));
-        PlaceOrderAgainCommand placeOrderAgainCommand = new PlaceOrderAgainCommand();
-        OrderPaymentLinkRepresentation representation = orderApplicationService.reserveAgain(rStr(), aLong, rLong(), placeOrderAgainCommand);
-        Assert.assertEquals(OrderState.PAID_RESERVED, customerOrder.getOrderState());
-        Assert.assertNotNull(representation.getPaymentLink());
-        Assert.assertEquals(Boolean.TRUE, representation.getPaymentStatus());
-    }
-
-    @Test
-    public void placeAgain_NOT_PAID_RESERVED() {
-        Long aLong = rLong();
-        CustomerOrder customerOrder = getCustomerOrder();
-        customerOrder.setCreatedBy(aLong.toString());
-        customerOrder.setProfileId(aLong);
-        customerOrder.setOrderState(OrderState.NOT_PAID_RESERVED);
-        customerOrder.setPaymentLink(rStr());
-        Mockito.doReturn(Optional.of(customerOrder)).when(orderRepository).findByIdForUpdate(anyLong());
-        Mockito.doReturn(customerOrder).when(orderRepository).saveAndFlush(any(CustomerOrder.class));
-        PlaceOrderAgainCommand placeOrderAgainCommand = new PlaceOrderAgainCommand();
-        OrderPaymentLinkRepresentation representation = orderApplicationService.reserveAgain(rStr(), aLong, rLong(), placeOrderAgainCommand);
-        Assert.assertEquals(OrderState.NOT_PAID_RESERVED, customerOrder.getOrderState());
-        Assert.assertNotNull(representation.getPaymentLink());
-        Assert.assertEquals(Boolean.FALSE, representation.getPaymentStatus());
-    }
 
     private CustomerOrder getCustomerOrder() {
         CustomerOrder customerOrder = new CustomerOrder();
