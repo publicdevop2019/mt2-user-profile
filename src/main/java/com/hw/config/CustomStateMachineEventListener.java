@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 
+import static com.hw.shared.AppConstant.TX_ID;
+
 @Slf4j
 @Component
 public class CustomStateMachineEventListener
@@ -35,7 +37,7 @@ public class CustomStateMachineEventListener
     @Override
     public void stateMachineError(StateMachine<OrderState, OrderEvent> stateMachine, Exception exception) {
         log.error("start of stateMachineError, rollback transaction", exception);
-        String transactionId = stateMachine.getExtendedState().get("transactionId", String.class);
+        String transactionId = stateMachine.getExtendedState().get(TX_ID, String.class);
         CompletableFuture.runAsync(() ->
                 cartApplicationService.rollbackTransaction(transactionId), customExecutor
         );
