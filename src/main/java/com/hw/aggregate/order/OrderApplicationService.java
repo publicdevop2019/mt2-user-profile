@@ -33,6 +33,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
 import static com.hw.shared.AppConstant.SSM_ORDER;
 
 @Service
@@ -96,6 +97,9 @@ public class OrderApplicationService {
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
         stateMachine.sendEvent(OrderEvent.NEW_ORDER);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
         return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
 
@@ -107,6 +111,9 @@ public class OrderApplicationService {
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
         stateMachine.sendEvent(OrderEvent.CONFIRM_PAYMENT);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
         return new OrderConfirmStatusRepresentation(customerOrder.getPaid());
     }
 
@@ -121,6 +128,9 @@ public class OrderApplicationService {
                         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
                         stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
                         stateMachine.sendEvent(OrderEvent.CONFIRM_ORDER);
+                        if (stateMachine.hasStateMachineError()) {
+                            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+                        }
                     }
                 });
     }
@@ -134,6 +144,9 @@ public class OrderApplicationService {
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
         stateMachine.sendEvent(OrderEvent.RESERVE);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
         return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
 

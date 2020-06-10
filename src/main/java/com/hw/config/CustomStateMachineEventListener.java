@@ -21,6 +21,7 @@ import static com.hw.shared.AppConstant.TX_ID;
 @Component
 public class CustomStateMachineEventListener
         extends StateMachineListenerAdapter<OrderState, OrderEvent> {
+    public static final String ERROR_CLASS = "ERROR_CLASS";
     @Autowired
     private PaymentService paymentService;
 
@@ -37,6 +38,8 @@ public class CustomStateMachineEventListener
     @Override
     public void stateMachineError(StateMachine<OrderState, OrderEvent> stateMachine, Exception exception) {
         log.error("start of stateMachineError, rollback transaction", exception);
+        //set error class so it can be thrown later
+        stateMachine.getExtendedState().getVariables().put(ERROR_CLASS, exception);
         String transactionId = stateMachine.getExtendedState().get(TX_ID, String.class);
         CompletableFuture.runAsync(() ->
                 cartApplicationService.rollbackTransaction(transactionId), customExecutor
