@@ -32,14 +32,19 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getAllOrders(ServiceUtility.getUserId(authorization), profileId).getOrderList());
     }
 
-    @PostMapping("profiles/{profileId}/orders")
-    public ResponseEntity<Void> reserveOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody CreateOrderCommand newOrder) {
-        return ResponseEntity.ok().header("Location", orderService.createNew(ServiceUtility.getUserId(authorization), profileId, newOrder).getPaymentLink()).build();
+    @PostMapping("profiles/{profileId}/orders/{orderId}")
+    public ResponseEntity<Void> reserveOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody CreateOrderCommand newOrder, @PathVariable(name = "orderId") Long orderId) {
+        return ResponseEntity.ok().header("Location", orderService.createNew(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder).getPaymentLink()).build();
     }
 
     @GetMapping("profiles/{profileId}/orders/{orderId}")
     public ResponseEntity<OrderCustomerRepresentation> getOrderById(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
         return ResponseEntity.ok(orderService.getOrderForCustomer(ServiceUtility.getUserId(authorization), profileId, orderId));
+    }
+
+    @GetMapping("profiles/{profileId}/orders/id")
+    public ResponseEntity<Void> getOrderId() {
+        return ResponseEntity.ok().header("Location", orderService.getOrderId()).build();
     }
 
     @GetMapping("profiles/{profileId}/orders/{orderId}/confirm")

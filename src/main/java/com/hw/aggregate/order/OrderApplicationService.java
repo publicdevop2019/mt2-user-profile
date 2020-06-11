@@ -37,7 +37,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
 import static com.hw.shared.AppConstant.ORDER_DETAIL;
 
 @Service
@@ -97,20 +96,13 @@ public class OrderApplicationService {
     }
 
     @ProfileExistAndOwnerOnly
-    public OrderPaymentLinkRepresentation createNew(String userId, Long profileId, CreateOrderCommand command) {
-        log.debug("start of createNew");
-        CustomerOrder customerOrder = CustomerOrder.create(idGenerator.getId(), profileId, command.getProductList(), command.getAddress(), command.getPaymentType(), command.getPaymentAmt());
-        log.debug("order with id {} generated", customerOrder.getId().toString());
+    public OrderPaymentLinkRepresentation createNew(String userId, Long profileId, Long orderId, CreateOrderCommand command) {
+        log.debug("start of createNew {}", orderId);
+        CustomerOrder customerOrder = CustomerOrder.create(orderId, profileId, command.getProductList(), command.getAddress(), command.getPaymentType(), command.getPaymentAmt());
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.PERSIST);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
         stateMachine.sendEvent(OrderEvent.NEW_ORDER);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
         return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
 
@@ -121,9 +113,6 @@ public class OrderApplicationService {
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.CONFIRM_PAYMENT);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
         return new OrderConfirmStatusRepresentation(customerOrder.getPaid());
     }
 
@@ -134,9 +123,6 @@ public class OrderApplicationService {
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.CONFIRM_ORDER);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
     }
 
     @ProfileExistAndOwnerOnly
@@ -147,9 +133,6 @@ public class OrderApplicationService {
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.RESERVE);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
         return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
 
@@ -217,6 +200,9 @@ public class OrderApplicationService {
         }
     }
 
+    /**
+     * in case of
+     */
     @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.draft}")
     public void cleanDraftOrder() {
         log.debug("start of cleanDraftOrder");
@@ -250,17 +236,15 @@ public class OrderApplicationService {
         CompletableFuture.runAsync(() ->
                 productService.rollbackTransaction(nextTransactionId), customExecutor
         );
-        new TransactionTemplate(transactionManager)
-                .execute(new TransactionCallbackWithoutResult() {
-                    @Override
-                    protected void doInTransactionWithoutResult(TransactionStatus status) {
-                        order.setOrderState(OrderState.DRAFT_CLEAN);
-                        try {
-                            customerOrderRepository.saveAndFlush(order);
-                        } catch (Exception ex) {
-                            log.error("error during data persist", ex);
-                        }
-                    }
-                });
+        order.setOrderState(OrderState.DRAFT_CLEAN);
+        try {
+            customerOrderRepository.saveAndFlush(order);
+        } catch (Exception ex) {
+            log.error("error during data persist", ex);
+        }
+    }
+
+    public String getOrderId() {
+        return String.valueOf(idGenerator.getId());
     }
 }
