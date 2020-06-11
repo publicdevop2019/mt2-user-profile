@@ -81,11 +81,11 @@ public class CustomerOrder extends Auditable {
         this.modifiedByUserAt = Date.from(Instant.now());
     }
 
-    public static CustomerOrder create(Long id, Long profileId, List<CustomerOrderItemCommand> productList, CustomerOrderAddressCommand address, String paymentType, BigDecimal paymentAmt) {
+    public static CustomerOrder create(Long id, Long profileId, List<CustomerOrderItemCommand> productList, CustomerOrderAddressCmdRep address, String paymentType, BigDecimal paymentAmt) {
         return new CustomerOrder(id, profileId, productList, address, paymentType, paymentAmt);
     }
 
-    private CustomerOrder(Long id, Long profileId, List<CustomerOrderItemCommand> productList, CustomerOrderAddressCommand address, String paymentType, BigDecimal paymentAmt) {
+    private CustomerOrder(Long id, Long profileId, List<CustomerOrderItemCommand> productList, CustomerOrderAddressCmdRep address, String paymentType, BigDecimal paymentAmt) {
         this.id = id;
         this.profileId = profileId;
         List<CustomerOrderItem> collect2 = productList.stream().map(e -> {

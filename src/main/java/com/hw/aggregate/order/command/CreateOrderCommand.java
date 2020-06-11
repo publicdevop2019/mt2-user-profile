@@ -1,6 +1,6 @@
 package com.hw.aggregate.order.command;
 
-import com.hw.aggregate.order.model.CustomerOrderAddressCommand;
+import com.hw.aggregate.order.model.CustomerOrderAddressCmdRep;
 import com.hw.aggregate.order.model.CustomerOrderItemCommand;
 import lombok.Data;
 
@@ -9,7 +9,7 @@ import java.util.List;
 
 @Data
 public class CreateOrderCommand {
-    private CustomerOrderAddressCommand address;
+    private CustomerOrderAddressCmdRep address;
     private List<CustomerOrderItemCommand> productList;
     private String paymentType;
     private BigDecimal paymentAmt;
