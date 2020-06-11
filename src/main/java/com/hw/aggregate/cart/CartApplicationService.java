@@ -42,7 +42,4 @@ public class CartApplicationService {
         cartRepository.deleteInBatch(cartRepository.findByProfileId(profileId));
     }
 
-    @Transactional
-    public void rollbackTransaction(String transactionId) {
-    }
 }

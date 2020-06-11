@@ -5,6 +5,7 @@ import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
 import com.hw.aggregate.order.exception.OrderAccessException;
 import com.hw.aggregate.order.exception.OrderNotExistException;
 import com.hw.aggregate.order.exception.OrderPaymentMismatchException;
+import com.hw.config.TransactionIdGenerator;
 import com.hw.shared.Auditable;
 import lombok.Data;
 import lombok.Getter;
@@ -61,6 +62,13 @@ public class CustomerOrder extends Auditable {
 
     private String paymentDate;
 
+    private String currentTransactionId;
+
+    private String nextTransactionId;
+
+    @Convert(converter = MapConverter.class)
+    private Map<OrderState, String> transactionHistory;
+
     @NotNull
     @Column
     private Boolean paid;
@@ -86,8 +94,6 @@ public class CustomerOrder extends Auditable {
     }
 
     private CustomerOrder(Long id, Long profileId, List<CustomerOrderItemCommand> productList, CustomerOrderAddressCmdRep address, String paymentType, BigDecimal paymentAmt) {
-        this.id = id;
-        this.profileId = profileId;
         List<CustomerOrderItem> collect2 = productList.stream().map(e -> {
             CustomerOrderItem customerOrderItem = new CustomerOrderItem();
             customerOrderItem.setFinalPrice(e.getFinalPrice());
@@ -109,6 +115,10 @@ public class CustomerOrder extends Auditable {
             return customerOrderItem;
         }).collect(Collectors.toList());
         this.readOnlyProductList = new ArrayList<>(collect2);
+        this.paymentAmt = paymentAmt;
+        validatePaymentAmount();
+        this.id = id;
+        this.profileId = profileId;
         this.writeOnlyProductList = collect2;
         CustomerOrderAddress customerOrderAddress = new CustomerOrderAddress();
         customerOrderAddress.setOrderAddressCity(address.getCity());
@@ -121,11 +131,11 @@ public class CustomerOrder extends Auditable {
         customerOrderAddress.setOrderAddressPostalCode(address.getPostalCode());
         this.address = customerOrderAddress;
         this.paymentType = paymentType;
-        this.paymentAmt = paymentAmt;
         this.modifiedByUserAt = Date.from(Instant.now());
         this.orderState = OrderState.DRAFT;
         this.paid = false;
-        validatePaymentAmount();
+        this.currentTransactionId = TransactionIdGenerator.getId();
+        this.nextTransactionId = TransactionIdGenerator.getId();
     }
 
     /**
@@ -162,13 +172,13 @@ public class CustomerOrder extends Auditable {
     }
 
     public static CustomerOrder get(Long profileId, Long orderId, CustomerOrderRepository orderRepository) {
-        Optional<CustomerOrder> byId = orderRepository.findById(orderId);
+        Optional<CustomerOrder> byId = orderRepository.findByIdPesLock(orderId);
         checkAccess(byId, profileId);
         return byId.get();
     }
 
     public static CustomerOrder getForUpdate(Long profileId, Long orderId, CustomerOrderRepository orderRepository) {
-        Optional<CustomerOrder> byId = orderRepository.findByIdForUpdate(orderId);
+        Optional<CustomerOrder> byId = orderRepository.findByIdOptLock(orderId);
         checkAccess(byId, profileId);
         return byId.get();
     }

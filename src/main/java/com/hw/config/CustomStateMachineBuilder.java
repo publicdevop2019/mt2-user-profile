@@ -16,15 +16,15 @@ import org.springframework.statemachine.action.Action;
 import org.springframework.statemachine.config.StateMachineBuilder;
 import org.springframework.statemachine.guard.Guard;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.persistence.EntityManager;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.hw.shared.AppConstant.SSM_ORDER;
+import static com.hw.shared.AppConstant.ORDER_DETAIL;
 import static com.hw.shared.AppConstant.TX_ID;
 
 /**
@@ -83,6 +83,11 @@ public class CustomStateMachineBuilder {
                     .event(OrderEvent.NEW_ORDER)
                     .guard(prepareNewOrder())
                     .and()
+                    .withInternal()
+                    .source(OrderState.DRAFT)
+                    .event(OrderEvent.PERSIST)
+                    .action(saveDraft())
+                    .and()
                     .withExternal()
                     .source(OrderState.NOT_PAID_RESERVED).target(OrderState.PAID_RESERVED)
                     .event(OrderEvent.CONFIRM_PAYMENT)
@@ -124,20 +129,38 @@ public class CustomStateMachineBuilder {
         return builder.build();
     }
 
-    private Action<OrderState, OrderEvent> autoConfirm() {
+    private Action<OrderState, OrderEvent> saveDraft() {
         return context -> {
-            log.info("start of autoConfirm");
-            CustomerOrder customerOrder = context.getExtendedState().get(SSM_ORDER, CustomerOrder.class);
-            orderApplicationService.confirmOrder(customerOrder.getCreatedBy(), customerOrder.getProfileId(), customerOrder.getId());
+            log.info("start of persist draft order");
+            try {
+                CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+                HashMap<OrderState, String> history = new HashMap<>();
+                history.put(context.getSource().getId(), customerOrder.getCurrentTransactionId());
+                customerOrder.setTransactionHistory(history);
+                customerOrder.setCurrentTransactionId(null);
+                customerOrderRepository.saveAndFlush(customerOrder);
+            } catch (Exception ex) {
+                log.error("error during data persist", ex);
+                context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+            }
         };
     }
 
+    private Action<OrderState, OrderEvent> autoConfirm() {
+        return context -> {
+            log.info("start of autoConfirm");
+            CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+            orderApplicationService.confirmOrder(customerOrder.getCreatedBy(), customerOrder.getProfileId(), customerOrder.getId());
+        };
+    }
     private Guard<OrderState, OrderEvent> prepareNewOrder() {
         return context -> {
-            String txId = getTransactionId();
-            context.getExtendedState().getVariables().put(TX_ID, txId);
-            CustomerOrder customerOrder = context.getExtendedState().get(SSM_ORDER, CustomerOrder.class);
-            log.info("start of prepareNewOrder of {}, tx id {}", customerOrder.getId(), txId);
+            CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+            String storedTxId = customerOrder.getNextTransactionId();
+            customerOrder.setCurrentTransactionId(storedTxId);
+            customerOrder.setNextTransactionId(TransactionIdGenerator.getId());
+            context.getExtendedState().getVariables().put(TX_ID, customerOrder.getCurrentTransactionId());
+            log.info("start of prepareNewOrder of {}, tx id {}", customerOrder.getId(), customerOrder.getCurrentTransactionId());
             // validate order product info
             CompletableFuture<Void> validateResultFuture = CompletableFuture.runAsync(() ->
                     productService.validateProductInfo(customerOrder.getReadOnlyProductList()), customExecutor
@@ -150,7 +173,7 @@ public class CustomStateMachineBuilder {
 
             // decrease order storage
             CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                    productService.decreaseOrderStorage(customerOrder.getProductSummary(), txId), customExecutor
+                    productService.decreaseOrderStorage(customerOrder.getProductSummary(), customerOrder.getCurrentTransactionId()), customExecutor
             );
             CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
             try {
@@ -171,40 +194,55 @@ public class CustomStateMachineBuilder {
                 Thread.currentThread().interrupt();
                 return false;
             }
-            //clear user cart
-            try {
-                cartApplicationService.clearCartItem(customerOrder.getProfileId());
-            } catch (Exception ex) {
-                log.error("error during clear cart", ex);
-                context.getStateMachine().setStateMachineError(new CartClearException());
-                return false;
-            }
-            // save reserved order
+            // manually set order state so it can be update to database
             customerOrder.setOrderState(context.getTarget().getId());
-            try {
-                customerOrderRepository.saveAndFlush(customerOrder);
-            } catch (Exception ex) {
-                log.error("error during data persist", ex);
-                context.getStateMachine().setStateMachineError(new OrderPersistenceException());
-                return false;
-            }
-            return true;
+            customerOrder.getTransactionHistory().put(context.getTarget().getId(), customerOrder.getCurrentTransactionId());
+            customerOrder.setCurrentTransactionId(null);
+            // start local transaction, manually rollback since no ex will be thrown
+            // not set @Transactional at service level also prevents long running transaction
+            // in future if order separate from profile then no need for transaction
+            Boolean execute = new TransactionTemplate(transactionManager)
+                    .execute(transactionStatus -> {
+                        //clear user cart
+                        try {
+                            cartApplicationService.clearCartItem(customerOrder.getProfileId());
+                        } catch (Exception ex) {
+                            log.error("error during clear cart", ex);
+                            context.getStateMachine().setStateMachineError(new CartClearException());
+                            return false;
+                        }
+                        // save reserved order
+                        try {
+                            customerOrderRepository.saveAndFlush(customerOrder);
+                        } catch (Exception ex) {
+                            log.error("error during data persist", ex);
+                            context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                            transactionManager.rollback(transactionStatus);
+                            return false;
+                        }
+                        return true;
+                    });
+            return Boolean.TRUE.equals(execute);
         };
     }
 
     private Guard<OrderState, OrderEvent> reserveOrder() {
         return context -> {
             log.info("start of decreaseOrderStorage");
-            CustomerOrder customerOrder = context.getExtendedState().get(SSM_ORDER, CustomerOrder.class);
-            String transactionId = getTransactionId();
+            CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+            String storedTxId = customerOrder.getNextTransactionId();
+            customerOrder.setCurrentTransactionId(storedTxId);
+            customerOrder.setNextTransactionId(TransactionIdGenerator.getId());
             try {
-                productService.decreaseOrderStorage(customerOrder.getProductSummary(), transactionId);
+                productService.decreaseOrderStorage(customerOrder.getProductSummary(), customerOrder.getCurrentTransactionId());
             } catch (Exception ex) {
                 log.error("error during decrease order storage");
                 context.getStateMachine().setStateMachineError(new OrderStorageDecreaseException());
                 return false;
             }
             customerOrder.setOrderState(context.getTarget().getId());
+            customerOrder.getTransactionHistory().put(context.getTarget().getId(), customerOrder.getCurrentTransactionId());
+            customerOrder.setCurrentTransactionId(null);
             try {
                 customerOrderRepository.saveAndFlush(customerOrder);
             } catch (Exception ex) {
@@ -226,16 +264,20 @@ public class CustomStateMachineBuilder {
     private Guard<OrderState, OrderEvent> confirmOrder() {
         return context -> {
             log.info("start of decreaseActualStorage");
-            CustomerOrder customerOrder = context.getExtendedState().get(SSM_ORDER, CustomerOrder.class);
-            String transactionId = getTransactionId();
+            CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+            String storedTxId = customerOrder.getNextTransactionId();
+            customerOrder.setCurrentTransactionId(storedTxId);
+            customerOrder.setNextTransactionId(TransactionIdGenerator.getId());
             try {
-                productService.decreaseActualStorage(customerOrder.getProductSummary(), transactionId);
+                productService.decreaseActualStorage(customerOrder.getProductSummary(), customerOrder.getCurrentTransactionId());
             } catch (Exception ex) {
                 log.error("error during decreaseActualStorage");
                 context.getStateMachine().setStateMachineError(new ActualStorageDecreaseException());
                 return false;
             }
             customerOrder.setOrderState(context.getTarget().getId());
+            customerOrder.getTransactionHistory().put(context.getTarget().getId(), customerOrder.getCurrentTransactionId());
+            customerOrder.setCurrentTransactionId(null);
             try {
                 customerOrderRepository.saveAndFlush(customerOrder);
             } catch (Exception ex) {
@@ -250,7 +292,7 @@ public class CustomStateMachineBuilder {
     private Guard<OrderState, OrderEvent> updatePaymentStatus() {
         return context -> {
             log.info("start of updatePaymentStatus");
-            CustomerOrder customerOrder = context.getExtendedState().get(SSM_ORDER, CustomerOrder.class);
+            CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
             Boolean paymentStatus = paymentService.confirmPaymentStatus(customerOrder.getId().toString());
             log.info("result {}", paymentStatus.toString());
             customerOrder.setPaid(paymentStatus);
@@ -268,7 +310,5 @@ public class CustomStateMachineBuilder {
         };
     }
 
-    private String getTransactionId() {
-        return UUID.randomUUID().toString();
-    }
+
 }

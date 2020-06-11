@@ -9,6 +9,7 @@ public enum OrderState {
     PAID_RECYCLED,
     CONFIRMED,
     DRAFT,
+    DRAFT_CLEAN,
     ;
 
     public static class DBConverter implements AttributeConverter<OrderState, String> {

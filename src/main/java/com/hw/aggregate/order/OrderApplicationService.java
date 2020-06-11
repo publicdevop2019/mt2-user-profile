@@ -9,6 +9,7 @@ import com.hw.aggregate.order.model.OrderState;
 import com.hw.aggregate.order.representation.*;
 import com.hw.config.CustomStateMachineBuilder;
 import com.hw.config.ProfileExistAndOwnerOnly;
+import com.hw.config.TransactionIdGenerator;
 import com.hw.shared.EurekaRegistryHelper;
 import com.hw.shared.IdGenerator;
 import com.hw.shared.ResourceServiceTokenHelper;
@@ -29,12 +30,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.persistence.EntityManager;
 import java.time.Instant;
-import java.util.*;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
-import static com.hw.shared.AppConstant.SSM_ORDER;
+import static com.hw.shared.AppConstant.ORDER_DETAIL;
 
 @Service
 @Slf4j
@@ -46,6 +50,9 @@ public class OrderApplicationService {
 
     @Value("${order.expireAfter}")
     private Long expireAfter;
+
+    @Value("${order.draftExpireAfter}")
+    private Long draftExpireAfter;
 
     @Autowired
     private ResourceServiceTokenHelper tokenHelper;
@@ -95,7 +102,11 @@ public class OrderApplicationService {
         CustomerOrder customerOrder = CustomerOrder.create(idGenerator.getId(), profileId, command.getProductList(), command.getAddress(), command.getPaymentType(), command.getPaymentAmt());
         log.debug("order with id {} generated", customerOrder.getId().toString());
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
+        stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
+        stateMachine.sendEvent(OrderEvent.PERSIST);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
         stateMachine.sendEvent(OrderEvent.NEW_ORDER);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
@@ -104,12 +115,11 @@ public class OrderApplicationService {
     }
 
     @ProfileExistAndOwnerOnly
-    @Transactional
     public OrderConfirmStatusRepresentation confirmPayment(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmPayment {}", orderId);
         CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
+        stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.CONFIRM_PAYMENT);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
@@ -120,29 +130,22 @@ public class OrderApplicationService {
     @ProfileExistAndOwnerOnly
     public void confirmOrder(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmOrder {}", orderId);
-        new TransactionTemplate(transactionManager)
-                .execute(new TransactionCallbackWithoutResult() {
-                    @Override
-                    protected void doInTransactionWithoutResult(TransactionStatus status) {
-                        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
-                        StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-                        stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
-                        stateMachine.sendEvent(OrderEvent.CONFIRM_ORDER);
-                        if (stateMachine.hasStateMachineError()) {
-                            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-                        }
-                    }
-                });
+        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
+        StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
+        stateMachine.sendEvent(OrderEvent.CONFIRM_ORDER);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
     }
 
     @ProfileExistAndOwnerOnly
-    @Transactional
     public OrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceOrderAgainCommand command) {
         log.info("reserve order {} again", orderId);
         CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
         customerOrder.updateAddress(command);
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(SSM_ORDER, customerOrder);
+        stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.RESERVE);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
@@ -163,7 +166,7 @@ public class OrderApplicationService {
                 .execute(new TransactionCallbackWithoutResult() {
                     @Override
                     protected void doInTransactionWithoutResult(TransactionStatus status) {
-                        String transactionId = getTransactionId();
+                        String transactionId = TransactionIdGenerator.getId();
                         log.info("Expired order scheduler started, transactionId generated {}", transactionId);
                         Date from = Date.from(Instant.ofEpochMilli(Instant.now().toEpochMilli() - expireAfter * 60 * 1000));
                         List<CustomerOrder> expiredOrderList = customerOrderRepository.findExpiredNotPaidReserved(from);
@@ -214,8 +217,50 @@ public class OrderApplicationService {
         }
     }
 
-    private String getTransactionId() {
-        return UUID.randomUUID().toString();
+    @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.draft}")
+    public void cleanDraftOrder() {
+        log.debug("start of cleanDraftOrder");
+        Date from = Date.from(Instant.ofEpochMilli(Instant.now().toEpochMilli() - draftExpireAfter * 60 * 1000));
+        List<CustomerOrder> draftOrders = customerOrderRepository.findExpiredDraftOrders(from);
+        log.info("Draft order(s) found {}", draftOrders.stream().map(CustomerOrder::getId).collect(Collectors.toList()));
+        if (!draftOrders.isEmpty()) {
+            // clean one order for now
+            draftOrders.forEach(order -> {
+                try {
+                    cleanUpDraftOrder(order);
+                    log.info("Clean draft order {} success", order.getId());
+                } catch (Exception e) {
+                    log.error("Clean draft order {} failed", order.getId(), e);
+                }
+            });
+        }
     }
 
+    @Autowired
+    private PaymentService paymentService;
+
+    @Autowired
+    private ProductService productService;
+
+    private void cleanUpDraftOrder(CustomerOrder order) {
+        String nextTransactionId = order.getNextTransactionId();
+        CompletableFuture.runAsync(() ->
+                paymentService.rollbackTransaction(nextTransactionId), customExecutor
+        );
+        CompletableFuture.runAsync(() ->
+                productService.rollbackTransaction(nextTransactionId), customExecutor
+        );
+        new TransactionTemplate(transactionManager)
+                .execute(new TransactionCallbackWithoutResult() {
+                    @Override
+                    protected void doInTransactionWithoutResult(TransactionStatus status) {
+                        order.setOrderState(OrderState.DRAFT_CLEAN);
+                        try {
+                            customerOrderRepository.saveAndFlush(order);
+                        } catch (Exception ex) {
+                            log.error("error during data persist", ex);
+                        }
+                    }
+                });
+    }
 }

@@ -1,6 +1,5 @@
 package com.hw.config;
 
-import com.hw.aggregate.cart.CartApplicationService;
 import com.hw.aggregate.order.PaymentService;
 import com.hw.aggregate.order.ProductService;
 import com.hw.aggregate.order.model.OrderEvent;
@@ -29,9 +28,6 @@ public class CustomStateMachineEventListener
     private ProductService productService;
 
     @Autowired
-    private CartApplicationService cartApplicationService;
-
-    @Autowired
     @Qualifier("CustomPool")
     private TaskExecutor customExecutor;
 
@@ -41,9 +37,6 @@ public class CustomStateMachineEventListener
         //set error class so it can be thrown later
         stateMachine.getExtendedState().getVariables().put(ERROR_CLASS, exception);
         String transactionId = stateMachine.getExtendedState().get(TX_ID, String.class);
-        CompletableFuture.runAsync(() ->
-                cartApplicationService.rollbackTransaction(transactionId), customExecutor
-        );
         CompletableFuture.runAsync(() ->
                 paymentService.rollbackTransaction(transactionId), customExecutor
         );

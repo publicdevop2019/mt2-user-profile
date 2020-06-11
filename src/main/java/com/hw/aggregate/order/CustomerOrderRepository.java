@@ -18,7 +18,7 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
 
     @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
     @Query("SELECT p FROM #{#entityName} as p WHERE p.id = ?1")
-    Optional<CustomerOrder> findByIdForUpdate(Long id);
+    Optional<CustomerOrder> findByIdOptLock(Long id);
 
     @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
     @Query("SELECT p FROM #{#entityName} as p WHERE p.modifiedByUserAt < ?1 AND p.orderState = 'NOT_PAID_RESERVED'")
@@ -26,4 +26,7 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
 
     @Query("SELECT p FROM #{#entityName} as p WHERE p.orderState = 'PAID_RESERVED'")
     List<CustomerOrder> findPaidReserved();
+
+    @Query("SELECT p FROM #{#entityName} as p WHERE p.orderState = 'DRAFT' AND p.modifiedByUserAt < ?1")
+    List<CustomerOrder> findExpiredDraftOrders(Date expireAt);
 }

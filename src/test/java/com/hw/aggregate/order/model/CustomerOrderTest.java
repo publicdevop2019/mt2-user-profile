@@ -17,7 +17,7 @@ public class CustomerOrderTest {
     @Test(expected = OrderNotExistException.class)
     public void get_not_exist() {
         CustomerOrderRepository mock = Mockito.mock(CustomerOrderRepository.class);
-        Mockito.doReturn(Optional.empty()).when(mock).findById(anyLong());
+        Mockito.doReturn(Optional.empty()).when(mock).findByIdPesLock(anyLong());
         CustomerOrder customerOrder = CustomerOrder.get(rLong(), rLong(), mock);
     }
 
@@ -25,7 +25,7 @@ public class CustomerOrderTest {
     public void get_wrong_access() {
         CustomerOrderRepository mock = Mockito.mock(CustomerOrderRepository.class);
         CustomerOrder mock1 = Mockito.mock(CustomerOrder.class);
-        Mockito.doReturn(Optional.of(mock1)).when(mock).findById(anyLong());
+        Mockito.doReturn(Optional.of(mock1)).when(mock).findByIdPesLock(anyLong());
         Mockito.doReturn(100L).when(mock1).getProfileId();
         CustomerOrder customerOrder = CustomerOrder.get(rLong(), rLong(), mock);
     }
@@ -34,7 +34,7 @@ public class CustomerOrderTest {
     public void get() {
         CustomerOrderRepository mock = Mockito.mock(CustomerOrderRepository.class);
         CustomerOrder mock1 = Mockito.mock(CustomerOrder.class);
-        Mockito.doReturn(Optional.of(mock1)).when(mock).findById(anyLong());
+        Mockito.doReturn(Optional.of(mock1)).when(mock).findByIdPesLock(anyLong());
         Long aLong = rLong();
         Mockito.doReturn(aLong).when(mock1).getProfileId();
         CustomerOrder customerOrder = CustomerOrder.get(aLong, rLong(), mock);
