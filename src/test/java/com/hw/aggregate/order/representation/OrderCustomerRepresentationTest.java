@@ -1,6 +1,7 @@
 package com.hw.aggregate.order.representation;
 
 import com.hw.aggregate.order.model.CustomerOrder;
+import com.hw.aggregate.order.model.CustomerOrderAddress;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -12,6 +13,8 @@ public class OrderCustomerRepresentationTest {
     public void setOrderState() {
         CustomerOrder customerOrder = new CustomerOrder();
         customerOrder.setId(rLong());
+        CustomerOrderAddress customerOrderAddress = new CustomerOrderAddress();
+        customerOrder.setAddress(customerOrderAddress);
         OrderCustomerRepresentation orderCustomerRepresentation = new OrderCustomerRepresentation(customerOrder);
         Assert.assertEquals(customerOrder.getId(), orderCustomerRepresentation.getId());
     }

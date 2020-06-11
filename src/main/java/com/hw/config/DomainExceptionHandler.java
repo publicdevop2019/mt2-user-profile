@@ -56,7 +56,6 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             OrderCreationUnknownException.class,
             PaymentQRLinkGenerationException.class,
             StateMachineCreationException.class,
-            StateMachineErrorException.class,
     })
     protected ResponseEntity<Object> handle500Exception(RuntimeException ex, WebRequest request) {
         ErrorMessage errorMessage = new ErrorMessage(ex);
