@@ -217,7 +217,7 @@ public class CustomStateMachineBuilder {
             customerOrder.setTransactionHistory(new HashMap<>());
 
             customerOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
-            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
+            transactionalTask.setTaskStatus(TaskStatus.COMMITTED);
             // start local transaction, manually rollback since no ex will be thrown
             // not set @Transactional at service level also prevents long running transaction
             // in future if order separate from profile then no need for transaction
@@ -270,7 +270,7 @@ public class CustomStateMachineBuilder {
             customerOrder.setOrderState(context.getTarget().getId());
 
             customerOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
-            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
+            transactionalTask.setTaskStatus(TaskStatus.COMMITTED);
 
             Boolean execute = new TransactionTemplate(transactionManager)
                     .execute(transactionStatus -> {
@@ -319,7 +319,7 @@ public class CustomStateMachineBuilder {
             customerOrder.setOrderState(context.getTarget().getId());
 
             customerOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
-            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
+            transactionalTask.setTaskStatus(TaskStatus.COMMITTED);
             Boolean execute = new TransactionTemplate(transactionManager)
                     .execute(transactionStatus -> {
                         try {
