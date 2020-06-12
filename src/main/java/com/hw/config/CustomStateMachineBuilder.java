@@ -23,7 +23,8 @@ import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.hw.aggregate.order.model.AppConstant.*;
+import static com.hw.aggregate.order.model.AppConstant.ORDER_DETAIL;
+import static com.hw.aggregate.order.model.AppConstant.TX_TASK;
 
 /**
  * each guard is an unit of work, roll back when failure happen
@@ -153,8 +154,8 @@ public class CustomStateMachineBuilder {
             log.info("start of save task to database");
             try {
                 String txId = TransactionIdGenerator.getTxId();
-                Long customerOrderId = context.getExtendedState().get(ORDER_ID, Long.class);
-                TransactionalTask transactionalTask = new TransactionalTask(idGenerator.getId(), event, TaskStatus.STARTED, txId, customerOrderId);
+                CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+                TransactionalTask transactionalTask = new TransactionalTask(idGenerator.getId(), event, TaskStatus.STARTED, txId, customerOrder.getId());
                 context.getExtendedState().getVariables().put(TX_TASK, transactionalTask);
                 taskRepository.saveAndFlush(transactionalTask);
             } catch (Exception ex) {

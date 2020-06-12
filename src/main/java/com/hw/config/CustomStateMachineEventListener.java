@@ -4,6 +4,7 @@ import com.hw.aggregate.order.PaymentService;
 import com.hw.aggregate.order.ProductService;
 import com.hw.aggregate.order.model.OrderEvent;
 import com.hw.aggregate.order.model.OrderStatus;
+import com.hw.aggregate.order.model.TransactionalTask;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 
-import static com.hw.shared.AppConstant.TX_ID;
+import static com.hw.aggregate.order.model.AppConstant.TX_TASK;
 
 @Slf4j
 @Component
@@ -36,12 +37,12 @@ public class CustomStateMachineEventListener
         log.error("start of stateMachineError, rollback transaction", exception);
         //set error class so it can be thrown later, thrown ex here will still result 200 response
         stateMachine.getExtendedState().getVariables().put(ERROR_CLASS, exception);
-        String transactionId = stateMachine.getExtendedState().get(TX_ID, String.class);
+        TransactionalTask transactionalTask = stateMachine.getExtendedState().get(TX_TASK, TransactionalTask.class);
         CompletableFuture.runAsync(() ->
-                paymentService.rollbackTransaction(transactionId), customExecutor
+                paymentService.rollbackTransaction(transactionalTask.getTransactionId()), customExecutor
         );
         CompletableFuture.runAsync(() ->
-                productService.rollbackTransaction(transactionId), customExecutor
+                productService.rollbackTransaction(transactionalTask.getTransactionId()), customExecutor
         );
     }
 }

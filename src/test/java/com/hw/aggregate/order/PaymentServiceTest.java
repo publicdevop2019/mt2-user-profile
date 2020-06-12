@@ -40,7 +40,7 @@ public class PaymentServiceTest {
         Mockito.doReturn(null).when(resp).getBody();
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
         Mockito.doReturn("dummy").when(mock3).writeValueAsString(any(Object.class));
-        String s = paymentService.generatePaymentLink(rStr());
+        String s = paymentService.generatePaymentLink(rStr(), rStr());
         Assert.assertNull(s);
     }
 
@@ -53,9 +53,10 @@ public class PaymentServiceTest {
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
 
         Mockito.doThrow(mock).when(mock3).writeValueAsString(any(Object.class));
-        String s = paymentService.generatePaymentLink(rStr());
+        String s = paymentService.generatePaymentLink(rStr(), rStr());
         Assert.assertNull(s);
     }
+
     @Test
     public void generatePaymentLink_success() throws JsonProcessingException {
         ResponseEntity resp = Mockito.mock(ResponseEntity.class);
@@ -65,7 +66,7 @@ public class PaymentServiceTest {
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
 
         Mockito.doThrow(mock).when(mock3).writeValueAsString(any(Object.class));
-        String s = paymentService.generatePaymentLink(rStr());
+        String s = paymentService.generatePaymentLink(rStr(), rStr());
         Assert.assertNull(s);
     }
 
@@ -78,6 +79,7 @@ public class PaymentServiceTest {
         Boolean aBoolean = paymentService.confirmPaymentStatus(rStr());
         Assert.assertNull(aBoolean);
     }
+
     @Test
     public void confirmPaymentStatus_success() {
         ResponseEntity resp = Mockito.mock(ResponseEntity.class);
