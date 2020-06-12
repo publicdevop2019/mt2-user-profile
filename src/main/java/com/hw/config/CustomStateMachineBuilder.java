@@ -81,7 +81,7 @@ public class CustomStateMachineBuilder {
                     .withExternal()
                     .source(OrderState.DRAFT).target(OrderState.NOT_PAID_RESERVED)
                     .event(OrderEvent.NEW_ORDER)
-                    .guard(prepareNewOrder())
+                    .guard(prepareNewOrderTask())
                     .and()
                     .withInternal()
                     .source(OrderState.DRAFT)
@@ -102,13 +102,13 @@ public class CustomStateMachineBuilder {
                     .withExternal()
                     .source(OrderState.PAID_RECYCLED).target(OrderState.PAID_RESERVED)
                     .event(OrderEvent.RESERVE)
-                    .guard(reserveOrder())
+                    .guard(reserveOrderTask())
                     .action(autoConfirm())
                     .and()
                     .withExternal()
                     .source(OrderState.NOT_PAID_RECYCLED).target(OrderState.NOT_PAID_RESERVED)
                     .event(OrderEvent.RESERVE)
-                    .guard(reserveOrder())
+                    .guard(reserveOrderTask())
                     .and()
 //                    done by scheduler, state machine is not used there
 //                    .withExternal()
@@ -119,7 +119,7 @@ public class CustomStateMachineBuilder {
                     .withExternal()
                     .source(OrderState.PAID_RESERVED).target(OrderState.CONFIRMED)
                     .event(OrderEvent.CONFIRM_ORDER)
-                    .guard(confirmOrder())
+                    .guard(confirmOrderTask())
                     .action(sendNotification())
             ;
         } catch (Exception e) {
@@ -129,15 +129,18 @@ public class CustomStateMachineBuilder {
         return builder.build();
     }
 
+    /**
+     * save draft order so we can clean it up in case of system blackout
+     * @return
+     */
     private Action<OrderState, OrderEvent> saveDraft() {
         return context -> {
             log.info("start of persist draft order");
             try {
                 CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
                 HashMap<OrderState, String> history = new HashMap<>();
-                history.put(context.getSource().getId(), customerOrder.getCurrentTransactionId());
+                history.put(context.getSource().getId(), "NOT_TRANSACTIONAL");
                 customerOrder.setTransactionHistory(history);
-                customerOrder.setCurrentTransactionId(null);
                 customerOrderRepository.saveAndFlush(customerOrder);
             } catch (Exception ex) {
                 log.error("error during data persist", ex);
@@ -153,14 +156,17 @@ public class CustomStateMachineBuilder {
             orderApplicationService.confirmOrder(customerOrder.getCreatedBy(), customerOrder.getProfileId(), customerOrder.getId());
         };
     }
-    private Guard<OrderState, OrderEvent> prepareNewOrder() {
+    private Guard<OrderState, OrderEvent> prepareNewOrderTask() {
         return context -> {
             CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
-            String storedTxId = customerOrder.getNextTransactionId();
-            customerOrder.setCurrentTransactionId(storedTxId);
-            customerOrder.setNextTransactionId(TransactionIdGenerator.getId());
+            //generate tx id then save to db before execute other code
+            customerOrder.setCurrentTransactionId(TransactionIdGenerator.getId());
+            customerOrderRepository.saveAndFlush(customerOrder);
+            //@todo track task status, then remove draft order save & scheduler logic
+            log.info("save tx id {} ", customerOrder.getCurrentTransactionId());
+
             context.getExtendedState().getVariables().put(TX_ID, customerOrder.getCurrentTransactionId());
-            log.info("start of prepareNewOrder of {}, tx id {}", customerOrder.getId(), customerOrder.getCurrentTransactionId());
+            log.info("start of prepareNewOrder of {}", customerOrder.getId());
             // validate order product info
             CompletableFuture<Void> validateResultFuture = CompletableFuture.runAsync(() ->
                     productService.validateProductInfo(customerOrder.getReadOnlyProductList()), customExecutor
@@ -226,13 +232,15 @@ public class CustomStateMachineBuilder {
         };
     }
 
-    private Guard<OrderState, OrderEvent> reserveOrder() {
+    private Guard<OrderState, OrderEvent> reserveOrderTask() {
         return context -> {
             log.info("start of decreaseOrderStorage");
             CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
-            String storedTxId = customerOrder.getNextTransactionId();
-            customerOrder.setCurrentTransactionId(storedTxId);
-            customerOrder.setNextTransactionId(TransactionIdGenerator.getId());
+            //generate tx id then save to db before execute other code
+            customerOrder.setCurrentTransactionId(TransactionIdGenerator.getId());
+            customerOrderRepository.saveAndFlush(customerOrder);
+            //@todo track task status
+            context.getExtendedState().getVariables().put(TX_ID, customerOrder.getCurrentTransactionId());
             try {
                 productService.decreaseOrderStorage(customerOrder.getProductSummary(), customerOrder.getCurrentTransactionId());
             } catch (Exception ex) {
@@ -261,13 +269,16 @@ public class CustomStateMachineBuilder {
         };
     }
 
-    private Guard<OrderState, OrderEvent> confirmOrder() {
+    private Guard<OrderState, OrderEvent> confirmOrderTask() {
         return context -> {
             log.info("start of decreaseActualStorage");
             CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
-            String storedTxId = customerOrder.getNextTransactionId();
-            customerOrder.setCurrentTransactionId(storedTxId);
-            customerOrder.setNextTransactionId(TransactionIdGenerator.getId());
+            //generate tx id then save to db before execute other code
+            customerOrder.setCurrentTransactionId(TransactionIdGenerator.getId());
+            customerOrderRepository.saveAndFlush(customerOrder);
+
+            //@todo track task status
+            context.getExtendedState().getVariables().put(TX_ID, customerOrder.getCurrentTransactionId());
             try {
                 productService.decreaseActualStorage(customerOrder.getProductSummary(), customerOrder.getCurrentTransactionId());
             } catch (Exception ex) {

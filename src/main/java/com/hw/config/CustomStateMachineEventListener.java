@@ -1,5 +1,6 @@
 package com.hw.config;
 
+import com.hw.aggregate.cart.CartApplicationService;
 import com.hw.aggregate.order.PaymentService;
 import com.hw.aggregate.order.ProductService;
 import com.hw.aggregate.order.model.OrderEvent;
@@ -34,6 +35,8 @@ public class CustomStateMachineEventListener
     @Override
     public void stateMachineError(StateMachine<OrderState, OrderEvent> stateMachine, Exception exception) {
         log.error("start of stateMachineError, rollback transaction", exception);
+        //set error class so it can be thrown later, thrown ex here will still result 200 response
+        stateMachine.getExtendedState().getVariables().put(ERROR_CLASS, exception);
         String transactionId = stateMachine.getExtendedState().get(TX_ID, String.class);
         CompletableFuture.runAsync(() ->
                 paymentService.rollbackTransaction(transactionId), customExecutor
@@ -41,6 +44,5 @@ public class CustomStateMachineEventListener
         CompletableFuture.runAsync(() ->
                 productService.rollbackTransaction(transactionId), customExecutor
         );
-        throw (RuntimeException) exception;
     }
 }

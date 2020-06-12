@@ -41,7 +41,8 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             MaxCartItemException.class,
             AddressNotExistException.class,
             DuplicateAddressException.class,
-            MaxAddressCountException.class
+            MaxAddressCountException.class,
+            OrderPersistenceException.class
     })
     protected ResponseEntity<Object> handle400Exception(RuntimeException ex, WebRequest request) {
         ErrorMessage errorMessage = new ErrorMessage(ex);

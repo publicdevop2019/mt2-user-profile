@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
 import static com.hw.shared.AppConstant.ORDER_DETAIL;
 
 @Service
@@ -83,18 +84,21 @@ public class OrderApplicationService {
 
     @Transactional(readOnly = true)
     public OrderSummaryAdminRepresentation getAllOrdersForAdmin() {
+        log.info("start of getAllOrdersForAdmin");
         return new OrderSummaryAdminRepresentation(customerOrderRepository.findAll());
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
     public OrderSummaryCustomerRepresentation getAllOrders(String userId, Long profileId) {
+        log.info("start of getAllOrders");
         return new OrderSummaryCustomerRepresentation(customerOrderRepository.findByProfileId(profileId));
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
     public OrderCustomerRepresentation getOrderForCustomer(String userId, Long profileId, Long orderId) {
+        log.info("start of getOrderForCustomer");
         return new OrderCustomerRepresentation(CustomerOrder.get(profileId, orderId, customerOrderRepository));
     }
 
@@ -105,44 +109,63 @@ public class OrderApplicationService {
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.PERSIST);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
         stateMachine.sendEvent(OrderEvent.NEW_ORDER);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
         return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
 
+    //@todo retrieve order in guard instead of in service
     @ProfileExistAndOwnerOnly
+    @Transactional
     public OrderConfirmStatusRepresentation confirmPayment(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmPayment {}", orderId);
-        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
+        CustomerOrder customerOrder = CustomerOrder.getWOptLock(profileId, orderId, customerOrderRepository);
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.CONFIRM_PAYMENT);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
         return new OrderConfirmStatusRepresentation(customerOrder.getPaid());
     }
 
     @ProfileExistAndOwnerOnly
+    @Transactional
     public void confirmOrder(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmOrder {}", orderId);
-        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
+        CustomerOrder customerOrder = CustomerOrder.getWOptLock(profileId, orderId, customerOrderRepository);
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.CONFIRM_ORDER);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
     }
 
     @ProfileExistAndOwnerOnly
+    @Transactional
     public OrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceOrderAgainCommand command) {
         log.info("reserve order {} again", orderId);
-        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
+        CustomerOrder customerOrder = CustomerOrder.getWOptLock(profileId, orderId, customerOrderRepository);
         customerOrder.updateAddress(command);
         StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.RESERVE);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
         return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional
     public void deleteOrder(String userId, Long profileId, Long orderId) {
-        CustomerOrder customerOrder = CustomerOrder.getForUpdate(profileId, orderId, customerOrderRepository);
+        CustomerOrder customerOrder = CustomerOrder.getWOptLock(profileId, orderId, customerOrderRepository);
         customerOrderRepository.delete(customerOrder);
     }
 
@@ -204,7 +227,9 @@ public class OrderApplicationService {
     }
 
     /**
-     * in case of
+     * in case of user try to create draft order again and clean up job also hit the same order,
+     * since createNewOrder will first try to persist order to db which will fail in this case
+     * so this scheduler is safe to run
      */
     @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.draft}")
     public void cleanDraftOrder() {
@@ -226,7 +251,7 @@ public class OrderApplicationService {
     }
 
     private void cleanUpDraftOrder(CustomerOrder order) {
-        String nextTransactionId = order.getNextTransactionId();
+        String nextTransactionId = order.getCurrentTransactionId();
         CompletableFuture.runAsync(() ->
                 paymentService.rollbackTransaction(nextTransactionId), customExecutor
         );

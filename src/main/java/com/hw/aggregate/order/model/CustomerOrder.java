@@ -64,8 +64,6 @@ public class CustomerOrder extends Auditable {
 
     private String currentTransactionId;
 
-    private String nextTransactionId;
-
     @Convert(converter = MapConverter.class)
     private Map<OrderState, String> transactionHistory;
 
@@ -134,8 +132,6 @@ public class CustomerOrder extends Auditable {
         this.modifiedByUserAt = Date.from(Instant.now());
         this.orderState = OrderState.DRAFT;
         this.paid = false;
-        this.currentTransactionId = TransactionIdGenerator.getId();
-        this.nextTransactionId = TransactionIdGenerator.getId();
     }
 
     /**
@@ -177,7 +173,7 @@ public class CustomerOrder extends Auditable {
         return byId.get();
     }
 
-    public static CustomerOrder getForUpdate(Long profileId, Long orderId, CustomerOrderRepository orderRepository) {
+    public static CustomerOrder getWOptLock(Long profileId, Long orderId, CustomerOrderRepository orderRepository) {
         Optional<CustomerOrder> byId = orderRepository.findByIdOptLock(orderId);
         checkAccess(byId, profileId);
         return byId.get();
