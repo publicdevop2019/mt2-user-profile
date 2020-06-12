@@ -31,9 +31,8 @@ import static com.hw.shared.AppConstant.HTTP_HEADER_ERROR_ID;
 public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(value = {
-            OrderAlreadyPaidException.class,
-            OrderNotExistException.class,
-            OrderPaymentMismatchException.class,
+            BizOrderNotExistException.class,
+            BizOrderPaymentMismatchException.class,
             ProductInfoValidationException.class,
             ProfileAlreadyExistException.class,
             ProfileNotExistException.class,
@@ -42,7 +41,7 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             AddressNotExistException.class,
             DuplicateAddressException.class,
             MaxAddressCountException.class,
-            OrderPersistenceException.class
+            BizOrderPersistenceException.class
     })
     protected ResponseEntity<Object> handle400Exception(RuntimeException ex, WebRequest request) {
         ErrorMessage errorMessage = new ErrorMessage(ex);
@@ -53,8 +52,8 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(value = {
             ActualStorageDecreaseException.class,
-            OrderStorageDecreaseException.class,
-            OrderCreationUnknownException.class,
+            BizOrderStorageDecreaseException.class,
+            BizOrderCreationUnknownException.class,
             PaymentQRLinkGenerationException.class,
             StateMachineCreationException.class,
     })
@@ -66,7 +65,7 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler(value = {
-            OrderAccessException.class,
+            BizOrderAccessException.class,
             ProfileAccessException.class,
             CartItemAccessException.class,
             AddressAccessException.class,

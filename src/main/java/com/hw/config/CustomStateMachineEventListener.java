@@ -2,8 +2,8 @@ package com.hw.config;
 
 import com.hw.aggregate.order.PaymentService;
 import com.hw.aggregate.order.ProductService;
-import com.hw.aggregate.order.model.OrderEvent;
-import com.hw.aggregate.order.model.OrderStatus;
+import com.hw.aggregate.order.model.BizOrderEvent;
+import com.hw.aggregate.order.model.BizOrderStatus;
 import com.hw.aggregate.order.model.TransactionalTask;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +20,7 @@ import static com.hw.aggregate.order.model.AppConstant.TX_TASK;
 @Slf4j
 @Component
 public class CustomStateMachineEventListener
-        extends StateMachineListenerAdapter<OrderStatus, OrderEvent> {
+        extends StateMachineListenerAdapter<BizOrderStatus, BizOrderEvent> {
     public static final String ERROR_CLASS = "ERROR_CLASS";
     @Autowired
     private PaymentService paymentService;
@@ -33,7 +33,7 @@ public class CustomStateMachineEventListener
     private TaskExecutor customExecutor;
 
     @Override
-    public void stateMachineError(StateMachine<OrderStatus, OrderEvent> stateMachine, Exception exception) {
+    public void stateMachineError(StateMachine<BizOrderStatus, BizOrderEvent> stateMachine, Exception exception) {
         log.error("start of stateMachineError, rollback transaction", exception);
         //set error class so it can be thrown later, thrown ex here will still result 200 response
         stateMachine.getExtendedState().getVariables().put(ERROR_CLASS, exception);

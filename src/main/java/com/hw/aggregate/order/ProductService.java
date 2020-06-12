@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hw.aggregate.order.exception.ActualStorageDecreaseException;
 import com.hw.aggregate.order.exception.ProductInfoValidationException;
-import com.hw.aggregate.order.model.CustomerOrderItem;
+import com.hw.aggregate.order.model.BizOrderItem;
 import com.hw.shared.EurekaRegistryHelper;
 import com.hw.shared.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
@@ -81,10 +81,10 @@ public class ProductService {
         tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + url + "?optToken=" + optToken, HttpMethod.PUT, hashMapHttpEntity, String.class);
     }
 
-    public void validateProductInfo(List<CustomerOrderItem> customerOrderItemList) {
+    public void validateProductInfo(List<BizOrderItem> customerOrderItemList) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<List<CustomerOrderItem>> hashMapHttpEntity = new HttpEntity<>(customerOrderItemList, headers);
+        HttpEntity<List<BizOrderItem>> hashMapHttpEntity = new HttpEntity<>(customerOrderItemList, headers);
         ParameterizedTypeReference<HashMap<String, String>> responseType =
                 new ParameterizedTypeReference<>() {
                 };

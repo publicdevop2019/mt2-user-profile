@@ -13,12 +13,12 @@ import javax.persistence.Table;
 @NoArgsConstructor
 public class TransactionalTask extends Auditable {
     private Long id;
-    private OrderEvent taskName;
+    private BizOrderEvent taskName;
     private TaskStatus taskStatus;
     private String transactionId;
     private Long customerOrderId;
 
-    public TransactionalTask(Long id, OrderEvent taskName, TaskStatus taskStatus, String transactionId, Long customerOrderId) {
+    public TransactionalTask(Long id, BizOrderEvent taskName, TaskStatus taskStatus, String transactionId, Long customerOrderId) {
         this.id = id;
         this.taskName = taskName;
         this.taskStatus = taskStatus;

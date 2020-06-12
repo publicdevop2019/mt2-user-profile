@@ -1,8 +1,8 @@
 package com.hw.aggregate.order.representation;
 
-import com.hw.aggregate.order.model.CustomerOrder;
-import com.hw.aggregate.order.model.CustomerOrderItem;
-import com.hw.aggregate.order.model.OrderStatus;
+import com.hw.aggregate.order.model.BizOrder;
+import com.hw.aggregate.order.model.BizOrderItem;
+import com.hw.aggregate.order.model.BizOrderStatus;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 public class OrderSummaryAdminRepresentation {
     private List<OrderAdminRepresentation> adminRepresentations;
 
-    public OrderSummaryAdminRepresentation(List<CustomerOrder> customerOrders) {
+    public OrderSummaryAdminRepresentation(List<BizOrder> customerOrders) {
         adminRepresentations = customerOrders.stream().map(OrderAdminRepresentation::new).collect(Collectors.toList());
     }
 
@@ -21,10 +21,10 @@ public class OrderSummaryAdminRepresentation {
     public class OrderAdminRepresentation {
         private Long id;
         private BigDecimal paymentAmt;
-        private OrderStatus orderState;
-        private List<CustomerOrderItem> productList;
+        private BizOrderStatus orderState;
+        private List<BizOrderItem> productList;
 
-        public OrderAdminRepresentation(CustomerOrder customerOrder) {
+        public OrderAdminRepresentation(BizOrder customerOrder) {
             this.id = customerOrder.getId();
             this.paymentAmt = customerOrder.getPaymentAmt();
             this.orderState = customerOrder.getOrderState();

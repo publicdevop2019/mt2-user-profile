@@ -2,12 +2,12 @@ package com.hw.aggregate.order;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hw.aggregate.order.command.CreateOrderCommand;
-import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
-import com.hw.aggregate.order.model.CustomerOrder;
-import com.hw.aggregate.order.model.CustomerOrderItem;
-import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
-import com.hw.aggregate.order.model.CustomerOrderItemAddOnSelection;
+import com.hw.aggregate.order.command.CreateBizOrderCommand;
+import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
+import com.hw.aggregate.order.model.BizOrder;
+import com.hw.aggregate.order.model.BizOrderItem;
+import com.hw.aggregate.order.model.BizOrderItemAddOn;
+import com.hw.aggregate.order.model.BizOrderItemAddOnSelection;
 import com.hw.aggregate.order.representation.OrderCustomerRepresentation;
 import com.hw.aggregate.order.representation.OrderPaymentLinkRepresentation;
 import com.hw.aggregate.order.representation.OrderSummaryAdminRepresentation;
@@ -36,15 +36,15 @@ import static org.mockito.ArgumentMatchers.*;
 
 @RunWith(MockitoJUnitRunner.class)
 @Slf4j
-public class OrderControllerTest {
+public class BizOrderControllerTest {
 
     ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
-    OrderController orderController;
+    BizOrderController orderController;
 
     @Mock
-    OrderApplicationService orderApplicationService;
+    BizOrderApplicationService orderApplicationService;
 
     /**
      * getOrders are running slow, below test prove
@@ -58,7 +58,7 @@ public class OrderControllerTest {
     @Test
     @Ignore("see above")
     public void getAllOrdersForAdmin() throws JsonProcessingException {
-        List<CustomerOrder> customerOrders = new ArrayList<>();
+        List<BizOrder> customerOrders = new ArrayList<>();
         for (int a = 0; a < 600; a++) {
             customerOrders.add(getCustomerOrder());
         }
@@ -74,9 +74,9 @@ public class OrderControllerTest {
         Assert.assertNotNull(s);
     }
 
-    private CustomerOrder getCustomerOrder() {
-        CustomerOrder customerOrder = new CustomerOrder();
-        List<CustomerOrderItem> customerOrderItems = new ArrayList<>();
+    private BizOrder getCustomerOrder() {
+        BizOrder customerOrder = new BizOrder();
+        List<BizOrderItem> customerOrderItems = new ArrayList<>();
         for (int a = 0; a < 5; a++) {
             customerOrderItems.add(getCustomerOrderItem());
         }
@@ -86,27 +86,27 @@ public class OrderControllerTest {
         return customerOrder;
     }
 
-    private CustomerOrderItem getCustomerOrderItem() {
-        CustomerOrderItem customerOrderItem = new CustomerOrderItem();
+    private BizOrderItem getCustomerOrderItem() {
+        BizOrderItem customerOrderItem = new BizOrderItem();
 
         customerOrderItem.setFinalPrice(getRandomString());
         customerOrderItem.setImageUrlSmall(getRandomString());
         customerOrderItem.setName(getRandomString());
         customerOrderItem.setProductId(getRandomString());
 
-        List<CustomerOrderItemAddOn> customerOrderItemAddOns = new ArrayList<>();
-        CustomerOrderItemAddOn customerOrderItemAddOn0 = new CustomerOrderItemAddOn();
-        CustomerOrderItemAddOn customerOrderItemAddOn1 = new CustomerOrderItemAddOn();
-        CustomerOrderItemAddOn customerOrderItemAddOn2 = new CustomerOrderItemAddOn();
+        List<BizOrderItemAddOn> customerOrderItemAddOns = new ArrayList<>();
+        BizOrderItemAddOn customerOrderItemAddOn0 = new BizOrderItemAddOn();
+        BizOrderItemAddOn customerOrderItemAddOn1 = new BizOrderItemAddOn();
+        BizOrderItemAddOn customerOrderItemAddOn2 = new BizOrderItemAddOn();
         customerOrderItemAddOn0.setTitle(getRandomString());
         customerOrderItemAddOn1.setTitle(getRandomString());
         customerOrderItemAddOn2.setTitle(getRandomString());
-        List<CustomerOrderItemAddOnSelection> customerOrderItemAddOnSelections0 = new ArrayList<>();
-        List<CustomerOrderItemAddOnSelection> customerOrderItemAddOnSelections1 = new ArrayList<>();
-        List<CustomerOrderItemAddOnSelection> customerOrderItemAddOnSelections2 = new ArrayList<>();
-        CustomerOrderItemAddOnSelection customerOrderItemAddOnSelection0 = new CustomerOrderItemAddOnSelection(getRandomString(), getRandomString());
-        CustomerOrderItemAddOnSelection customerOrderItemAddOnSelection1 = new CustomerOrderItemAddOnSelection(getRandomString(), getRandomString());
-        CustomerOrderItemAddOnSelection customerOrderItemAddOnSelection2 = new CustomerOrderItemAddOnSelection(getRandomString(), getRandomString());
+        List<BizOrderItemAddOnSelection> customerOrderItemAddOnSelections0 = new ArrayList<>();
+        List<BizOrderItemAddOnSelection> customerOrderItemAddOnSelections1 = new ArrayList<>();
+        List<BizOrderItemAddOnSelection> customerOrderItemAddOnSelections2 = new ArrayList<>();
+        BizOrderItemAddOnSelection customerOrderItemAddOnSelection0 = new BizOrderItemAddOnSelection(getRandomString(), getRandomString());
+        BizOrderItemAddOnSelection customerOrderItemAddOnSelection1 = new BizOrderItemAddOnSelection(getRandomString(), getRandomString());
+        BizOrderItemAddOnSelection customerOrderItemAddOnSelection2 = new BizOrderItemAddOnSelection(getRandomString(), getRandomString());
         customerOrderItemAddOnSelections0.add(customerOrderItemAddOnSelection0);
         customerOrderItemAddOnSelections1.add(customerOrderItemAddOnSelection1);
         customerOrderItemAddOnSelections2.add(customerOrderItemAddOnSelection2);
@@ -143,9 +143,9 @@ public class OrderControllerTest {
     @Test
     public void reserveOrder() {
         OrderPaymentLinkRepresentation mock = Mockito.mock(OrderPaymentLinkRepresentation.class);
-        Mockito.doReturn(mock).when(orderApplicationService).createNew(anyString(), anyLong(),anyLong(), any(CreateOrderCommand.class));
+        Mockito.doReturn(mock).when(orderApplicationService).createNew(anyString(), anyLong(),anyLong(), any(CreateBizOrderCommand.class));
         Mockito.doReturn("mock").when(mock).getPaymentLink();
-        ResponseEntity<Void> voidResponseEntity = orderController.reserveOrder(rJwt(), rLong(),rLong(), new CreateOrderCommand());
+        ResponseEntity<Void> voidResponseEntity = orderController.reserveOrder(rJwt(), rLong(),rLong(), new CreateBizOrderCommand());
         Assert.assertNotNull(voidResponseEntity.getHeaders().getLocation());
     }
 
@@ -161,9 +161,9 @@ public class OrderControllerTest {
     @Test
     public void placeOrderAgain() {
         OrderPaymentLinkRepresentation mock = Mockito.mock(OrderPaymentLinkRepresentation.class);
-        Mockito.doReturn(mock).when(orderApplicationService).reserveAgain(anyString(), anyLong(), anyLong(), any(PlaceOrderAgainCommand.class));
+        Mockito.doReturn(mock).when(orderApplicationService).reserveAgain(anyString(), anyLong(), anyLong(), any(PlaceBizOrderAgainCommand.class));
         Mockito.doReturn("").when(mock).getPaymentLink();
-        ResponseEntity<Void> voidResponseEntity = orderController.reserveAgain(rJwt(), rLong(), rLong(), new PlaceOrderAgainCommand());
+        ResponseEntity<Void> voidResponseEntity = orderController.reserveAgain(rJwt(), rLong(), rLong(), new PlaceBizOrderAgainCommand());
         Assert.assertNotNull(voidResponseEntity.getHeaders().getLocation());
     }
 

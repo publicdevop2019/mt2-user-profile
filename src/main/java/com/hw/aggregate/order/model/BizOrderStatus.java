@@ -2,7 +2,7 @@ package com.hw.aggregate.order.model;
 
 import javax.persistence.AttributeConverter;
 
-public enum OrderStatus {
+public enum BizOrderStatus {
     NOT_PAID_RESERVED,
     NOT_PAID_RECYCLED,
     PAID_RESERVED,
@@ -12,15 +12,15 @@ public enum OrderStatus {
     DRAFT_CLEAN,
     ;
 
-    public static class DBConverter implements AttributeConverter<OrderStatus, String> {
+    public static class DBConverter implements AttributeConverter<BizOrderStatus, String> {
         @Override
-        public String convertToDatabaseColumn(OrderStatus orderState) {
+        public String convertToDatabaseColumn(BizOrderStatus orderState) {
             return orderState.name();
         }
 
         @Override
-        public OrderStatus convertToEntityAttribute(String s) {
-            return OrderStatus.valueOf(s);
+        public BizOrderStatus convertToEntityAttribute(String s) {
+            return BizOrderStatus.valueOf(s);
         }
     }
 }

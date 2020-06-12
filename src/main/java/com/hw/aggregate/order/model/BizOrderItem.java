@@ -12,12 +12,12 @@ import java.util.List;
 
 @Embeddable
 @Data
-public class CustomerOrderItem implements Serializable {
+public class BizOrderItem implements Serializable {
 
     private static final long serialVersionUID = 1;
 
     @ManyToOne
-    private transient CustomerOrder customerOrder;
+    private transient BizOrder customerOrder;
 
     @NotBlank
     @Column(nullable = false)
@@ -25,7 +25,7 @@ public class CustomerOrderItem implements Serializable {
 
     @Column(length = 10000)
     @Convert(converter = ProductOptionMapper.class)
-    private List<CustomerOrderItemAddOn> selectedOptions;
+    private List<BizOrderItemAddOn> selectedOptions;
 
     @NotBlank
     @Column(nullable = false)

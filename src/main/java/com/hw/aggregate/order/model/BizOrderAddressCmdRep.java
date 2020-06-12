@@ -3,7 +3,7 @@ package com.hw.aggregate.order.model;
 import lombok.Data;
 
 @Data
-public class CustomerOrderAddressCmdRep {
+public class BizOrderAddressCmdRep {
 
     private String fullName;
     private String line1;

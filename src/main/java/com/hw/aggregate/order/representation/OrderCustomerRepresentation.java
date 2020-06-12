@@ -9,24 +9,24 @@ import java.util.ArrayList;
 @Data
 public class OrderCustomerRepresentation {
     private Long id;
-    private CustomerOrderAddressCmdRep address;
+    private BizOrderAddressCmdRep address;
 
-    private ArrayList<CustomerOrderItem> productList;
+    private ArrayList<BizOrderItem> productList;
 
     private String paymentType;
 
-    private OrderStatus orderState;
+    private BizOrderStatus orderState;
 
     private BigDecimal paymentAmt;
 
-    public OrderCustomerRepresentation(CustomerOrder customerOrder) {
+    public OrderCustomerRepresentation(BizOrder customerOrder) {
         this.id = customerOrder.getId();
         this.productList = customerOrder.getReadOnlyProductList();
         this.paymentType = customerOrder.getPaymentType();
         this.paymentAmt = customerOrder.getPaymentAmt();
         this.orderState = customerOrder.getOrderState();
-        CustomerOrderAddress address = customerOrder.getAddress();
-        this.address = new CustomerOrderAddressCmdRep();
+        BizOrderAddress address = customerOrder.getAddress();
+        this.address = new BizOrderAddressCmdRep();
         this.address.setCountry(address.getOrderAddressCountry());
         this.address.setProvince(address.getOrderAddressProvince());
         this.address.setCity(address.getOrderAddressCity());

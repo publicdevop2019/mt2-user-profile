@@ -43,13 +43,13 @@ public class CustomStateMachineBuilder {
     private MessengerService messengerService;
 
     @Autowired
-    private OrderApplicationService orderApplicationService;
+    private BizOrderApplicationService orderApplicationService;
 
     @Autowired
     private CartApplicationService cartApplicationService;
 
     @Autowired
-    private CustomerOrderRepository orderRepository;
+    private BizOrderRepository orderRepository;
 
     @Autowired
     private TransactionalTaskRepository taskRepository;
@@ -70,8 +70,8 @@ public class CustomStateMachineBuilder {
     @Autowired
     private IdGenerator idGenerator;
 
-    public StateMachine<OrderStatus, OrderEvent> buildMachine(OrderStatus initialState) {
-        StateMachineBuilder.Builder<OrderStatus, OrderEvent> builder = StateMachineBuilder.builder();
+    public StateMachine<BizOrderStatus, BizOrderEvent> buildMachine(BizOrderStatus initialState) {
+        StateMachineBuilder.Builder<BizOrderStatus, BizOrderEvent> builder = StateMachineBuilder.builder();
         try {
             builder.configureConfiguration()
                     .withConfiguration()
@@ -81,48 +81,48 @@ public class CustomStateMachineBuilder {
             builder.configureStates()
                     .withStates()
                     .initial(initialState)
-                    .states(EnumSet.allOf(OrderStatus.class));
+                    .states(EnumSet.allOf(BizOrderStatus.class));
             builder.configureTransitions()
                     .withInternal()
-                    .source(OrderStatus.DRAFT)
-                    .event(OrderEvent.PREPARE)
-                    .action(prepareTaskFor(OrderEvent.NEW_ORDER))
+                    .source(BizOrderStatus.DRAFT)
+                    .event(BizOrderEvent.PREPARE)
+                    .action(prepareTaskFor(BizOrderEvent.NEW_ORDER))
                     .and()
                     .withExternal()
-                    .source(OrderStatus.DRAFT).target(OrderStatus.NOT_PAID_RESERVED)
-                    .event(OrderEvent.NEW_ORDER)
+                    .source(BizOrderStatus.DRAFT).target(BizOrderStatus.NOT_PAID_RESERVED)
+                    .event(BizOrderEvent.NEW_ORDER)
                     .guard(createNewOrderTask())
                     .and()
                     .withExternal()
-                    .source(OrderStatus.NOT_PAID_RESERVED).target(OrderStatus.PAID_RESERVED)
-                    .event(OrderEvent.CONFIRM_PAYMENT)
+                    .source(BizOrderStatus.NOT_PAID_RESERVED).target(BizOrderStatus.PAID_RESERVED)
+                    .event(BizOrderEvent.CONFIRM_PAYMENT)
                     .guard(updatePaymentStatus())
                     .action(autoConfirm())
                     .and()
                     .withExternal()
-                    .source(OrderStatus.NOT_PAID_RECYCLED).target(OrderStatus.PAID_RECYCLED)
-                    .event(OrderEvent.CONFIRM_PAYMENT)
+                    .source(BizOrderStatus.NOT_PAID_RECYCLED).target(BizOrderStatus.PAID_RECYCLED)
+                    .event(BizOrderEvent.CONFIRM_PAYMENT)
                     .guard(updatePaymentStatus())
                     .and()
                     .withInternal()
-                    .source(OrderStatus.PAID_RECYCLED)
-                    .event(OrderEvent.PREPARE)
-                    .action(prepareTaskFor(OrderEvent.RESERVE))
+                    .source(BizOrderStatus.PAID_RECYCLED)
+                    .event(BizOrderEvent.PREPARE)
+                    .action(prepareTaskFor(BizOrderEvent.RESERVE))
                     .and()
                     .withExternal()
-                    .source(OrderStatus.PAID_RECYCLED).target(OrderStatus.PAID_RESERVED)
-                    .event(OrderEvent.RESERVE)
+                    .source(BizOrderStatus.PAID_RECYCLED).target(BizOrderStatus.PAID_RESERVED)
+                    .event(BizOrderEvent.RESERVE)
                     .guard(reserveOrderTask())
                     .action(autoConfirm())
                     .and()
                     .withInternal()
-                    .source(OrderStatus.NOT_PAID_RECYCLED)
-                    .event(OrderEvent.PREPARE)
-                    .action(prepareTaskFor(OrderEvent.RESERVE))
+                    .source(BizOrderStatus.NOT_PAID_RECYCLED)
+                    .event(BizOrderEvent.PREPARE)
+                    .action(prepareTaskFor(BizOrderEvent.RESERVE))
                     .and()
                     .withExternal()
-                    .source(OrderStatus.NOT_PAID_RECYCLED).target(OrderStatus.NOT_PAID_RESERVED)
-                    .event(OrderEvent.RESERVE)
+                    .source(BizOrderStatus.NOT_PAID_RECYCLED).target(BizOrderStatus.NOT_PAID_RESERVED)
+                    .event(BizOrderEvent.RESERVE)
                     .guard(reserveOrderTask())
                     .and()
 //                    done by scheduler, state machine is not used there
@@ -132,13 +132,13 @@ public class CustomStateMachineBuilder {
 //                    .guard(updateCustomerOrder())
 //                    .and()
                     .withInternal()
-                    .source(OrderStatus.PAID_RESERVED)
-                    .event(OrderEvent.PREPARE)
-                    .action(prepareTaskFor(OrderEvent.CONFIRM_ORDER))
+                    .source(BizOrderStatus.PAID_RESERVED)
+                    .event(BizOrderEvent.PREPARE)
+                    .action(prepareTaskFor(BizOrderEvent.CONFIRM_ORDER))
                     .and()
                     .withExternal()
-                    .source(OrderStatus.PAID_RESERVED).target(OrderStatus.CONFIRMED)
-                    .event(OrderEvent.CONFIRM_ORDER)
+                    .source(BizOrderStatus.PAID_RESERVED).target(BizOrderStatus.CONFIRMED)
+                    .event(BizOrderEvent.CONFIRM_ORDER)
                     .guard(confirmOrderTask())
                     .action(sendNotification())
             ;
@@ -149,12 +149,12 @@ public class CustomStateMachineBuilder {
         return builder.build();
     }
 
-    private Action<OrderStatus, OrderEvent> prepareTaskFor(OrderEvent event) {
+    private Action<BizOrderStatus, BizOrderEvent> prepareTaskFor(BizOrderEvent event) {
         return context -> {
             log.info("start of save task to database");
             try {
                 String txId = TransactionIdGenerator.getTxId();
-                CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+                BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
                 TransactionalTask transactionalTask = new TransactionalTask(idGenerator.getId(), event, TaskStatus.STARTED, txId, customerOrder.getId());
                 context.getExtendedState().getVariables().put(TX_TASK, transactionalTask);
                 taskRepository.saveAndFlush(transactionalTask);
@@ -165,17 +165,17 @@ public class CustomStateMachineBuilder {
         };
     }
 
-    private Action<OrderStatus, OrderEvent> autoConfirm() {
+    private Action<BizOrderStatus, BizOrderEvent> autoConfirm() {
         return context -> {
             log.info("start of autoConfirm");
-            CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+            BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
             orderApplicationService.confirmOrder(customerOrder.getCreatedBy(), customerOrder.getProfileId(), customerOrder.getId());
         };
     }
 
-    private Guard<OrderStatus, OrderEvent> createNewOrderTask() {
+    private Guard<BizOrderStatus, BizOrderEvent> createNewOrderTask() {
         return context -> {
-            CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+            BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
             log.info("start of prepareNewOrder of {}", customerOrder.getId());
             // validate order product info
@@ -194,12 +194,12 @@ public class CustomStateMachineBuilder {
             );
             CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
             try {
-                allDoneFuture.get();
                 customerOrder.setPaymentLink(paymentQRLinkFuture.get());
+                allDoneFuture.get();
             } catch (ExecutionException ex) {
                 log.error("error during prepare order async call", ex);
                 if (decreaseOrderStorageFuture.isCompletedExceptionally())
-                    context.getStateMachine().setStateMachineError(new OrderStorageDecreaseException());
+                    context.getStateMachine().setStateMachineError(new BizOrderStorageDecreaseException());
                 if (paymentQRLinkFuture.isCompletedExceptionally())
                     context.getStateMachine().setStateMachineError(new PaymentQRLinkGenerationException());
                 if (validateResultFuture.isCompletedExceptionally())
@@ -236,7 +236,7 @@ public class CustomStateMachineBuilder {
                             orderRepository.saveAndFlush(customerOrder);
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
-                            context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                            context.getStateMachine().setStateMachineError(new BizOrderPersistenceException());
                             transactionManager.rollback(transactionStatus);
                             return false;
                         }
@@ -255,16 +255,16 @@ public class CustomStateMachineBuilder {
         };
     }
 
-    private Guard<OrderStatus, OrderEvent> reserveOrderTask() {
+    private Guard<BizOrderStatus, BizOrderEvent> reserveOrderTask() {
         return context -> {
             log.info("start of decreaseOrderStorage");
-            CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+            BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
             try {
                 productService.decreaseOrderStorage(customerOrder.getProductSummary(), transactionalTask.getTransactionId());
             } catch (Exception ex) {
                 log.error("error during decrease order storage");
-                context.getStateMachine().setStateMachineError(new OrderStorageDecreaseException());
+                context.getStateMachine().setStateMachineError(new BizOrderStorageDecreaseException());
                 return false;
             }
             customerOrder.setOrderState(context.getTarget().getId());
@@ -278,7 +278,7 @@ public class CustomStateMachineBuilder {
                             orderRepository.saveAndFlush(customerOrder);
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
-                            context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                            context.getStateMachine().setStateMachineError(new BizOrderPersistenceException());
                             return false;
                         }
                         // save task
@@ -296,17 +296,17 @@ public class CustomStateMachineBuilder {
         };
     }
 
-    private Action<OrderStatus, OrderEvent> sendNotification() {
+    private Action<BizOrderStatus, BizOrderEvent> sendNotification() {
         return context -> {
             log.info("start of sendEmailNotification");
             messengerService.notifyBusinessOwner(new HashMap<>());
         };
     }
 
-    private Guard<OrderStatus, OrderEvent> confirmOrderTask() {
+    private Guard<BizOrderStatus, BizOrderEvent> confirmOrderTask() {
         return context -> {
             log.info("start of decreaseActualStorage");
-            CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+            BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
 
             try {
@@ -326,7 +326,7 @@ public class CustomStateMachineBuilder {
                             orderRepository.saveAndFlush(customerOrder);
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
-                            context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                            context.getStateMachine().setStateMachineError(new BizOrderPersistenceException());
                             return false;
                         }
                         // save task
@@ -344,10 +344,10 @@ public class CustomStateMachineBuilder {
         };
     }
 
-    private Guard<OrderStatus, OrderEvent> updatePaymentStatus() {
+    private Guard<BizOrderStatus, BizOrderEvent> updatePaymentStatus() {
         return context -> {
             log.info("start of updatePaymentStatus");
-            CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
+            BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
             Boolean paymentStatus = paymentService.confirmPaymentStatus(customerOrder.getId().toString());
             log.info("result {}", paymentStatus.toString());
             customerOrder.setPaid(paymentStatus);
@@ -358,7 +358,7 @@ public class CustomStateMachineBuilder {
                 orderRepository.saveAndFlush(customerOrder);
             } catch (Exception ex) {
                 log.error("error during data persist", ex);
-                context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                context.getStateMachine().setStateMachineError(new BizOrderPersistenceException());
                 return false;
             }
             return Boolean.TRUE.equals(paymentStatus);

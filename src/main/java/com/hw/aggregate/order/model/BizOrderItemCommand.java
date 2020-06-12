@@ -5,9 +5,9 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class CustomerOrderItemCommand {
+public class BizOrderItemCommand {
     private String name;
-    private List<CustomerOrderItemAddOnCommand> selectedOptions;
+    private List<BizOrderItemAddOnCommand> selectedOptions;
     private String finalPrice;
     private String productId;
     private String imageUrlSmall;

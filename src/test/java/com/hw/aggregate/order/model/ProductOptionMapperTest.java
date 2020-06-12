@@ -34,7 +34,7 @@ public class ProductOptionMapperTest {
     @Test
     public void convertToEntityAttribute() {
         ProductOptionMapper productOptionMapper = new ProductOptionMapper();
-        List<CustomerOrderItemAddOn> customerOrderItemAddOns = productOptionMapper.convertToEntityAttribute("");
+        List<BizOrderItemAddOn> customerOrderItemAddOns = productOptionMapper.convertToEntityAttribute("");
         Assert.assertNotNull(customerOrderItemAddOns);
         Assert.assertEquals(0, customerOrderItemAddOns.size());
     }
@@ -42,7 +42,7 @@ public class ProductOptionMapperTest {
     @Test
     public void convertToEntityAttribute_2() {
         ProductOptionMapper productOptionMapper = new ProductOptionMapper();
-        List<CustomerOrderItemAddOn> customerOrderItemAddOns = productOptionMapper.convertToEntityAttribute("qty:1&1=2&2=3&3,color:white&0.35=black&0.37");
+        List<BizOrderItemAddOn> customerOrderItemAddOns = productOptionMapper.convertToEntityAttribute("qty:1&1=2&2=3&3,color:white&0.35=black&0.37");
         Assert.assertNotNull(customerOrderItemAddOns);
         Assert.assertNotEquals(0, customerOrderItemAddOns.size());
     }
@@ -50,25 +50,25 @@ public class ProductOptionMapperTest {
     @Test
     public void convertToEntityAttribute_3() {
         ProductOptionMapper productOptionMapper = new ProductOptionMapper();
-        List<CustomerOrderItemAddOn> customerOrderItemAddOns = productOptionMapper.convertToEntityAttribute("qty:1&=2&2=3&3,color:white&0.35=black&0.37");
+        List<BizOrderItemAddOn> customerOrderItemAddOns = productOptionMapper.convertToEntityAttribute("qty:1&=2&2=3&3,color:white&0.35=black&0.37");
         Assert.assertNotNull(customerOrderItemAddOns);
         Assert.assertNotEquals(0, customerOrderItemAddOns.size());
     }
 
-    private List<CustomerOrderItemAddOn> getAddOn() {
-        List<CustomerOrderItemAddOn> customerOrderItemAddOns = new ArrayList<>();
-        CustomerOrderItemAddOn customerOrderItemAddOn0 = new CustomerOrderItemAddOn();
-        CustomerOrderItemAddOn customerOrderItemAddOn1 = new CustomerOrderItemAddOn();
-        CustomerOrderItemAddOn customerOrderItemAddOn2 = new CustomerOrderItemAddOn();
+    private List<BizOrderItemAddOn> getAddOn() {
+        List<BizOrderItemAddOn> customerOrderItemAddOns = new ArrayList<>();
+        BizOrderItemAddOn customerOrderItemAddOn0 = new BizOrderItemAddOn();
+        BizOrderItemAddOn customerOrderItemAddOn1 = new BizOrderItemAddOn();
+        BizOrderItemAddOn customerOrderItemAddOn2 = new BizOrderItemAddOn();
         customerOrderItemAddOn0.setTitle(rStr());
         customerOrderItemAddOn1.setTitle(rStr());
         customerOrderItemAddOn2.setTitle(rStr());
-        List<CustomerOrderItemAddOnSelection> customerOrderItemAddOnSelections0 = new ArrayList<>();
-        List<CustomerOrderItemAddOnSelection> customerOrderItemAddOnSelections1 = new ArrayList<>();
-        List<CustomerOrderItemAddOnSelection> customerOrderItemAddOnSelections2 = new ArrayList<>();
-        CustomerOrderItemAddOnSelection customerOrderItemAddOnSelection0 = new CustomerOrderItemAddOnSelection(rStr(), null);
-        CustomerOrderItemAddOnSelection customerOrderItemAddOnSelection1 = new CustomerOrderItemAddOnSelection(rStr(), "+0");
-        CustomerOrderItemAddOnSelection customerOrderItemAddOnSelection2 = new CustomerOrderItemAddOnSelection(rStr(), "+0");
+        List<BizOrderItemAddOnSelection> customerOrderItemAddOnSelections0 = new ArrayList<>();
+        List<BizOrderItemAddOnSelection> customerOrderItemAddOnSelections1 = new ArrayList<>();
+        List<BizOrderItemAddOnSelection> customerOrderItemAddOnSelections2 = new ArrayList<>();
+        BizOrderItemAddOnSelection customerOrderItemAddOnSelection0 = new BizOrderItemAddOnSelection(rStr(), null);
+        BizOrderItemAddOnSelection customerOrderItemAddOnSelection1 = new BizOrderItemAddOnSelection(rStr(), "+0");
+        BizOrderItemAddOnSelection customerOrderItemAddOnSelection2 = new BizOrderItemAddOnSelection(rStr(), "+0");
         customerOrderItemAddOnSelections0.add(customerOrderItemAddOnSelection0);
         customerOrderItemAddOnSelections1.add(customerOrderItemAddOnSelection1);
         customerOrderItemAddOnSelections2.add(customerOrderItemAddOnSelection2);

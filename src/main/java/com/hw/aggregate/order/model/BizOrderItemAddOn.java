@@ -6,12 +6,12 @@ import java.io.Serializable;
 import java.util.List;
 
 @Data
-public class CustomerOrderItemAddOn implements Serializable {
+public class BizOrderItemAddOn implements Serializable {
 
     private static final long serialVersionUID = 1;
 
     private String title;
 
-    private List<CustomerOrderItemAddOnSelection> options;
+    private List<BizOrderItemAddOnSelection> options;
 
 }

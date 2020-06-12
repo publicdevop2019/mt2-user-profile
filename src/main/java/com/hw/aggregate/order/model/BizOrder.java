@@ -1,10 +1,10 @@
 package com.hw.aggregate.order.model;
 
-import com.hw.aggregate.order.CustomerOrderRepository;
-import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
-import com.hw.aggregate.order.exception.OrderAccessException;
-import com.hw.aggregate.order.exception.OrderNotExistException;
-import com.hw.aggregate.order.exception.OrderPaymentMismatchException;
+import com.hw.aggregate.order.BizOrderRepository;
+import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
+import com.hw.aggregate.order.exception.BizOrderAccessException;
+import com.hw.aggregate.order.exception.BizOrderNotExistException;
+import com.hw.aggregate.order.exception.BizOrderPaymentMismatchException;
 import com.hw.shared.Auditable;
 import lombok.Data;
 import lombok.Getter;
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 @Table(name = "OrderDetail")
 @Data
 @NoArgsConstructor
-public class CustomerOrder extends Auditable {
+public class BizOrder extends Auditable {
     /**
      * id setter is required to correctly work with BeanPropertyRowMapper for spring batch
      */
@@ -39,15 +39,15 @@ public class CustomerOrder extends Auditable {
     @NotNull
     @Valid
     @Embedded
-    private CustomerOrderAddress address;
+    private BizOrderAddress address;
 
     @Column(length = 100000)
-    private ArrayList<CustomerOrderItem> readOnlyProductList;
+    private ArrayList<BizOrderItem> readOnlyProductList;
 
     @Column
     @ElementCollection
     @CollectionTable(name = "order_product_snapshot", joinColumns = @JoinColumn(name = "order_id"))
-    private List<CustomerOrderItem> writeOnlyProductList;
+    private List<BizOrderItem> writeOnlyProductList;
 
     @NotEmpty
     @Column(nullable = false)
@@ -62,7 +62,7 @@ public class CustomerOrder extends Auditable {
     private String paymentDate;
 
     @Convert(converter = MapConverter.class)
-    private Map<OrderEvent, String> transactionHistory;
+    private Map<BizOrderEvent, String> transactionHistory;
 
     @NotNull
     @Column
@@ -70,8 +70,8 @@ public class CustomerOrder extends Auditable {
 
     @Getter
     @Column(length = 25)
-    @Convert(converter = OrderStatus.DBConverter.class)
-    private OrderStatus orderState;
+    @Convert(converter = BizOrderStatus.DBConverter.class)
+    private BizOrderStatus orderState;
 
     @NotNull
     @Column(nullable = false)
@@ -84,24 +84,24 @@ public class CustomerOrder extends Auditable {
         this.modifiedByUserAt = Date.from(Instant.now());
     }
 
-    public static CustomerOrder create(Long id, Long profileId, List<CustomerOrderItemCommand> productList, CustomerOrderAddressCmdRep address, String paymentType, BigDecimal paymentAmt) {
-        return new CustomerOrder(id, profileId, productList, address, paymentType, paymentAmt);
+    public static BizOrder create(Long id, Long profileId, List<BizOrderItemCommand> productList, BizOrderAddressCmdRep address, String paymentType, BigDecimal paymentAmt) {
+        return new BizOrder(id, profileId, productList, address, paymentType, paymentAmt);
     }
 
-    private CustomerOrder(Long id, Long profileId, List<CustomerOrderItemCommand> productList, CustomerOrderAddressCmdRep address, String paymentType, BigDecimal paymentAmt) {
-        List<CustomerOrderItem> collect2 = productList.stream().map(e -> {
-            CustomerOrderItem customerOrderItem = new CustomerOrderItem();
+    private BizOrder(Long id, Long profileId, List<BizOrderItemCommand> productList, BizOrderAddressCmdRep address, String paymentType, BigDecimal paymentAmt) {
+        List<BizOrderItem> collect2 = productList.stream().map(e -> {
+            BizOrderItem customerOrderItem = new BizOrderItem();
             customerOrderItem.setFinalPrice(e.getFinalPrice());
             customerOrderItem.setProductId(e.getProductId());
             customerOrderItem.setName(e.getName());
             customerOrderItem.setImageUrlSmall(e.getImageUrlSmall());
-            List<CustomerOrderItemAddOn> collect1 = null;
+            List<BizOrderItemAddOn> collect1 = null;
             if (e.getSelectedOptions() != null) {
                 collect1 = e.getSelectedOptions().stream().map(e2 -> {
-                    CustomerOrderItemAddOn customerOrderItemAddOn = new CustomerOrderItemAddOn();
+                    BizOrderItemAddOn customerOrderItemAddOn = new BizOrderItemAddOn();
                     customerOrderItemAddOn.setTitle(e2.getTitle());
-                    List<CustomerOrderItemAddOnSelection> collect = e2.getOptions().stream()
-                            .map(e3 -> new CustomerOrderItemAddOnSelection(e3.getOptionValue(), e3.getPriceVar())).collect(Collectors.toList());
+                    List<BizOrderItemAddOnSelection> collect = e2.getOptions().stream()
+                            .map(e3 -> new BizOrderItemAddOnSelection(e3.getOptionValue(), e3.getPriceVar())).collect(Collectors.toList());
                     customerOrderItemAddOn.setOptions(collect);
                     return customerOrderItemAddOn;
                 }).collect(Collectors.toList());
@@ -115,7 +115,7 @@ public class CustomerOrder extends Auditable {
         this.id = id;
         this.profileId = profileId;
         this.writeOnlyProductList = collect2;
-        CustomerOrderAddress customerOrderAddress = new CustomerOrderAddress();
+        BizOrderAddress customerOrderAddress = new BizOrderAddress();
         customerOrderAddress.setOrderAddressCity(address.getCity());
         customerOrderAddress.setOrderAddressCountry(address.getCountry());
         customerOrderAddress.setOrderAddressFullName(address.getFullName());
@@ -127,7 +127,7 @@ public class CustomerOrder extends Auditable {
         this.address = customerOrderAddress;
         this.paymentType = paymentType;
         this.modifiedByUserAt = Date.from(Instant.now());
-        this.orderState = OrderStatus.DRAFT;
+        this.orderState = BizOrderStatus.DRAFT;
         this.paid = false;
     }
 
@@ -141,7 +141,7 @@ public class CustomerOrder extends Auditable {
         readOnlyProductList.forEach(e -> {
             int defaultAmount = 1;
             if (e.getSelectedOptions() != null) {
-                Optional<CustomerOrderItemAddOn> qty = e.getSelectedOptions().stream().filter(el -> el.getTitle().equals("qty")).findFirst();
+                Optional<BizOrderItemAddOn> qty = e.getSelectedOptions().stream().filter(el -> el.getTitle().equals("qty")).findFirst();
                 if (qty.isPresent() && !qty.get().getOptions().isEmpty()) {
                     /**
                      * deduct amount based on qty value, otherwise default is 1
@@ -161,29 +161,29 @@ public class CustomerOrder extends Auditable {
     private void validatePaymentAmount() {
         BigDecimal reduce = readOnlyProductList.stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
         if (paymentAmt.compareTo(reduce) != 0)
-            throw new OrderPaymentMismatchException();
+            throw new BizOrderPaymentMismatchException();
     }
 
-    public static CustomerOrder get(Long profileId, Long orderId, CustomerOrderRepository orderRepository) {
-        Optional<CustomerOrder> byId = orderRepository.findById(orderId);
+    public static BizOrder get(Long profileId, Long orderId, BizOrderRepository orderRepository) {
+        Optional<BizOrder> byId = orderRepository.findById(orderId);
         checkAccess(byId, profileId);
         return byId.get();
     }
 
-    public static CustomerOrder getWOptLock(Long profileId, Long orderId, CustomerOrderRepository orderRepository) {
-        Optional<CustomerOrder> byId = orderRepository.findByIdOptLock(orderId);
+    public static BizOrder getWOptLock(Long profileId, Long orderId, BizOrderRepository orderRepository) {
+        Optional<BizOrder> byId = orderRepository.findByIdOptLock(orderId);
         checkAccess(byId, profileId);
         return byId.get();
     }
 
-    private static void checkAccess(Optional<CustomerOrder> byId, Long profileId) {
+    private static void checkAccess(Optional<BizOrder> byId, Long profileId) {
         if (byId.isEmpty())
-            throw new OrderNotExistException();
+            throw new BizOrderNotExistException();
         if (!byId.get().getProfileId().equals(profileId))
-            throw new OrderAccessException();
+            throw new BizOrderAccessException();
     }
 
-    public void updateAddress(PlaceOrderAgainCommand command) {
+    public void updateAddress(PlaceBizOrderAgainCommand command) {
         if (command.getAddress() != null
                 && StringUtils.hasText(command.getAddress().getCountry())
                 && StringUtils.hasText(command.getAddress().getProvince())

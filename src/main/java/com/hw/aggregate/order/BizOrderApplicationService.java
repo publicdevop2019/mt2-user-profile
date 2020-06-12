@@ -1,11 +1,11 @@
 package com.hw.aggregate.order;
 
-import com.hw.aggregate.order.command.CreateOrderCommand;
-import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
-import com.hw.aggregate.order.exception.OrderSchedulerProductRecycleException;
-import com.hw.aggregate.order.model.CustomerOrder;
-import com.hw.aggregate.order.model.OrderEvent;
-import com.hw.aggregate.order.model.OrderStatus;
+import com.hw.aggregate.order.command.CreateBizOrderCommand;
+import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
+import com.hw.aggregate.order.exception.BizOrderSchedulerProductRecycleException;
+import com.hw.aggregate.order.model.BizOrder;
+import com.hw.aggregate.order.model.BizOrderEvent;
+import com.hw.aggregate.order.model.BizOrderStatus;
 import com.hw.aggregate.order.representation.*;
 import com.hw.config.CustomStateMachineBuilder;
 import com.hw.config.ProfileExistAndOwnerOnly;
@@ -43,7 +43,7 @@ import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
 @Service
 @Slf4j
 @EnableScheduling
-public class OrderApplicationService {
+public class BizOrderApplicationService {
 
     @Autowired
     private EurekaRegistryHelper eurekaRegistryHelper;
@@ -58,7 +58,7 @@ public class OrderApplicationService {
     private ResourceServiceTokenHelper tokenHelper;
 
     @Autowired
-    private CustomerOrderRepository customerOrderRepository;
+    private BizOrderRepository customerOrderRepository;
 
     @Autowired
     private ProductService productService;
@@ -99,20 +99,20 @@ public class OrderApplicationService {
     @Transactional(readOnly = true)
     public OrderCustomerRepresentation getOrderForCustomer(String userId, Long profileId, Long orderId) {
         log.info("start of getOrderForCustomer");
-        return new OrderCustomerRepresentation(CustomerOrder.get(profileId, orderId, customerOrderRepository));
+        return new OrderCustomerRepresentation(BizOrder.get(profileId, orderId, customerOrderRepository));
     }
 
     @ProfileExistAndOwnerOnly
-    public OrderPaymentLinkRepresentation createNew(String userId, Long profileId, Long orderId, CreateOrderCommand command) {
+    public OrderPaymentLinkRepresentation createNew(String userId, Long profileId, Long orderId, CreateBizOrderCommand command) {
         log.debug("start of createNew {}", orderId);
-        CustomerOrder customerOrder = CustomerOrder.create(orderId, profileId, command.getProductList(), command.getAddress(), command.getPaymentType(), command.getPaymentAmt());
-        StateMachine<OrderStatus, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        BizOrder customerOrder = BizOrder.create(orderId, profileId, command.getProductList(), command.getAddress(), command.getPaymentType(), command.getPaymentAmt());
+        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
-        stateMachine.sendEvent(OrderEvent.PREPARE);
+        stateMachine.sendEvent(BizOrderEvent.PREPARE);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
-        stateMachine.sendEvent(OrderEvent.NEW_ORDER);
+        stateMachine.sendEvent(BizOrderEvent.NEW_ORDER);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
@@ -124,10 +124,10 @@ public class OrderApplicationService {
     @Transactional
     public OrderConfirmStatusRepresentation confirmPayment(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmPayment {}", orderId);
-        CustomerOrder customerOrder = CustomerOrder.getWOptLock(profileId, orderId, customerOrderRepository);
-        StateMachine<OrderStatus, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
+        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
-        stateMachine.sendEvent(OrderEvent.CONFIRM_PAYMENT);
+        stateMachine.sendEvent(BizOrderEvent.CONFIRM_PAYMENT);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
@@ -138,10 +138,10 @@ public class OrderApplicationService {
     @Transactional
     public void confirmOrder(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmOrder {}", orderId);
-        CustomerOrder customerOrder = CustomerOrder.getWOptLock(profileId, orderId, customerOrderRepository);
-        StateMachine<OrderStatus, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
+        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
-        stateMachine.sendEvent(OrderEvent.CONFIRM_ORDER);
+        stateMachine.sendEvent(BizOrderEvent.CONFIRM_ORDER);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
@@ -149,13 +149,13 @@ public class OrderApplicationService {
 
     @ProfileExistAndOwnerOnly
     @Transactional
-    public OrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceOrderAgainCommand command) {
+    public OrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceBizOrderAgainCommand command) {
         log.info("reserve order {} again", orderId);
-        CustomerOrder customerOrder = CustomerOrder.getWOptLock(profileId, orderId, customerOrderRepository);
+        BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
         customerOrder.updateAddress(command);
-        StateMachine<OrderStatus, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
-        stateMachine.sendEvent(OrderEvent.RESERVE);
+        stateMachine.sendEvent(BizOrderEvent.RESERVE);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
@@ -165,7 +165,7 @@ public class OrderApplicationService {
     @ProfileExistAndOwnerOnly
     @Transactional
     public void deleteOrder(String userId, Long profileId, Long orderId) {
-        CustomerOrder customerOrder = CustomerOrder.getWOptLock(profileId, orderId, customerOrderRepository);
+        BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
         customerOrderRepository.delete(customerOrder);
     }
 
@@ -178,8 +178,8 @@ public class OrderApplicationService {
                         String transactionId = TransactionIdGenerator.getTxId();
                         log.info("Expired order scheduler started, transactionId generated {}", transactionId);
                         Date from = Date.from(Instant.ofEpochMilli(Instant.now().toEpochMilli() - expireAfter * 60 * 1000));
-                        List<CustomerOrder> expiredOrderList = customerOrderRepository.findExpiredNotPaidReserved(from);
-                        log.info("Expired order(s) found {}", expiredOrderList.stream().map(CustomerOrder::getId).collect(Collectors.toList()).toString());
+                        List<BizOrder> expiredOrderList = customerOrderRepository.findExpiredNotPaidReserved(from);
+                        log.info("Expired order(s) found {}", expiredOrderList.stream().map(BizOrder::getId).collect(Collectors.toList()).toString());
                         Map<String, Integer> stringIntegerHashMap = new HashMap<>();
                         expiredOrderList.forEach(expiredOrder -> {
                             Map<String, Integer> orderProductMap = expiredOrder.getProductSummary();
@@ -191,7 +191,7 @@ public class OrderApplicationService {
                                 productService.increaseOrderStorage(stringIntegerHashMap, transactionId);
                                 /** update order state*/
                                 expiredOrderList.forEach(e -> {
-                                    e.setOrderState(OrderStatus.NOT_PAID_RECYCLED);
+                                    e.setOrderState(BizOrderStatus.NOT_PAID_RECYCLED);
                                 });
                             }
                             log.info("Expired order(s) released");
@@ -202,7 +202,7 @@ public class OrderApplicationService {
                             CompletableFuture.runAsync(() ->
                                     productService.rollbackTransaction(transactionId), customExecutor
                             );
-                            throw new OrderSchedulerProductRecycleException();
+                            throw new BizOrderSchedulerProductRecycleException();
                         }
                     }
                 });
@@ -211,8 +211,8 @@ public class OrderApplicationService {
     @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.resubmit}")
     public void resubmitOrder() {
         log.debug("start of resubmitOrder");
-        List<CustomerOrder> paidReserved = customerOrderRepository.findPaidReserved();
-        log.info("Paid reserved order(s) found {}", paidReserved.stream().map(CustomerOrder::getId).collect(Collectors.toList()));
+        List<BizOrder> paidReserved = customerOrderRepository.findPaidReserved();
+        log.info("Paid reserved order(s) found {}", paidReserved.stream().map(BizOrder::getId).collect(Collectors.toList()));
         if (!paidReserved.isEmpty()) {
             // submit one order for now
             paidReserved.forEach(order -> {

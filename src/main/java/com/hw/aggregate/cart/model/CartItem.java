@@ -5,7 +5,7 @@ import com.hw.aggregate.cart.command.CreateCartItemCommand;
 import com.hw.aggregate.cart.exception.CartItemAccessException;
 import com.hw.aggregate.cart.exception.CartItemNotExistException;
 import com.hw.aggregate.cart.exception.MaxCartItemException;
-import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
+import com.hw.aggregate.order.model.BizOrderItemAddOn;
 import com.hw.aggregate.order.model.ProductOptionMapper;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -33,7 +33,7 @@ public class CartItem {
 
     @Column(length = 10000)
     @Convert(converter = ProductOptionMapper.class)
-    private List<CustomerOrderItemAddOn> selectedOptions;
+    private List<BizOrderItemAddOn> selectedOptions;
 
     @NotBlank
     @Column(nullable = false)

@@ -1,7 +1,7 @@
 package com.hw.aggregate.cart.representation;
 
 import com.hw.aggregate.cart.model.CartItem;
-import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
+import com.hw.aggregate.order.model.BizOrderItemAddOn;
 import lombok.Data;
 
 import java.util.List;
@@ -20,7 +20,7 @@ public class CartSummaryRepresentation {
     public static class CartSummaryCardRepresentation {
         private Long id;
         private String name;
-        private List<CustomerOrderItemAddOn> selectedOptions;
+        private List<BizOrderItemAddOn> selectedOptions;
         private String finalPrice;
         private String imageUrlSmall;
         private String productId;

@@ -3,13 +3,9 @@ package com.hw.aggregate.order.model;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
-import java.io.Serializable;
-
 @Data
 @AllArgsConstructor
-public class CustomerOrderItemAddOnSelection implements Serializable {
-
-    private static final long serialVersionUID = 1;
+public class BizOrderItemAddOnSelectionCommand {
 
     private String optionValue;
 

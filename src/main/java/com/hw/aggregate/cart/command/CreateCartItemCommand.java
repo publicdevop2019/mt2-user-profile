@@ -1,6 +1,6 @@
 package com.hw.aggregate.cart.command;
 
-import com.hw.aggregate.order.model.CustomerOrderItemAddOn;
+import com.hw.aggregate.order.model.BizOrderItemAddOn;
 import lombok.Data;
 
 import java.util.List;
@@ -10,7 +10,7 @@ public class CreateCartItemCommand {
 
     private String name;
 
-    private List<CustomerOrderItemAddOn> selectedOptions;
+    private List<BizOrderItemAddOn> selectedOptions;
 
     private String finalPrice;
 

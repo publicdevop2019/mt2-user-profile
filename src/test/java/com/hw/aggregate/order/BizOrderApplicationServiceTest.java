@@ -27,9 +27,9 @@ import static org.mockito.Mockito.times;
 
 @RunWith(MockitoJUnitRunner.class)
 @Slf4j
-public class OrderApplicationServiceTest {
+public class BizOrderApplicationServiceTest {
     @InjectMocks
-    OrderApplicationService orderApplicationService;
+    BizOrderApplicationService orderApplicationService;
     @Mock
     IdGenerator idGenerator;
     @Mock
@@ -41,7 +41,7 @@ public class OrderApplicationServiceTest {
     @Mock
     CartApplicationService cartApplicationService;
     @Mock
-    CustomerOrderRepository orderRepository;
+    BizOrderRepository orderRepository;
     @Mock
     CompletableFuture<Void> completableFuture;
     @Mock
@@ -51,9 +51,9 @@ public class OrderApplicationServiceTest {
     @Mock
     EntityManager entityManager;
 
-    private CustomerOrder getCustomerOrder() {
-        CustomerOrder customerOrder = new CustomerOrder();
-        List<CustomerOrderItem> customerOrderItems = new ArrayList<>();
+    private BizOrder getCustomerOrder() {
+        BizOrder customerOrder = new BizOrder();
+        List<BizOrderItem> customerOrderItems = new ArrayList<>();
         for (int a = 0; a < 5; a++) {
             customerOrderItems.add(getCustomerOrderItem());
         }
@@ -64,27 +64,27 @@ public class OrderApplicationServiceTest {
         return customerOrder;
     }
 
-    private CustomerOrderItem getCustomerOrderItem() {
-        CustomerOrderItem customerOrderItem = new CustomerOrderItem();
+    private BizOrderItem getCustomerOrderItem() {
+        BizOrderItem customerOrderItem = new BizOrderItem();
 
         customerOrderItem.setFinalPrice("0");
         customerOrderItem.setImageUrlSmall(rStr());
         customerOrderItem.setName(rStr());
         customerOrderItem.setProductId(rStr());
 
-        List<CustomerOrderItemAddOn> customerOrderItemAddOns = new ArrayList<>();
-        CustomerOrderItemAddOn customerOrderItemAddOn0 = new CustomerOrderItemAddOn();
-        CustomerOrderItemAddOn customerOrderItemAddOn1 = new CustomerOrderItemAddOn();
-        CustomerOrderItemAddOn customerOrderItemAddOn2 = new CustomerOrderItemAddOn();
+        List<BizOrderItemAddOn> customerOrderItemAddOns = new ArrayList<>();
+        BizOrderItemAddOn customerOrderItemAddOn0 = new BizOrderItemAddOn();
+        BizOrderItemAddOn customerOrderItemAddOn1 = new BizOrderItemAddOn();
+        BizOrderItemAddOn customerOrderItemAddOn2 = new BizOrderItemAddOn();
         customerOrderItemAddOn0.setTitle(rStr());
         customerOrderItemAddOn1.setTitle(rStr());
         customerOrderItemAddOn2.setTitle(rStr());
-        List<CustomerOrderItemAddOnSelection> customerOrderItemAddOnSelections0 = new ArrayList<>();
-        List<CustomerOrderItemAddOnSelection> customerOrderItemAddOnSelections1 = new ArrayList<>();
-        List<CustomerOrderItemAddOnSelection> customerOrderItemAddOnSelections2 = new ArrayList<>();
-        CustomerOrderItemAddOnSelection customerOrderItemAddOnSelection0 = new CustomerOrderItemAddOnSelection(rStr(), "+0");
-        CustomerOrderItemAddOnSelection customerOrderItemAddOnSelection1 = new CustomerOrderItemAddOnSelection(rStr(), "+0");
-        CustomerOrderItemAddOnSelection customerOrderItemAddOnSelection2 = new CustomerOrderItemAddOnSelection(rStr(), "+0");
+        List<BizOrderItemAddOnSelection> customerOrderItemAddOnSelections0 = new ArrayList<>();
+        List<BizOrderItemAddOnSelection> customerOrderItemAddOnSelections1 = new ArrayList<>();
+        List<BizOrderItemAddOnSelection> customerOrderItemAddOnSelections2 = new ArrayList<>();
+        BizOrderItemAddOnSelection customerOrderItemAddOnSelection0 = new BizOrderItemAddOnSelection(rStr(), "+0");
+        BizOrderItemAddOnSelection customerOrderItemAddOnSelection1 = new BizOrderItemAddOnSelection(rStr(), "+0");
+        BizOrderItemAddOnSelection customerOrderItemAddOnSelection2 = new BizOrderItemAddOnSelection(rStr(), "+0");
         customerOrderItemAddOnSelections0.add(customerOrderItemAddOnSelection0);
         customerOrderItemAddOnSelections1.add(customerOrderItemAddOnSelection1);
         customerOrderItemAddOnSelections2.add(customerOrderItemAddOnSelection2);
@@ -110,9 +110,9 @@ public class OrderApplicationServiceTest {
     @Test
     public void releaseExpiredOrder_w_order_found() {
         ReflectionTestUtils.setField(orderApplicationService, "expireAfter", 1000L);
-        ArrayList<CustomerOrder> customerOrders = new ArrayList<>();
-        CustomerOrder customerOrder = getCustomerOrder();
-        customerOrder.setOrderState(OrderStatus.NOT_PAID_RESERVED);
+        ArrayList<BizOrder> customerOrders = new ArrayList<>();
+        BizOrder customerOrder = getCustomerOrder();
+        customerOrder.setOrderState(BizOrderStatus.NOT_PAID_RESERVED);
         customerOrders.add(customerOrder);
         Mockito.doReturn(customerOrders).when(orderRepository).findExpiredNotPaidReserved(any());
         orderApplicationService.releaseExpiredOrder();

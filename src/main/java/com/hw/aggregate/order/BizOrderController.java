@@ -1,7 +1,7 @@
 package com.hw.aggregate.order;
 
-import com.hw.aggregate.order.command.CreateOrderCommand;
-import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
+import com.hw.aggregate.order.command.CreateBizOrderCommand;
+import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.representation.OrderConfirmStatusRepresentation;
 import com.hw.aggregate.order.representation.OrderCustomerRepresentation;
 import com.hw.aggregate.order.representation.OrderSummaryAdminRepresentation;
@@ -17,10 +17,10 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping(produces = "application/json")
-public class OrderController {
+public class BizOrderController {
 
     @Autowired
-    private OrderApplicationService orderService;
+    private BizOrderApplicationService orderService;
 
     @GetMapping("orders")
     public ResponseEntity<List<OrderSummaryAdminRepresentation.OrderAdminRepresentation>> getAllOrdersForAdmin() {
@@ -36,7 +36,7 @@ public class OrderController {
     public ResponseEntity<Void> reserveOrder(@RequestHeader("authorization") String authorization,
                                              @PathVariable(name = "profileId") Long profileId,
                                              @PathVariable(name = "orderId") Long orderId,
-                                             @RequestBody CreateOrderCommand newOrder) {
+                                             @RequestBody CreateBizOrderCommand newOrder) {
         return ResponseEntity.ok().header("Location", orderService.createNew(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder).getPaymentLink()).build();
     }
 
@@ -56,7 +56,7 @@ public class OrderController {
     }
 
     @PutMapping("profiles/{profileId}/orders/{orderId}/replace")
-    public ResponseEntity<Void> reserveAgain(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody PlaceOrderAgainCommand newOrder) {
+    public ResponseEntity<Void> reserveAgain(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody PlaceBizOrderAgainCommand newOrder) {
         return ResponseEntity.ok().header("Location", orderService.reserveAgain(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder).getPaymentLink()).build();
     }
 

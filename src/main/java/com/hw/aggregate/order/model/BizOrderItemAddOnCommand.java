@@ -5,10 +5,10 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class CustomerOrderItemAddOnCommand {
+public class BizOrderItemAddOnCommand {
 
     private String title;
 
-    private List<CustomerOrderItemAddOnSelectionCommand> options;
+    private List<BizOrderItemAddOnSelectionCommand> options;
 
 }

@@ -2,7 +2,7 @@ package com.hw.aggregate.profile.model;
 
 import com.hw.aggregate.address.model.Address;
 import com.hw.aggregate.cart.model.CartItem;
-import com.hw.aggregate.order.model.CustomerOrder;
+import com.hw.aggregate.order.model.BizOrder;
 import com.hw.aggregate.profile.ProfileRepo;
 import com.hw.aggregate.profile.exception.ProfileAlreadyExistException;
 import com.hw.aggregate.profile.exception.ProfileNotExistException;
@@ -28,7 +28,7 @@ public class Profile extends Auditable {
 
     @OneToMany(cascade = {CascadeType.ALL})
     @JoinColumn(name = "fk_profile")
-    private List<CustomerOrder> orderList;
+    private List<BizOrder> orderList;
 
     @OneToMany(cascade = {CascadeType.ALL})
     @JoinColumn(name = "fk_profile")

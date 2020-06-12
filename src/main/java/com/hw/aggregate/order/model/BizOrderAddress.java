@@ -12,7 +12,7 @@ import javax.validation.constraints.NotBlank;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class CustomerOrderAddress {
+public class BizOrderAddress {
 
     @NotBlank
     @Column(nullable = false)

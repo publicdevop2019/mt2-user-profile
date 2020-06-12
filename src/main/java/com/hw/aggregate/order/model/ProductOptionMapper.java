@@ -7,9 +7,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class ProductOptionMapper implements AttributeConverter<List<CustomerOrderItemAddOn>, String> {
+public class ProductOptionMapper implements AttributeConverter<List<BizOrderItemAddOn>, String> {
     @Override
-    public String convertToDatabaseColumn(List<CustomerOrderItemAddOn> productOptions) {
+    public String convertToDatabaseColumn(List<BizOrderItemAddOn> productOptions) {
         /**
          *  e.g.
          *  qty:1&1=2&2+3&3,color:white&0.35=black&0.37
@@ -20,22 +20,22 @@ public class ProductOptionMapper implements AttributeConverter<List<CustomerOrde
     }
 
     @Override
-    public List<CustomerOrderItemAddOn> convertToEntityAttribute(String s) {
+    public List<BizOrderItemAddOn> convertToEntityAttribute(String s) {
         if (s.equals(""))
             return Collections.emptyList();
-        List<CustomerOrderItemAddOn> optionList = new ArrayList<>();
+        List<BizOrderItemAddOn> optionList = new ArrayList<>();
         Arrays.stream(s.split(",")).forEach(e -> {
-            CustomerOrderItemAddOn option1 = new CustomerOrderItemAddOn();
+            BizOrderItemAddOn option1 = new BizOrderItemAddOn();
             option1.setTitle(e.split(":")[0]);
             String detail = e.split(":")[1];
             String[] split = detail.split("=");
             Arrays.stream(split).forEach(el -> {
                 String[] split1 = el.split("&");
-                CustomerOrderItemAddOnSelection option;
+                BizOrderItemAddOnSelection option;
                 if (split1.length == 1) {
-                    option = new CustomerOrderItemAddOnSelection(split1[0], null);
+                    option = new BizOrderItemAddOnSelection(split1[0], null);
                 } else {
-                    option = new CustomerOrderItemAddOnSelection(split1[0], split1[1]);
+                    option = new BizOrderItemAddOnSelection(split1[0], split1[1]);
                 }
                 if (option1.getOptions() == null)
                     option1.setOptions(new ArrayList<>());
