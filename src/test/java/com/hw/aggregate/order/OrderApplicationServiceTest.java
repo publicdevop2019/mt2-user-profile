@@ -98,39 +98,6 @@ public class OrderApplicationServiceTest {
         return customerOrderItem;
     }
 
-    private CustomerOrderItemCommand getCustomerOrderItemCommand() {
-        CustomerOrderItemCommand customerOrderItem = new CustomerOrderItemCommand();
-
-        customerOrderItem.setFinalPrice("0");
-        customerOrderItem.setImageUrlSmall(rStr());
-        customerOrderItem.setName(rStr());
-        customerOrderItem.setProductId(rStr());
-
-        List<CustomerOrderItemAddOnCommand> customerOrderItemAddOns = new ArrayList<>();
-        CustomerOrderItemAddOnCommand customerOrderItemAddOn0 = new CustomerOrderItemAddOnCommand();
-        CustomerOrderItemAddOnCommand customerOrderItemAddOn1 = new CustomerOrderItemAddOnCommand();
-        CustomerOrderItemAddOnCommand customerOrderItemAddOn2 = new CustomerOrderItemAddOnCommand();
-        customerOrderItemAddOn0.setTitle(rStr());
-        customerOrderItemAddOn1.setTitle(rStr());
-        customerOrderItemAddOn2.setTitle(rStr());
-        List<CustomerOrderItemAddOnSelectionCommand> customerOrderItemAddOnSelections0 = new ArrayList<>();
-        List<CustomerOrderItemAddOnSelectionCommand> customerOrderItemAddOnSelections1 = new ArrayList<>();
-        List<CustomerOrderItemAddOnSelectionCommand> customerOrderItemAddOnSelections2 = new ArrayList<>();
-        CustomerOrderItemAddOnSelectionCommand customerOrderItemAddOnSelection0 = new CustomerOrderItemAddOnSelectionCommand(rStr(), "+0");
-        CustomerOrderItemAddOnSelectionCommand customerOrderItemAddOnSelection1 = new CustomerOrderItemAddOnSelectionCommand(rStr(), "+0");
-        CustomerOrderItemAddOnSelectionCommand customerOrderItemAddOnSelection2 = new CustomerOrderItemAddOnSelectionCommand(rStr(), "+0");
-        customerOrderItemAddOnSelections0.add(customerOrderItemAddOnSelection0);
-        customerOrderItemAddOnSelections1.add(customerOrderItemAddOnSelection1);
-        customerOrderItemAddOnSelections2.add(customerOrderItemAddOnSelection2);
-        customerOrderItemAddOn0.setOptions(customerOrderItemAddOnSelections0);
-        customerOrderItemAddOn1.setOptions(customerOrderItemAddOnSelections1);
-        customerOrderItemAddOn2.setOptions(customerOrderItemAddOnSelections2);
-        customerOrderItemAddOns.add(customerOrderItemAddOn0);
-        customerOrderItemAddOns.add(customerOrderItemAddOn1);
-        customerOrderItemAddOns.add(customerOrderItemAddOn2);
-        customerOrderItem.setSelectedOptions(customerOrderItemAddOns);
-        return customerOrderItem;
-    }
 
     @Test
     public void releaseExpiredOrder() {

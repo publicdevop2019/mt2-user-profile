@@ -172,7 +172,7 @@ public class CustomerOrder extends Auditable {
     }
 
     public static CustomerOrder get(Long profileId, Long orderId, CustomerOrderRepository orderRepository) {
-        Optional<CustomerOrder> byId = orderRepository.findByIdPesLock(orderId);
+        Optional<CustomerOrder> byId = orderRepository.findById(orderId);
         checkAccess(byId, profileId);
         return byId.get();
     }

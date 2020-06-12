@@ -143,9 +143,9 @@ public class OrderControllerTest {
     @Test
     public void reserveOrder() {
         OrderPaymentLinkRepresentation mock = Mockito.mock(OrderPaymentLinkRepresentation.class);
-        Mockito.doReturn(mock).when(orderApplicationService).createNew(anyString(), anyLong(), any(CreateOrderCommand.class));
+        Mockito.doReturn(mock).when(orderApplicationService).createNew(anyString(), anyLong(),anyLong(), any(CreateOrderCommand.class));
         Mockito.doReturn("mock").when(mock).getPaymentLink();
-        ResponseEntity<Void> voidResponseEntity = orderController.reserveOrder(rJwt(), rLong(), new CreateOrderCommand());
+        ResponseEntity<Void> voidResponseEntity = orderController.reserveOrder(rJwt(), rLong(),rLong(), new CreateOrderCommand());
         Assert.assertNotNull(voidResponseEntity.getHeaders().getLocation());
     }
 

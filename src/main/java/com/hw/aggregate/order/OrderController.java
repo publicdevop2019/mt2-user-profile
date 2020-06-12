@@ -33,7 +33,10 @@ public class OrderController {
     }
 
     @PostMapping("profiles/{profileId}/orders/{orderId}")
-    public ResponseEntity<Void> reserveOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @RequestBody CreateOrderCommand newOrder, @PathVariable(name = "orderId") Long orderId) {
+    public ResponseEntity<Void> reserveOrder(@RequestHeader("authorization") String authorization,
+                                             @PathVariable(name = "profileId") Long profileId,
+                                             @PathVariable(name = "orderId") Long orderId,
+                                             @RequestBody CreateOrderCommand newOrder) {
         return ResponseEntity.ok().header("Location", orderService.createNew(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder).getPaymentLink()).build();
     }
 

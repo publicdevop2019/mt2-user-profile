@@ -60,7 +60,7 @@ public class OrderApplicationService {
     private CustomerOrderRepository customerOrderRepository;
 
     @Autowired
-    private ProductService productStorageService;
+    private ProductService productService;
 
     @Autowired
     private IdGenerator idGenerator;
@@ -77,6 +77,9 @@ public class OrderApplicationService {
 
     @Autowired
     private CustomStateMachineBuilder customStateMachineBuilder;
+
+    @Autowired
+    private PaymentService paymentService;
 
     @Transactional(readOnly = true)
     public OrderSummaryAdminRepresentation getAllOrdersForAdmin() {
@@ -162,7 +165,7 @@ public class OrderApplicationService {
                         try {
                             if (!stringIntegerHashMap.keySet().isEmpty()) {
                                 log.info("Release product(s) in order(s) :: " + stringIntegerHashMap.toString());
-                                productStorageService.increaseOrderStorage(stringIntegerHashMap, transactionId);
+                                productService.increaseOrderStorage(stringIntegerHashMap, transactionId);
                                 /** update order state*/
                                 expiredOrderList.forEach(e -> {
                                     e.setOrderState(OrderState.NOT_PAID_RECYCLED);
@@ -174,7 +177,7 @@ public class OrderApplicationService {
                         } catch (Exception ex) {
                             log.error("Error during release storage, revoke last operation", ex);
                             CompletableFuture.runAsync(() ->
-                                    productStorageService.rollbackTransaction(transactionId), customExecutor
+                                    productService.rollbackTransaction(transactionId), customExecutor
                             );
                             throw new OrderSchedulerProductRecycleException();
                         }
@@ -221,12 +224,6 @@ public class OrderApplicationService {
             });
         }
     }
-
-    @Autowired
-    private PaymentService paymentService;
-
-    @Autowired
-    private ProductService productService;
 
     private void cleanUpDraftOrder(CustomerOrder order) {
         String nextTransactionId = order.getNextTransactionId();
