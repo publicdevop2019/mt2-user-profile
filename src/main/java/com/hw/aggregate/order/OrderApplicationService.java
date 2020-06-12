@@ -5,7 +5,7 @@ import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
 import com.hw.aggregate.order.exception.OrderSchedulerProductRecycleException;
 import com.hw.aggregate.order.model.CustomerOrder;
 import com.hw.aggregate.order.model.OrderEvent;
-import com.hw.aggregate.order.model.OrderState;
+import com.hw.aggregate.order.model.OrderStatus;
 import com.hw.aggregate.order.representation.*;
 import com.hw.config.CustomStateMachineBuilder;
 import com.hw.config.ProfileExistAndOwnerOnly;
@@ -37,8 +37,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.hw.aggregate.order.model.AppConstant.ORDER_DETAIL;
 import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
-import static com.hw.shared.AppConstant.ORDER_DETAIL;
 
 @Service
 @Slf4j
@@ -106,9 +106,9 @@ public class OrderApplicationService {
     public OrderPaymentLinkRepresentation createNew(String userId, Long profileId, Long orderId, CreateOrderCommand command) {
         log.debug("start of createNew {}", orderId);
         CustomerOrder customerOrder = CustomerOrder.create(orderId, profileId, command.getProductList(), command.getAddress(), command.getPaymentType(), command.getPaymentAmt());
-        StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        StateMachine<OrderStatus, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
-        stateMachine.sendEvent(OrderEvent.PERSIST);
+        stateMachine.sendEvent(OrderEvent.PREPARE);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
@@ -125,7 +125,7 @@ public class OrderApplicationService {
     public OrderConfirmStatusRepresentation confirmPayment(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmPayment {}", orderId);
         CustomerOrder customerOrder = CustomerOrder.getWOptLock(profileId, orderId, customerOrderRepository);
-        StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        StateMachine<OrderStatus, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.CONFIRM_PAYMENT);
         if (stateMachine.hasStateMachineError()) {
@@ -139,7 +139,7 @@ public class OrderApplicationService {
     public void confirmOrder(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmOrder {}", orderId);
         CustomerOrder customerOrder = CustomerOrder.getWOptLock(profileId, orderId, customerOrderRepository);
-        StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        StateMachine<OrderStatus, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.CONFIRM_ORDER);
         if (stateMachine.hasStateMachineError()) {
@@ -153,7 +153,7 @@ public class OrderApplicationService {
         log.info("reserve order {} again", orderId);
         CustomerOrder customerOrder = CustomerOrder.getWOptLock(profileId, orderId, customerOrderRepository);
         customerOrder.updateAddress(command);
-        StateMachine<OrderState, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        StateMachine<OrderStatus, OrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
         stateMachine.sendEvent(OrderEvent.RESERVE);
         if (stateMachine.hasStateMachineError()) {
@@ -175,7 +175,7 @@ public class OrderApplicationService {
                 .execute(new TransactionCallbackWithoutResult() {
                     @Override
                     protected void doInTransactionWithoutResult(TransactionStatus status) {
-                        String transactionId = TransactionIdGenerator.getId();
+                        String transactionId = TransactionIdGenerator.getTxId();
                         log.info("Expired order scheduler started, transactionId generated {}", transactionId);
                         Date from = Date.from(Instant.ofEpochMilli(Instant.now().toEpochMilli() - expireAfter * 60 * 1000));
                         List<CustomerOrder> expiredOrderList = customerOrderRepository.findExpiredNotPaidReserved(from);
@@ -191,7 +191,7 @@ public class OrderApplicationService {
                                 productService.increaseOrderStorage(stringIntegerHashMap, transactionId);
                                 /** update order state*/
                                 expiredOrderList.forEach(e -> {
-                                    e.setOrderState(OrderState.NOT_PAID_RECYCLED);
+                                    e.setOrderState(OrderStatus.NOT_PAID_RECYCLED);
                                 });
                             }
                             log.info("Expired order(s) released");
@@ -226,46 +226,7 @@ public class OrderApplicationService {
         }
     }
 
-    /**
-     * in case of user try to create draft order again and clean up job also hit the same order,
-     * since createNewOrder will first try to persist order to db which will fail in this case
-     * so this scheduler is safe to run
-     */
-    @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.draft}")
-    public void cleanDraftOrder() {
-        log.debug("start of cleanDraftOrder");
-        Date from = Date.from(Instant.ofEpochMilli(Instant.now().toEpochMilli() - draftExpireAfter * 60 * 1000));
-        List<CustomerOrder> draftOrders = customerOrderRepository.findExpiredDraftOrders(from);
-        log.info("Draft order(s) found {}", draftOrders.stream().map(CustomerOrder::getId).collect(Collectors.toList()));
-        if (!draftOrders.isEmpty()) {
-            // clean one order for now
-            draftOrders.forEach(order -> {
-                try {
-                    cleanUpDraftOrder(order);
-                    log.info("Clean draft order {} success", order.getId());
-                } catch (Exception e) {
-                    log.error("Clean draft order {} failed", order.getId(), e);
-                }
-            });
-        }
-    }
-
-    private void cleanUpDraftOrder(CustomerOrder order) {
-        String nextTransactionId = order.getCurrentTransactionId();
-        CompletableFuture.runAsync(() ->
-                paymentService.rollbackTransaction(nextTransactionId), customExecutor
-        );
-        CompletableFuture.runAsync(() ->
-                productService.rollbackTransaction(nextTransactionId), customExecutor
-        );
-        order.setOrderState(OrderState.DRAFT_CLEAN);
-        try {
-            customerOrderRepository.saveAndFlush(order);
-        } catch (Exception ex) {
-            log.error("error during data persist", ex);
-        }
-    }
-
+    //@todo create scheduler for started task
     public String getOrderId() {
         return String.valueOf(idGenerator.getId());
     }

@@ -1,7 +1,6 @@
 package com.hw.aggregate.order;
 
 import com.hw.aggregate.order.model.CustomerOrder;
-import com.hw.aggregate.order.model.OrderState;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;

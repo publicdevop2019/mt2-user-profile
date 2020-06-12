@@ -3,9 +3,8 @@ package com.hw.config;
 import com.hw.aggregate.cart.CartApplicationService;
 import com.hw.aggregate.order.*;
 import com.hw.aggregate.order.exception.*;
-import com.hw.aggregate.order.model.CustomerOrder;
-import com.hw.aggregate.order.model.OrderEvent;
-import com.hw.aggregate.order.model.OrderState;
+import com.hw.aggregate.order.model.*;
+import com.hw.shared.IdGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -24,8 +23,7 @@ import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.hw.shared.AppConstant.ORDER_DETAIL;
-import static com.hw.shared.AppConstant.TX_ID;
+import static com.hw.aggregate.order.model.AppConstant.*;
 
 /**
  * each guard is an unit of work, roll back when failure happen
@@ -50,7 +48,10 @@ public class CustomStateMachineBuilder {
     private CartApplicationService cartApplicationService;
 
     @Autowired
-    private CustomerOrderRepository customerOrderRepository;
+    private CustomerOrderRepository orderRepository;
+
+    @Autowired
+    private TransactionalTaskRepository taskRepository;
 
     @Autowired
     @Qualifier("CustomPool")
@@ -65,8 +66,11 @@ public class CustomStateMachineBuilder {
     @Autowired
     private CustomStateMachineEventListener customStateMachineEventListener;
 
-    public StateMachine<OrderState, OrderEvent> buildMachine(OrderState initialState) {
-        StateMachineBuilder.Builder<OrderState, OrderEvent> builder = StateMachineBuilder.builder();
+    @Autowired
+    private IdGenerator idGenerator;
+
+    public StateMachine<OrderStatus, OrderEvent> buildMachine(OrderStatus initialState) {
+        StateMachineBuilder.Builder<OrderStatus, OrderEvent> builder = StateMachineBuilder.builder();
         try {
             builder.configureConfiguration()
                     .withConfiguration()
@@ -76,37 +80,47 @@ public class CustomStateMachineBuilder {
             builder.configureStates()
                     .withStates()
                     .initial(initialState)
-                    .states(EnumSet.allOf(OrderState.class));
+                    .states(EnumSet.allOf(OrderStatus.class));
             builder.configureTransitions()
-                    .withExternal()
-                    .source(OrderState.DRAFT).target(OrderState.NOT_PAID_RESERVED)
-                    .event(OrderEvent.NEW_ORDER)
-                    .guard(prepareNewOrderTask())
-                    .and()
                     .withInternal()
-                    .source(OrderState.DRAFT)
-                    .event(OrderEvent.PERSIST)
-                    .action(saveDraft())
+                    .source(OrderStatus.DRAFT)
+                    .event(OrderEvent.PREPARE)
+                    .action(prepareTaskFor(OrderEvent.NEW_ORDER))
                     .and()
                     .withExternal()
-                    .source(OrderState.NOT_PAID_RESERVED).target(OrderState.PAID_RESERVED)
+                    .source(OrderStatus.DRAFT).target(OrderStatus.NOT_PAID_RESERVED)
+                    .event(OrderEvent.NEW_ORDER)
+                    .guard(createNewOrderTask())
+                    .and()
+                    .withExternal()
+                    .source(OrderStatus.NOT_PAID_RESERVED).target(OrderStatus.PAID_RESERVED)
                     .event(OrderEvent.CONFIRM_PAYMENT)
                     .guard(updatePaymentStatus())
                     .action(autoConfirm())
                     .and()
                     .withExternal()
-                    .source(OrderState.NOT_PAID_RECYCLED).target(OrderState.PAID_RECYCLED)
+                    .source(OrderStatus.NOT_PAID_RECYCLED).target(OrderStatus.PAID_RECYCLED)
                     .event(OrderEvent.CONFIRM_PAYMENT)
                     .guard(updatePaymentStatus())
                     .and()
+                    .withInternal()
+                    .source(OrderStatus.PAID_RECYCLED)
+                    .event(OrderEvent.PREPARE)
+                    .action(prepareTaskFor(OrderEvent.RESERVE))
+                    .and()
                     .withExternal()
-                    .source(OrderState.PAID_RECYCLED).target(OrderState.PAID_RESERVED)
+                    .source(OrderStatus.PAID_RECYCLED).target(OrderStatus.PAID_RESERVED)
                     .event(OrderEvent.RESERVE)
                     .guard(reserveOrderTask())
                     .action(autoConfirm())
                     .and()
+                    .withInternal()
+                    .source(OrderStatus.NOT_PAID_RECYCLED)
+                    .event(OrderEvent.PREPARE)
+                    .action(prepareTaskFor(OrderEvent.RESERVE))
+                    .and()
                     .withExternal()
-                    .source(OrderState.NOT_PAID_RECYCLED).target(OrderState.NOT_PAID_RESERVED)
+                    .source(OrderStatus.NOT_PAID_RECYCLED).target(OrderStatus.NOT_PAID_RESERVED)
                     .event(OrderEvent.RESERVE)
                     .guard(reserveOrderTask())
                     .and()
@@ -116,8 +130,13 @@ public class CustomStateMachineBuilder {
 //                    .event(OrderEvent.RECYCLE_ORDER_STORAGE)
 //                    .guard(updateCustomerOrder())
 //                    .and()
+                    .withInternal()
+                    .source(OrderStatus.PAID_RESERVED)
+                    .event(OrderEvent.PREPARE)
+                    .action(prepareTaskFor(OrderEvent.CONFIRM_ORDER))
+                    .and()
                     .withExternal()
-                    .source(OrderState.PAID_RESERVED).target(OrderState.CONFIRMED)
+                    .source(OrderStatus.PAID_RESERVED).target(OrderStatus.CONFIRMED)
                     .event(OrderEvent.CONFIRM_ORDER)
                     .guard(confirmOrderTask())
                     .action(sendNotification())
@@ -129,43 +148,34 @@ public class CustomStateMachineBuilder {
         return builder.build();
     }
 
-    /**
-     * save draft order so we can clean it up in case of system blackout
-     * @return
-     */
-    private Action<OrderState, OrderEvent> saveDraft() {
+    private Action<OrderStatus, OrderEvent> prepareTaskFor(OrderEvent event) {
         return context -> {
-            log.info("start of persist draft order");
+            log.info("start of save task to database");
             try {
-                CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
-                HashMap<OrderState, String> history = new HashMap<>();
-                history.put(context.getSource().getId(), "NOT_TRANSACTIONAL");
-                customerOrder.setTransactionHistory(history);
-                customerOrderRepository.saveAndFlush(customerOrder);
+                String txId = TransactionIdGenerator.getTxId();
+                Long customerOrderId = context.getExtendedState().get(ORDER_ID, Long.class);
+                TransactionalTask transactionalTask = new TransactionalTask(idGenerator.getId(), event, TaskStatus.STARTED, txId, customerOrderId);
+                context.getExtendedState().getVariables().put(TX_TASK, transactionalTask);
+                taskRepository.saveAndFlush(transactionalTask);
             } catch (Exception ex) {
                 log.error("error during data persist", ex);
-                context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                context.getStateMachine().setStateMachineError(new TaskPersistenceException());
             }
         };
     }
 
-    private Action<OrderState, OrderEvent> autoConfirm() {
+    private Action<OrderStatus, OrderEvent> autoConfirm() {
         return context -> {
             log.info("start of autoConfirm");
             CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
             orderApplicationService.confirmOrder(customerOrder.getCreatedBy(), customerOrder.getProfileId(), customerOrder.getId());
         };
     }
-    private Guard<OrderState, OrderEvent> prepareNewOrderTask() {
+
+    private Guard<OrderStatus, OrderEvent> createNewOrderTask() {
         return context -> {
             CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
-            //generate tx id then save to db before execute other code
-            customerOrder.setCurrentTransactionId(TransactionIdGenerator.getId());
-            customerOrderRepository.saveAndFlush(customerOrder);
-            //@todo track task status, then remove draft order save & scheduler logic
-            log.info("save tx id {} ", customerOrder.getCurrentTransactionId());
-
-            context.getExtendedState().getVariables().put(TX_ID, customerOrder.getCurrentTransactionId());
+            TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
             log.info("start of prepareNewOrder of {}", customerOrder.getId());
             // validate order product info
             CompletableFuture<Void> validateResultFuture = CompletableFuture.runAsync(() ->
@@ -174,12 +184,12 @@ public class CustomStateMachineBuilder {
 
             // generate payment QR link
             CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
-                    paymentService.generatePaymentLink(customerOrder.getId().toString()), customExecutor
+                    paymentService.generatePaymentLink(customerOrder.getId().toString(), transactionalTask.getTransactionId()), customExecutor
             );
 
             // decrease order storage
             CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                    productService.decreaseOrderStorage(customerOrder.getProductSummary(), customerOrder.getCurrentTransactionId()), customExecutor
+                    productService.decreaseOrderStorage(customerOrder.getProductSummary(), transactionalTask.getTransactionId()), customExecutor
             );
             CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
             try {
@@ -202,8 +212,11 @@ public class CustomStateMachineBuilder {
             }
             // manually set order state so it can be update to database
             customerOrder.setOrderState(context.getTarget().getId());
-            customerOrder.getTransactionHistory().put(context.getTarget().getId(), customerOrder.getCurrentTransactionId());
-            customerOrder.setCurrentTransactionId(null);
+
+            customerOrder.setTransactionHistory(new HashMap<>());
+
+            customerOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
+            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
             // start local transaction, manually rollback since no ex will be thrown
             // not set @Transactional at service level also prevents long running transaction
             // in future if order separate from profile then no need for transaction
@@ -219,10 +232,19 @@ public class CustomStateMachineBuilder {
                         }
                         // save reserved order
                         try {
-                            customerOrderRepository.saveAndFlush(customerOrder);
+                            orderRepository.saveAndFlush(customerOrder);
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
                             context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                            transactionManager.rollback(transactionStatus);
+                            return false;
+                        }
+                        // save task
+                        try {
+                            taskRepository.saveAndFlush(transactionalTask);
+                        } catch (Exception ex) {
+                            log.error("error during data persist", ex);
+                            context.getStateMachine().setStateMachineError(new TaskPersistenceException());
                             transactionManager.rollback(transactionStatus);
                             return false;
                         }
@@ -232,75 +254,96 @@ public class CustomStateMachineBuilder {
         };
     }
 
-    private Guard<OrderState, OrderEvent> reserveOrderTask() {
+    private Guard<OrderStatus, OrderEvent> reserveOrderTask() {
         return context -> {
             log.info("start of decreaseOrderStorage");
             CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
-            //generate tx id then save to db before execute other code
-            customerOrder.setCurrentTransactionId(TransactionIdGenerator.getId());
-            customerOrderRepository.saveAndFlush(customerOrder);
-            //@todo track task status
-            context.getExtendedState().getVariables().put(TX_ID, customerOrder.getCurrentTransactionId());
+            TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
             try {
-                productService.decreaseOrderStorage(customerOrder.getProductSummary(), customerOrder.getCurrentTransactionId());
+                productService.decreaseOrderStorage(customerOrder.getProductSummary(), transactionalTask.getTransactionId());
             } catch (Exception ex) {
                 log.error("error during decrease order storage");
                 context.getStateMachine().setStateMachineError(new OrderStorageDecreaseException());
                 return false;
             }
             customerOrder.setOrderState(context.getTarget().getId());
-            customerOrder.getTransactionHistory().put(context.getTarget().getId(), customerOrder.getCurrentTransactionId());
-            customerOrder.setCurrentTransactionId(null);
-            try {
-                customerOrderRepository.saveAndFlush(customerOrder);
-            } catch (Exception ex) {
-                log.error("error during data persist", ex);
-                context.getStateMachine().setStateMachineError(new OrderPersistenceException());
-                return false;
-            }
-            return true;
+
+            customerOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
+            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
+
+            Boolean execute = new TransactionTemplate(transactionManager)
+                    .execute(transactionStatus -> {
+                        try {
+                            orderRepository.saveAndFlush(customerOrder);
+                        } catch (Exception ex) {
+                            log.error("error during data persist", ex);
+                            context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                            return false;
+                        }
+                        // save task
+                        try {
+                            taskRepository.saveAndFlush(transactionalTask);
+                        } catch (Exception ex) {
+                            log.error("error during data persist", ex);
+                            context.getStateMachine().setStateMachineError(new TaskPersistenceException());
+                            transactionManager.rollback(transactionStatus);
+                            return false;
+                        }
+                        return true;
+                    });
+            return Boolean.TRUE.equals(execute);
         };
     }
 
-    private Action<OrderState, OrderEvent> sendNotification() {
+    private Action<OrderStatus, OrderEvent> sendNotification() {
         return context -> {
             log.info("start of sendEmailNotification");
             messengerService.notifyBusinessOwner(new HashMap<>());
         };
     }
 
-    private Guard<OrderState, OrderEvent> confirmOrderTask() {
+    private Guard<OrderStatus, OrderEvent> confirmOrderTask() {
         return context -> {
             log.info("start of decreaseActualStorage");
             CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
-            //generate tx id then save to db before execute other code
-            customerOrder.setCurrentTransactionId(TransactionIdGenerator.getId());
-            customerOrderRepository.saveAndFlush(customerOrder);
+            TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
 
-            //@todo track task status
-            context.getExtendedState().getVariables().put(TX_ID, customerOrder.getCurrentTransactionId());
             try {
-                productService.decreaseActualStorage(customerOrder.getProductSummary(), customerOrder.getCurrentTransactionId());
+                productService.decreaseActualStorage(customerOrder.getProductSummary(), transactionalTask.getTransactionId());
             } catch (Exception ex) {
                 log.error("error during decreaseActualStorage");
                 context.getStateMachine().setStateMachineError(new ActualStorageDecreaseException());
                 return false;
             }
             customerOrder.setOrderState(context.getTarget().getId());
-            customerOrder.getTransactionHistory().put(context.getTarget().getId(), customerOrder.getCurrentTransactionId());
-            customerOrder.setCurrentTransactionId(null);
-            try {
-                customerOrderRepository.saveAndFlush(customerOrder);
-            } catch (Exception ex) {
-                log.error("error during data persist", ex);
-                context.getStateMachine().setStateMachineError(new OrderPersistenceException());
-                return false;
-            }
-            return true;
+
+            customerOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
+            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
+            Boolean execute = new TransactionTemplate(transactionManager)
+                    .execute(transactionStatus -> {
+                        try {
+                            orderRepository.saveAndFlush(customerOrder);
+                        } catch (Exception ex) {
+                            log.error("error during data persist", ex);
+                            context.getStateMachine().setStateMachineError(new OrderPersistenceException());
+                            return false;
+                        }
+                        // save task
+                        try {
+                            taskRepository.saveAndFlush(transactionalTask);
+                        } catch (Exception ex) {
+                            log.error("error during data persist", ex);
+                            context.getStateMachine().setStateMachineError(new TaskPersistenceException());
+                            transactionManager.rollback(transactionStatus);
+                            return false;
+                        }
+                        return true;
+                    });
+            return Boolean.TRUE.equals(execute);
         };
     }
 
-    private Guard<OrderState, OrderEvent> updatePaymentStatus() {
+    private Guard<OrderStatus, OrderEvent> updatePaymentStatus() {
         return context -> {
             log.info("start of updatePaymentStatus");
             CustomerOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, CustomerOrder.class);
@@ -311,7 +354,7 @@ public class CustomStateMachineBuilder {
                 customerOrder.setOrderState(context.getTarget().getId());
             }
             try {
-                customerOrderRepository.saveAndFlush(customerOrder);
+                orderRepository.saveAndFlush(customerOrder);
             } catch (Exception ex) {
                 log.error("error during data persist", ex);
                 context.getStateMachine().setStateMachineError(new OrderPersistenceException());

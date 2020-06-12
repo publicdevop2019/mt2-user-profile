@@ -6,23 +6,23 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class MapConverter implements AttributeConverter<Map<OrderState, String>, String> {
+public class MapConverter implements AttributeConverter<Map<OrderStatus, String>, String> {
     @Override
-    public String convertToDatabaseColumn(Map<OrderState, String> stringStringMap) {
+    public String convertToDatabaseColumn(Map<OrderStatus, String> stringStringMap) {
         if (stringStringMap == null)
             return "";
         return stringStringMap.keySet().stream().map(e -> e.name() + ":" + stringStringMap.get(e)).collect(Collectors.joining(","));
     }
 
     @Override
-    public Map<OrderState, String> convertToEntityAttribute(String s) {
+    public Map<OrderStatus, String> convertToEntityAttribute(String s) {
         if (s.equals("")) {
             return null;
         }
-        HashMap<OrderState, String> stringStringHashMap = new HashMap<>();
+        HashMap<OrderStatus, String> stringStringHashMap = new HashMap<>();
         Arrays.stream(s.split(",")).forEach(e -> {
             String[] split = e.split(":");
-            stringStringHashMap.put(OrderState.valueOf(split[0]), split[1]);
+            stringStringHashMap.put(OrderStatus.valueOf(split[0]), split[1]);
         });
         return stringStringHashMap;
     }

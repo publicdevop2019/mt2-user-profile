@@ -1,10 +1,9 @@
 package com.hw.config;
 
-import com.hw.aggregate.cart.CartApplicationService;
 import com.hw.aggregate.order.PaymentService;
 import com.hw.aggregate.order.ProductService;
 import com.hw.aggregate.order.model.OrderEvent;
-import com.hw.aggregate.order.model.OrderState;
+import com.hw.aggregate.order.model.OrderStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,7 +19,7 @@ import static com.hw.shared.AppConstant.TX_ID;
 @Slf4j
 @Component
 public class CustomStateMachineEventListener
-        extends StateMachineListenerAdapter<OrderState, OrderEvent> {
+        extends StateMachineListenerAdapter<OrderStatus, OrderEvent> {
     public static final String ERROR_CLASS = "ERROR_CLASS";
     @Autowired
     private PaymentService paymentService;
@@ -33,7 +32,7 @@ public class CustomStateMachineEventListener
     private TaskExecutor customExecutor;
 
     @Override
-    public void stateMachineError(StateMachine<OrderState, OrderEvent> stateMachine, Exception exception) {
+    public void stateMachineError(StateMachine<OrderStatus, OrderEvent> stateMachine, Exception exception) {
         log.error("start of stateMachineError, rollback transaction", exception);
         //set error class so it can be thrown later, thrown ex here will still result 200 response
         stateMachine.getExtendedState().getVariables().put(ERROR_CLASS, exception);

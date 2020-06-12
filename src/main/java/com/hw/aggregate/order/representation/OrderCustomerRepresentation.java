@@ -15,7 +15,7 @@ public class OrderCustomerRepresentation {
 
     private String paymentType;
 
-    private OrderState orderState;
+    private OrderStatus orderState;
 
     private BigDecimal paymentAmt;
 

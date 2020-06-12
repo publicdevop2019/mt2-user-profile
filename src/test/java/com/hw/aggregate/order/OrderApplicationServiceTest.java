@@ -112,7 +112,7 @@ public class OrderApplicationServiceTest {
         ReflectionTestUtils.setField(orderApplicationService, "expireAfter", 1000L);
         ArrayList<CustomerOrder> customerOrders = new ArrayList<>();
         CustomerOrder customerOrder = getCustomerOrder();
-        customerOrder.setOrderState(OrderState.NOT_PAID_RESERVED);
+        customerOrder.setOrderState(OrderStatus.NOT_PAID_RESERVED);
         customerOrders.add(customerOrder);
         Mockito.doReturn(customerOrders).when(orderRepository).findExpiredNotPaidReserved(any());
         orderApplicationService.releaseExpiredOrder();

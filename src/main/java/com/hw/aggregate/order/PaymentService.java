@@ -36,7 +36,7 @@ public class PaymentService {
 
     }
 
-    public String generatePaymentLink(String orderId) {
+    public String generatePaymentLink(String orderId,String transactionId) {
         HashMap<String, String> stringStringHashMap = new HashMap<>();
         stringStringHashMap.put("orderId", orderId);
         String body = null;

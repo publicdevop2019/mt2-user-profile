@@ -5,7 +5,6 @@ import com.hw.aggregate.order.command.PlaceOrderAgainCommand;
 import com.hw.aggregate.order.exception.OrderAccessException;
 import com.hw.aggregate.order.exception.OrderNotExistException;
 import com.hw.aggregate.order.exception.OrderPaymentMismatchException;
-import com.hw.config.TransactionIdGenerator;
 import com.hw.shared.Auditable;
 import lombok.Data;
 import lombok.Getter;
@@ -62,10 +61,8 @@ public class CustomerOrder extends Auditable {
 
     private String paymentDate;
 
-    private String currentTransactionId;
-
     @Convert(converter = MapConverter.class)
-    private Map<OrderState, String> transactionHistory;
+    private Map<OrderEvent, String> transactionHistory;
 
     @NotNull
     @Column
@@ -73,8 +70,8 @@ public class CustomerOrder extends Auditable {
 
     @Getter
     @Column(length = 25)
-    @Convert(converter = OrderState.DBConverter.class)
-    private OrderState orderState;
+    @Convert(converter = OrderStatus.DBConverter.class)
+    private OrderStatus orderState;
 
     @NotNull
     @Column(nullable = false)
@@ -130,7 +127,7 @@ public class CustomerOrder extends Auditable {
         this.address = customerOrderAddress;
         this.paymentType = paymentType;
         this.modifiedByUserAt = Date.from(Instant.now());
-        this.orderState = OrderState.DRAFT;
+        this.orderState = OrderStatus.DRAFT;
         this.paid = false;
     }
 
