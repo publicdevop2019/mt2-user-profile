@@ -6,19 +6,19 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 
-public class OrderSummaryAdminRepresentationTest {
+public class BizOrderSummaryAdminRepresentationTest {
 
     @Test
     public void getAdminRepresentations() {
         ArrayList<BizOrder> customerOrders = new ArrayList<>();
-        OrderSummaryAdminRepresentation orderSummaryAdminRepresentation = new OrderSummaryAdminRepresentation(customerOrders);
+        BizOrderSummaryAdminRepresentation orderSummaryAdminRepresentation = new BizOrderSummaryAdminRepresentation(customerOrders);
         Assert.assertEquals(0, orderSummaryAdminRepresentation.getAdminRepresentations().size());
     }
     @Test
     public void getAdminRepresentations2() {
         ArrayList<BizOrder> customerOrders = new ArrayList<>();
         customerOrders.add(new BizOrder());
-        OrderSummaryAdminRepresentation orderSummaryAdminRepresentation = new OrderSummaryAdminRepresentation(customerOrders);
+        BizOrderSummaryAdminRepresentation orderSummaryAdminRepresentation = new BizOrderSummaryAdminRepresentation(customerOrders);
         Assert.assertEquals(1, orderSummaryAdminRepresentation.getAdminRepresentations().size());
     }
 }

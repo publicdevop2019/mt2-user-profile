@@ -3,10 +3,10 @@ package com.hw.aggregate.order.representation;
 import lombok.Data;
 
 @Data
-public class OrderConfirmStatusRepresentation {
+public class BizOrderConfirmStatusRepresentation {
     private Boolean paymentStatus;
 
-    public OrderConfirmStatusRepresentation(Boolean paid) {
+    public BizOrderConfirmStatusRepresentation(Boolean paid) {
         this.paymentStatus = paid;
     }
 }

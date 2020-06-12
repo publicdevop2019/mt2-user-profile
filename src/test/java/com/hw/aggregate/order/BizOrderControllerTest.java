@@ -8,10 +8,9 @@ import com.hw.aggregate.order.model.BizOrder;
 import com.hw.aggregate.order.model.BizOrderItem;
 import com.hw.aggregate.order.model.BizOrderItemAddOn;
 import com.hw.aggregate.order.model.BizOrderItemAddOnSelection;
-import com.hw.aggregate.order.representation.OrderCustomerRepresentation;
-import com.hw.aggregate.order.representation.OrderPaymentLinkRepresentation;
-import com.hw.aggregate.order.representation.OrderSummaryAdminRepresentation;
-import com.hw.aggregate.order.representation.OrderSummaryCustomerRepresentation;
+import com.hw.aggregate.order.representation.BizOrderPaymentLinkRepresentation;
+import com.hw.aggregate.order.representation.BizOrderSummaryAdminRepresentation;
+import com.hw.aggregate.order.representation.BizOrderSummaryCustomerRepresentation;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -62,7 +61,7 @@ public class BizOrderControllerTest {
         for (int a = 0; a < 600; a++) {
             customerOrders.add(getCustomerOrder());
         }
-        OrderSummaryAdminRepresentation customerOrders1 = new OrderSummaryAdminRepresentation(customerOrders);
+        BizOrderSummaryAdminRepresentation customerOrders1 = new BizOrderSummaryAdminRepresentation(customerOrders);
         ReflectionTestUtils.setField(orderController, "objectMapper", objectMapper);
         long start = System.currentTimeMillis();
         Mockito.doReturn(customerOrders1).when(orderApplicationService).getAllOrdersForAdmin();
@@ -126,23 +125,23 @@ public class BizOrderControllerTest {
 
     @Test
     public void testGetAllOrdersForAdmin() {
-        OrderSummaryAdminRepresentation mock = Mockito.mock(OrderSummaryAdminRepresentation.class);
+        BizOrderSummaryAdminRepresentation mock = Mockito.mock(BizOrderSummaryAdminRepresentation.class);
         Mockito.doReturn(mock).when(orderApplicationService).getAllOrdersForAdmin();
-        ResponseEntity<List<OrderSummaryAdminRepresentation.OrderAdminRepresentation>> allOrdersForAdmin = orderController.getAllOrdersForAdmin();
+        ResponseEntity<List<BizOrderSummaryAdminRepresentation.BizOrderAdminCardRepresentation>> allOrdersForAdmin = orderController.getAllOrdersForAdmin();
         Mockito.verify(orderApplicationService, Mockito.times(1)).getAllOrdersForAdmin();
     }
 
     @Test
     public void getAllOrdersForCustomer() {
-        OrderSummaryCustomerRepresentation mock = Mockito.mock(OrderSummaryCustomerRepresentation.class);
+        BizOrderSummaryCustomerRepresentation mock = Mockito.mock(BizOrderSummaryCustomerRepresentation.class);
         Mockito.doReturn(mock).when(orderApplicationService).getAllOrders(anyString(), anyLong());
-        ResponseEntity<List<OrderSummaryCustomerRepresentation.OrderCustomerRepresentation>> allOrdersForCustomer = orderController.getAllOrdersForCustomer(rJwt(), rLong());
+        ResponseEntity<List<BizOrderSummaryCustomerRepresentation.BizOrderCustomerBriefRepresentation>> allOrdersForCustomer = orderController.getAllOrdersForCustomer(rJwt(), rLong());
         Mockito.verify(orderApplicationService, Mockito.times(1)).getAllOrders(anyString(), anyLong());
     }
 
     @Test
     public void reserveOrder() {
-        OrderPaymentLinkRepresentation mock = Mockito.mock(OrderPaymentLinkRepresentation.class);
+        BizOrderPaymentLinkRepresentation mock = Mockito.mock(BizOrderPaymentLinkRepresentation.class);
         Mockito.doReturn(mock).when(orderApplicationService).createNew(anyString(), anyLong(),anyLong(), any(CreateBizOrderCommand.class));
         Mockito.doReturn("mock").when(mock).getPaymentLink();
         ResponseEntity<Void> voidResponseEntity = orderController.reserveOrder(rJwt(), rLong(),rLong(), new CreateBizOrderCommand());
@@ -151,16 +150,16 @@ public class BizOrderControllerTest {
 
     @Test
     public void getOrderById() {
-        OrderCustomerRepresentation mock = Mockito.mock(OrderCustomerRepresentation.class);
+        com.hw.aggregate.order.representation.BizOrderCustomerRepresentation mock = Mockito.mock(com.hw.aggregate.order.representation.BizOrderCustomerRepresentation.class);
         Mockito.doReturn(mock).when(orderApplicationService).getOrderForCustomer(anyString(), anyLong(), anyLong());
 
-        ResponseEntity<OrderCustomerRepresentation> orderById = orderController.getOrderById(rJwt(), rLong(), rLong());
+        ResponseEntity<com.hw.aggregate.order.representation.BizOrderCustomerRepresentation> orderById = orderController.getOrderById(rJwt(), rLong(), rLong());
         Assert.assertNotNull(orderById.getBody());
     }
 
     @Test
     public void placeOrderAgain() {
-        OrderPaymentLinkRepresentation mock = Mockito.mock(OrderPaymentLinkRepresentation.class);
+        BizOrderPaymentLinkRepresentation mock = Mockito.mock(BizOrderPaymentLinkRepresentation.class);
         Mockito.doReturn(mock).when(orderApplicationService).reserveAgain(anyString(), anyLong(), anyLong(), any(PlaceBizOrderAgainCommand.class));
         Mockito.doReturn("").when(mock).getPaymentLink();
         ResponseEntity<Void> voidResponseEntity = orderController.reserveAgain(rJwt(), rLong(), rLong(), new PlaceBizOrderAgainCommand());

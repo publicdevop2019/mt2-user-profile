@@ -7,7 +7,7 @@ import org.junit.Test;
 
 import static com.hw.aggregate.Helper.rLong;
 
-public class OrderCustomerRepresentationTest {
+public class BizOrderCustomerRepresentationTest {
 
     @Test
     public void setOrderState() {
@@ -15,7 +15,7 @@ public class OrderCustomerRepresentationTest {
         customerOrder.setId(rLong());
         BizOrderAddress customerOrderAddress = new BizOrderAddress();
         customerOrder.setAddress(customerOrderAddress);
-        OrderCustomerRepresentation orderCustomerRepresentation = new OrderCustomerRepresentation(customerOrder);
+        BizOrderCustomerRepresentation orderCustomerRepresentation = new BizOrderCustomerRepresentation(customerOrder);
         Assert.assertEquals(customerOrder.getId(), orderCustomerRepresentation.getId());
     }
 }

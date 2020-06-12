@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 
 @Data
-public class OrderCustomerRepresentation {
+public class BizOrderCustomerRepresentation {
     private Long id;
     private BizOrderAddressCmdRep address;
 
@@ -19,7 +19,7 @@ public class OrderCustomerRepresentation {
 
     private BigDecimal paymentAmt;
 
-    public OrderCustomerRepresentation(BizOrder customerOrder) {
+    public BizOrderCustomerRepresentation(BizOrder customerOrder) {
         this.id = customerOrder.getId();
         this.productList = customerOrder.getReadOnlyProductList();
         this.paymentType = customerOrder.getPaymentType();

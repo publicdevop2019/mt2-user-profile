@@ -10,22 +10,22 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Data
-public class OrderSummaryCustomerRepresentation {
+public class BizOrderSummaryCustomerRepresentation {
 
-    private List<OrderCustomerRepresentation> orderList;
+    private List<BizOrderCustomerBriefRepresentation> orderList;
 
-    public OrderSummaryCustomerRepresentation(List<BizOrder> orderList) {
-        this.orderList = orderList.stream().map(OrderSummaryCustomerRepresentation.OrderCustomerRepresentation::new).collect(Collectors.toList());
+    public BizOrderSummaryCustomerRepresentation(List<BizOrder> orderList) {
+        this.orderList = orderList.stream().map(BizOrderCustomerBriefRepresentation::new).collect(Collectors.toList());
     }
 
     @Data
-    public class OrderCustomerRepresentation {
+    public static class BizOrderCustomerBriefRepresentation {
         private Long id;
         private BigDecimal paymentAmt;
         private BizOrderStatus orderState;
         private List<BizOrderItem> productList;
 
-        public OrderCustomerRepresentation(BizOrder customerOrder) {
+        public BizOrderCustomerBriefRepresentation(BizOrder customerOrder) {
             this.id = customerOrder.getId();
             this.paymentAmt = customerOrder.getPaymentAmt();
             this.orderState = customerOrder.getOrderState();

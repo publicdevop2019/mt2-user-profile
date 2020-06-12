@@ -2,10 +2,9 @@ package com.hw.aggregate.order;
 
 import com.hw.aggregate.order.command.CreateBizOrderCommand;
 import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
-import com.hw.aggregate.order.representation.OrderConfirmStatusRepresentation;
-import com.hw.aggregate.order.representation.OrderCustomerRepresentation;
-import com.hw.aggregate.order.representation.OrderSummaryAdminRepresentation;
-import com.hw.aggregate.order.representation.OrderSummaryCustomerRepresentation;
+import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation;
+import com.hw.aggregate.order.representation.BizOrderSummaryAdminRepresentation;
+import com.hw.aggregate.order.representation.BizOrderSummaryCustomerRepresentation;
 import com.hw.shared.ServiceUtility;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +22,12 @@ public class BizOrderController {
     private BizOrderApplicationService orderService;
 
     @GetMapping("orders")
-    public ResponseEntity<List<OrderSummaryAdminRepresentation.OrderAdminRepresentation>> getAllOrdersForAdmin() {
+    public ResponseEntity<List<BizOrderSummaryAdminRepresentation.BizOrderAdminCardRepresentation>> getAllOrdersForAdmin() {
         return ResponseEntity.ok(orderService.getAllOrdersForAdmin().getAdminRepresentations());
     }
 
     @GetMapping("profiles/{profileId}/orders")
-    public ResponseEntity<List<OrderSummaryCustomerRepresentation.OrderCustomerRepresentation>> getAllOrdersForCustomer(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId) {
+    public ResponseEntity<List<BizOrderSummaryCustomerRepresentation.BizOrderCustomerBriefRepresentation>> getAllOrdersForCustomer(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId) {
         return ResponseEntity.ok(orderService.getAllOrders(ServiceUtility.getUserId(authorization), profileId).getOrderList());
     }
 
@@ -41,7 +40,7 @@ public class BizOrderController {
     }
 
     @GetMapping("profiles/{profileId}/orders/{orderId}")
-    public ResponseEntity<OrderCustomerRepresentation> getOrderById(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
+    public ResponseEntity<com.hw.aggregate.order.representation.BizOrderCustomerRepresentation> getOrderById(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
         return ResponseEntity.ok(orderService.getOrderForCustomer(ServiceUtility.getUserId(authorization), profileId, orderId));
     }
 
@@ -51,7 +50,7 @@ public class BizOrderController {
     }
 
     @GetMapping("profiles/{profileId}/orders/{orderId}/confirm")
-    public ResponseEntity<OrderConfirmStatusRepresentation> confirmOrderPaymentStatus(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
+    public ResponseEntity<BizOrderConfirmStatusRepresentation> confirmOrderPaymentStatus(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
         return ResponseEntity.ok(orderService.confirmPayment(ServiceUtility.getUserId(authorization), profileId, orderId));
     }
 

@@ -83,27 +83,27 @@ public class BizOrderApplicationService {
     private PaymentService paymentService;
 
     @Transactional(readOnly = true)
-    public OrderSummaryAdminRepresentation getAllOrdersForAdmin() {
+    public BizOrderSummaryAdminRepresentation getAllOrdersForAdmin() {
         log.info("start of getAllOrdersForAdmin");
-        return new OrderSummaryAdminRepresentation(customerOrderRepository.findAll());
+        return new BizOrderSummaryAdminRepresentation(customerOrderRepository.findAll());
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
-    public OrderSummaryCustomerRepresentation getAllOrders(String userId, Long profileId) {
+    public BizOrderSummaryCustomerRepresentation getAllOrders(String userId, Long profileId) {
         log.info("start of getAllOrders");
-        return new OrderSummaryCustomerRepresentation(customerOrderRepository.findByProfileId(profileId));
+        return new BizOrderSummaryCustomerRepresentation(customerOrderRepository.findByProfileId(profileId));
     }
 
     @ProfileExistAndOwnerOnly
     @Transactional(readOnly = true)
-    public OrderCustomerRepresentation getOrderForCustomer(String userId, Long profileId, Long orderId) {
+    public BizOrderCustomerRepresentation getOrderForCustomer(String userId, Long profileId, Long orderId) {
         log.info("start of getOrderForCustomer");
-        return new OrderCustomerRepresentation(BizOrder.get(profileId, orderId, customerOrderRepository));
+        return new BizOrderCustomerRepresentation(BizOrder.get(profileId, orderId, customerOrderRepository));
     }
 
     @ProfileExistAndOwnerOnly
-    public OrderPaymentLinkRepresentation createNew(String userId, Long profileId, Long orderId, CreateBizOrderCommand command) {
+    public BizOrderPaymentLinkRepresentation createNew(String userId, Long profileId, Long orderId, CreateBizOrderCommand command) {
         log.debug("start of createNew {}", orderId);
         BizOrder customerOrder = BizOrder.create(orderId, profileId, command.getProductList(), command.getAddress(), command.getPaymentType(), command.getPaymentAmt());
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
@@ -116,13 +116,13 @@ public class BizOrderApplicationService {
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
-        return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
+        return new BizOrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
 
     //@todo retrieve order in guard instead of in service
     @ProfileExistAndOwnerOnly
     @Transactional
-    public OrderConfirmStatusRepresentation confirmPayment(String userId, Long profileId, Long orderId) {
+    public BizOrderConfirmStatusRepresentation confirmPayment(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmPayment {}", orderId);
         BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
@@ -131,7 +131,7 @@ public class BizOrderApplicationService {
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
-        return new OrderConfirmStatusRepresentation(customerOrder.getPaid());
+        return new BizOrderConfirmStatusRepresentation(customerOrder.getPaid());
     }
 
     @ProfileExistAndOwnerOnly
@@ -149,7 +149,7 @@ public class BizOrderApplicationService {
 
     @ProfileExistAndOwnerOnly
     @Transactional
-    public OrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceBizOrderAgainCommand command) {
+    public BizOrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceBizOrderAgainCommand command) {
         log.info("reserve order {} again", orderId);
         BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
         customerOrder.updateAddress(command);
@@ -159,7 +159,7 @@ public class BizOrderApplicationService {
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
-        return new OrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
+        return new BizOrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
 
     @ProfileExistAndOwnerOnly
