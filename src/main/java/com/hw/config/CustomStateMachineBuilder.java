@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.hw.aggregate.order.model.AppConstant.ORDER_DETAIL;
+import static com.hw.aggregate.order.model.AppConstant.BIZ_ORDER;
 import static com.hw.aggregate.order.model.AppConstant.TX_TASK;
 
 /**
@@ -125,12 +125,6 @@ public class CustomStateMachineBuilder {
                     .event(BizOrderEvent.RESERVE)
                     .guard(reserveOrderTask())
                     .and()
-//                    done by scheduler, state machine is not used there
-//                    .withExternal()
-//                    .source(OrderState.NOT_PAID_RESERVED).target(OrderState.NOT_PAID_RECYCLED)
-//                    .event(OrderEvent.RECYCLE_ORDER_STORAGE)
-//                    .guard(updateCustomerOrder())
-//                    .and()
                     .withInternal()
                     .source(BizOrderStatus.PAID_RESERVED)
                     .event(BizOrderEvent.PREPARE)
@@ -142,6 +136,12 @@ public class CustomStateMachineBuilder {
                     .guard(confirmOrderTask())
                     .action(sendNotification())
             ;
+//                    done by scheduler, state machine is not used there
+//                    .withExternal()
+//                    .source(OrderState.NOT_PAID_RESERVED).target(OrderState.NOT_PAID_RECYCLED)
+//                    .event(OrderEvent.RECYCLE_ORDER_STORAGE)
+//                    .guard(updateCustomerOrder())
+//                    .and()
         } catch (Exception e) {
             log.error("error during creating state machine");
             throw new StateMachineCreationException();
@@ -154,7 +154,7 @@ public class CustomStateMachineBuilder {
             log.info("start of save task to database");
             try {
                 String txId = TransactionIdGenerator.getTxId();
-                BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
+                BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
                 TransactionalTask transactionalTask = new TransactionalTask(idGenerator.getId(), event, TaskStatus.STARTED, txId, customerOrder.getId());
                 context.getExtendedState().getVariables().put(TX_TASK, transactionalTask);
                 taskRepository.saveAndFlush(transactionalTask);
@@ -168,14 +168,21 @@ public class CustomStateMachineBuilder {
     private Action<BizOrderStatus, BizOrderEvent> autoConfirm() {
         return context -> {
             log.info("start of autoConfirm");
-            BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
-            orderApplicationService.confirmOrder(customerOrder.getCreatedBy(), customerOrder.getProfileId(), customerOrder.getId());
+            BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
+            try {
+                orderApplicationService.confirmOrder(customerOrder.getCreatedBy(), customerOrder.getProfileId(), customerOrder.getId());
+            } catch (Exception ex) {
+                // catch thrown ex and set to upper level state machine,
+                // otherwise will return incorrect status code
+                log.error("error during auto confirm", ex);
+                context.getStateMachine().setStateMachineError(ex);
+            }
         };
     }
 
     private Guard<BizOrderStatus, BizOrderEvent> createNewOrderTask() {
         return context -> {
-            BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
+            BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
             log.info("start of prepareNewOrder of {}", customerOrder.getId());
             // validate order product info
@@ -258,7 +265,7 @@ public class CustomStateMachineBuilder {
     private Guard<BizOrderStatus, BizOrderEvent> reserveOrderTask() {
         return context -> {
             log.info("start of decreaseOrderStorage");
-            BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
+            BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
             try {
                 productService.decreaseOrderStorage(customerOrder.getProductSummary(), transactionalTask.getTransactionId());
@@ -306,24 +313,26 @@ public class CustomStateMachineBuilder {
     private Guard<BizOrderStatus, BizOrderEvent> confirmOrderTask() {
         return context -> {
             log.info("start of decreaseActualStorage");
-            BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
+            BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
-
             try {
                 productService.decreaseActualStorage(customerOrder.getProductSummary(), transactionalTask.getTransactionId());
             } catch (Exception ex) {
-                log.error("error during decreaseActualStorage");
+                log.error("error during decreaseActualStorage", ex);
                 context.getStateMachine().setStateMachineError(new ActualStorageDecreaseException());
                 return false;
             }
-            customerOrder.setOrderState(context.getTarget().getId());
-
-            customerOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
             transactionalTask.setTaskStatus(TaskStatus.COMMITTED);
             Boolean execute = new TransactionTemplate(transactionManager)
                     .execute(transactionStatus -> {
+                        // apply opt lock to this transaction
+                        BizOrder bizOrderLocked = BizOrder.getWOptLock(customerOrder.getProfileId(), customerOrder.getId(), orderRepository);
+
+                        bizOrderLocked.setOrderState(context.getTarget().getId());
+                        bizOrderLocked.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
+
                         try {
-                            orderRepository.saveAndFlush(customerOrder);
+                            orderRepository.saveAndFlush(bizOrderLocked);
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
                             context.getStateMachine().setStateMachineError(new BizOrderPersistenceException());
@@ -347,7 +356,7 @@ public class CustomStateMachineBuilder {
     private Guard<BizOrderStatus, BizOrderEvent> updatePaymentStatus() {
         return context -> {
             log.info("start of updatePaymentStatus");
-            BizOrder customerOrder = context.getExtendedState().get(ORDER_DETAIL, BizOrder.class);
+            BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
             Boolean paymentStatus = paymentService.confirmPaymentStatus(customerOrder.getId().toString());
             log.info("result {}", paymentStatus.toString());
             customerOrder.setPaid(paymentStatus);

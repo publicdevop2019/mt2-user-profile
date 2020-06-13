@@ -37,7 +37,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-import static com.hw.aggregate.order.model.AppConstant.ORDER_DETAIL;
+import static com.hw.aggregate.order.model.AppConstant.BIZ_ORDER;
 import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
 
 @Service
@@ -107,7 +107,7 @@ public class BizOrderApplicationService {
         log.debug("start of createNew {}", orderId);
         BizOrder customerOrder = BizOrder.create(orderId, profileId, command.getProductList(), command.getAddress(), command.getPaymentType(), command.getPaymentAmt());
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
+        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
         stateMachine.sendEvent(BizOrderEvent.PREPARE);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
@@ -119,14 +119,12 @@ public class BizOrderApplicationService {
         return new BizOrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
     }
 
-    //@todo retrieve order in guard instead of in service
     @ProfileExistAndOwnerOnly
-    @Transactional
     public BizOrderConfirmStatusRepresentation confirmPayment(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmPayment {}", orderId);
-        BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
+        BizOrder customerOrder = BizOrder.get(profileId, orderId, customerOrderRepository);
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
+        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
         stateMachine.sendEvent(BizOrderEvent.CONFIRM_PAYMENT);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
@@ -135,12 +133,15 @@ public class BizOrderApplicationService {
     }
 
     @ProfileExistAndOwnerOnly
-    @Transactional
     public void confirmOrder(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmOrder {}", orderId);
-        BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
+        BizOrder customerOrder = BizOrder.get(profileId, orderId, customerOrderRepository);
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
+        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
+        stateMachine.sendEvent(BizOrderEvent.PREPARE);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
         stateMachine.sendEvent(BizOrderEvent.CONFIRM_ORDER);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
@@ -148,13 +149,16 @@ public class BizOrderApplicationService {
     }
 
     @ProfileExistAndOwnerOnly
-    @Transactional
     public BizOrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceBizOrderAgainCommand command) {
         log.info("reserve order {} again", orderId);
-        BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
+        BizOrder customerOrder = BizOrder.get(profileId, orderId, customerOrderRepository);
         customerOrder.updateAddress(command);
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(ORDER_DETAIL, customerOrder);
+        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
+        stateMachine.sendEvent(BizOrderEvent.PREPARE);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
         stateMachine.sendEvent(BizOrderEvent.RESERVE);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);

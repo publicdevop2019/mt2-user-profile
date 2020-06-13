@@ -9,7 +9,6 @@ public enum BizOrderStatus {
     PAID_RECYCLED,
     CONFIRMED,
     DRAFT,
-    DRAFT_CLEAN,
     ;
 
     public static class DBConverter implements AttributeConverter<BizOrderStatus, String> {

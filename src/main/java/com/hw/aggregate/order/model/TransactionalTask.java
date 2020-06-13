@@ -4,17 +4,24 @@ import com.hw.shared.Auditable;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.Entity;
-import javax.persistence.Table;
+import javax.persistence.*;
 
 @Entity
 @Table
 @Data
 @NoArgsConstructor
 public class TransactionalTask extends Auditable {
+    @Id
     private Long id;
+
+    @Column(length = 25)
+    @Convert(converter = BizOrderEvent.DBConverter.class)
     private BizOrderEvent taskName;
+
+    @Column(length = 25)
+    @Convert(converter = TaskStatus.DBConverter.class)
     private TaskStatus taskStatus;
+
     private String transactionId;
     private Long customerOrderId;
 
