@@ -44,26 +44,30 @@ public class CustomStateMachineEventListener
         //set error class so it can be thrown later, thrown ex here will still result 200 response
         stateMachine.getExtendedState().getVariables().put(ERROR_CLASS, exception);
         TransactionalTask transactionalTask = stateMachine.getExtendedState().get(TX_TASK, TransactionalTask.class);
-        CompletableFuture<Void> voidCompletableFuture = CompletableFuture.runAsync(() ->
-                paymentService.rollbackTransaction(transactionalTask.getTransactionId()), customExecutor
-        );
-        CompletableFuture<Void> voidCompletableFuture1 = CompletableFuture.runAsync(() ->
-                productService.rollbackTransaction(transactionalTask.getTransactionId()), customExecutor
-        );
-        CompletableFuture<Void> voidCompletableFuture2 = CompletableFuture.allOf(voidCompletableFuture, voidCompletableFuture1);
-        try {
-            voidCompletableFuture2.get();
-        } catch (InterruptedException e) {
-            log.warn("thread was interrupted", e);
-            Thread.currentThread().interrupt();
-        } catch (ExecutionException e) {
-            log.error("error during rollback transaction async call", e);
-        }
-        transactionalTask.setTaskStatus(TaskStatus.ROLLBACK);
-        try {
-            taskRepository.saveAndFlush(transactionalTask);
-        } catch (Exception ex) {
-            log.error("error during task status update, task remain in started status", ex);
+        if (transactionalTask != null) {
+            CompletableFuture<Void> voidCompletableFuture = CompletableFuture.runAsync(() ->
+                    paymentService.rollbackTransaction(transactionalTask.getTransactionId()), customExecutor
+            );
+            CompletableFuture<Void> voidCompletableFuture1 = CompletableFuture.runAsync(() ->
+                    productService.rollbackTransaction(transactionalTask.getTransactionId()), customExecutor
+            );
+            CompletableFuture<Void> voidCompletableFuture2 = CompletableFuture.allOf(voidCompletableFuture, voidCompletableFuture1);
+            try {
+                voidCompletableFuture2.get();
+            } catch (InterruptedException e) {
+                log.warn("thread was interrupted", e);
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException e) {
+                log.error("error during rollback transaction async call", e);
+            }
+            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
+            try {
+                taskRepository.saveAndFlush(transactionalTask);
+            } catch (Exception ex) {
+                log.error("error during task status update, task remain in started status", ex);
+            }
+        } else {
+            log.error("error happened in non-transactional context, no rollback will be triggered");
         }
     }
 }

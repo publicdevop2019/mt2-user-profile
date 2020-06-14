@@ -2,6 +2,7 @@ package com.hw.config;
 
 import com.hw.aggregate.cart.CartApplicationService;
 import com.hw.aggregate.order.*;
+import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.exception.*;
 import com.hw.aggregate.order.model.*;
 import com.hw.shared.IdGenerator;
@@ -23,8 +24,7 @@ import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.hw.aggregate.order.model.AppConstant.BIZ_ORDER;
-import static com.hw.aggregate.order.model.AppConstant.TX_TASK;
+import static com.hw.aggregate.order.model.AppConstant.*;
 
 /**
  * each guard is an unit of work, roll back when failure happen
@@ -85,7 +85,7 @@ public class CustomStateMachineBuilder {
             builder.configureTransitions()
                     .withInternal()
                     .source(BizOrderStatus.DRAFT)
-                    .event(BizOrderEvent.PREPARE)
+                    .event(BizOrderEvent.PREPARE_NEW_ORDER)
                     .action(prepareTaskFor(BizOrderEvent.NEW_ORDER))
                     .and()
                     .withExternal()
@@ -106,7 +106,7 @@ public class CustomStateMachineBuilder {
                     .and()
                     .withInternal()
                     .source(BizOrderStatus.PAID_RECYCLED)
-                    .event(BizOrderEvent.PREPARE)
+                    .event(BizOrderEvent.PREPARE_RESERVE)
                     .action(prepareTaskFor(BizOrderEvent.RESERVE))
                     .and()
                     .withExternal()
@@ -117,7 +117,7 @@ public class CustomStateMachineBuilder {
                     .and()
                     .withInternal()
                     .source(BizOrderStatus.NOT_PAID_RECYCLED)
-                    .event(BizOrderEvent.PREPARE)
+                    .event(BizOrderEvent.PREPARE_RESERVE)
                     .action(prepareTaskFor(BizOrderEvent.RESERVE))
                     .and()
                     .withExternal()
@@ -127,7 +127,7 @@ public class CustomStateMachineBuilder {
                     .and()
                     .withInternal()
                     .source(BizOrderStatus.PAID_RESERVED)
-                    .event(BizOrderEvent.PREPARE)
+                    .event(BizOrderEvent.PREPARE_CONFIRM_ORDER)
                     .action(prepareTaskFor(BizOrderEvent.CONFIRM_ORDER))
                     .and()
                     .withExternal()
@@ -274,15 +274,19 @@ public class CustomStateMachineBuilder {
                 context.getStateMachine().setStateMachineError(new BizOrderStorageDecreaseException());
                 return false;
             }
-            customerOrder.setOrderState(context.getTarget().getId());
-
-            customerOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
             transactionalTask.setTaskStatus(TaskStatus.COMMITTED);
 
             Boolean execute = new TransactionTemplate(transactionManager)
                     .execute(transactionStatus -> {
+                        // apply opt lock to this transaction,
+                        // this could thrown ex as well if customerOrder is updated before this transaction within same thread
+                        BizOrder bizOrderLocked = BizOrder.getWOptLock(customerOrder.getProfileId(), customerOrder.getId(), orderRepository);
+
+                        bizOrderLocked.setOrderState(context.getTarget().getId());
+                        bizOrderLocked.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
+                        bizOrderLocked.updateAddress(context.getExtendedState().get(UPDATE_ADDRESS_CMD, PlaceBizOrderAgainCommand.class));
                         try {
-                            orderRepository.saveAndFlush(customerOrder);
+                            orderRepository.saveAndFlush(bizOrderLocked);
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
                             context.getStateMachine().setStateMachineError(new BizOrderPersistenceException());
@@ -312,9 +316,9 @@ public class CustomStateMachineBuilder {
 
     private Guard<BizOrderStatus, BizOrderEvent> confirmOrderTask() {
         return context -> {
-            log.info("start of decreaseActualStorage");
             BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
+            log.info("start of decreaseActualStorage for {}", customerOrder.getId());
             try {
                 productService.decreaseActualStorage(customerOrder.getProductSummary(), transactionalTask.getTransactionId());
             } catch (Exception ex) {
@@ -325,7 +329,8 @@ public class CustomStateMachineBuilder {
             transactionalTask.setTaskStatus(TaskStatus.COMMITTED);
             Boolean execute = new TransactionTemplate(transactionManager)
                     .execute(transactionStatus -> {
-                        // apply opt lock to this transaction
+                        // apply opt lock to this transaction,
+                        // this could thrown ex as well if customerOrder is updated before this transaction within same thread
                         BizOrder bizOrderLocked = BizOrder.getWOptLock(customerOrder.getProfileId(), customerOrder.getId(), orderRepository);
 
                         bizOrderLocked.setOrderState(context.getTarget().getId());
@@ -358,19 +363,34 @@ public class CustomStateMachineBuilder {
             log.info("start of updatePaymentStatus");
             BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
             Boolean paymentStatus = paymentService.confirmPaymentStatus(customerOrder.getId().toString());
-            log.info("result {}", paymentStatus.toString());
-            customerOrder.setPaid(paymentStatus);
-            if (Boolean.TRUE.equals(paymentStatus)) {
-                customerOrder.setOrderState(context.getTarget().getId());
-            }
-            try {
-                orderRepository.saveAndFlush(customerOrder);
-            } catch (Exception ex) {
-                log.error("error during data persist", ex);
-                context.getStateMachine().setStateMachineError(new BizOrderPersistenceException());
-                return false;
-            }
-            return Boolean.TRUE.equals(paymentStatus);
+            log.info("payment result is {}", paymentStatus.toString());
+            Boolean execute = new TransactionTemplate(transactionManager)
+                    .execute(transactionStatus -> {
+                        // apply opt lock to this transaction,
+                        // this could thrown ex as well if customerOrder is updated before this transaction within same thread
+                        BizOrder bizOrderLocked;
+                        try {
+                            bizOrderLocked = BizOrder.getWOptLock(customerOrder.getProfileId(), customerOrder.getId(), orderRepository);
+                        } catch (Exception ex) {
+                            log.error("error during getWOptLock", ex);
+                            return false;
+                        }
+
+                        bizOrderLocked.setPaid(paymentStatus);
+                        if (Boolean.TRUE.equals(paymentStatus)) {
+                            bizOrderLocked.setOrderState(context.getTarget().getId());
+                        }
+
+                        try {
+                            orderRepository.saveAndFlush(bizOrderLocked);
+                        } catch (Exception ex) {
+                            log.error("error during data persist", ex);
+                            context.getStateMachine().setStateMachineError(new BizOrderPersistenceException());
+                            return false;
+                        }
+                        return true;
+                    });
+            return Boolean.TRUE.equals(execute);
         };
     }
 

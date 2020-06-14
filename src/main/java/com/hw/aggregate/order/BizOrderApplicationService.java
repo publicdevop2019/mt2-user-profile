@@ -38,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static com.hw.aggregate.order.model.AppConstant.BIZ_ORDER;
+import static com.hw.aggregate.order.model.AppConstant.UPDATE_ADDRESS_CMD;
 import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
 
 @Service
@@ -50,9 +51,6 @@ public class BizOrderApplicationService {
 
     @Value("${order.expireAfter}")
     private Long expireAfter;
-
-    @Value("${order.draftExpireAfter}")
-    private Long draftExpireAfter;
 
     @Autowired
     private ResourceServiceTokenHelper tokenHelper;
@@ -108,7 +106,7 @@ public class BizOrderApplicationService {
         BizOrder customerOrder = BizOrder.create(orderId, profileId, command.getProductList(), command.getAddress(), command.getPaymentType(), command.getPaymentAmt());
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
-        stateMachine.sendEvent(BizOrderEvent.PREPARE);
+        stateMachine.sendEvent(BizOrderEvent.PREPARE_NEW_ORDER);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
@@ -138,7 +136,7 @@ public class BizOrderApplicationService {
         BizOrder customerOrder = BizOrder.get(profileId, orderId, customerOrderRepository);
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
-        stateMachine.sendEvent(BizOrderEvent.PREPARE);
+        stateMachine.sendEvent(BizOrderEvent.PREPARE_CONFIRM_ORDER);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
@@ -152,10 +150,10 @@ public class BizOrderApplicationService {
     public BizOrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceBizOrderAgainCommand command) {
         log.info("reserve order {} again", orderId);
         BizOrder customerOrder = BizOrder.get(profileId, orderId, customerOrderRepository);
-        customerOrder.updateAddress(command);
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        stateMachine.getExtendedState().getVariables().put(UPDATE_ADDRESS_CMD, command);
         stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
-        stateMachine.sendEvent(BizOrderEvent.PREPARE);
+        stateMachine.sendEvent(BizOrderEvent.PREPARE_RESERVE);
         if (stateMachine.hasStateMachineError()) {
             throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
         }
