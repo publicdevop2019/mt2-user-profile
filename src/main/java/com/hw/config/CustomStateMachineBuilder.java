@@ -236,6 +236,7 @@ public class CustomStateMachineBuilder {
                         } catch (Exception ex) {
                             log.error("error during clear cart", ex);
                             context.getStateMachine().setStateMachineError(new CartClearException());
+                            transactionStatus.setRollbackOnly();
                             return false;
                         }
                         // save reserved order
@@ -244,7 +245,7 @@ public class CustomStateMachineBuilder {
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
                             context.getStateMachine().setStateMachineError(new BizOrderPersistenceException());
-                            transactionManager.rollback(transactionStatus);
+                            transactionStatus.setRollbackOnly();
                             return false;
                         }
                         // save task
@@ -253,7 +254,7 @@ public class CustomStateMachineBuilder {
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
                             context.getStateMachine().setStateMachineError(new TaskPersistenceException());
-                            transactionManager.rollback(transactionStatus);
+                            transactionStatus.setRollbackOnly();
                             return false;
                         }
                         return true;
@@ -280,7 +281,15 @@ public class CustomStateMachineBuilder {
                     .execute(transactionStatus -> {
                         // apply opt lock to this transaction,
                         // this could thrown ex as well if customerOrder is updated before this transaction within same thread
-                        BizOrder bizOrderLocked = BizOrder.getWOptLock(customerOrder.getProfileId(), customerOrder.getId(), orderRepository);
+                        BizOrder bizOrderLocked;
+                        try {
+                            bizOrderLocked = BizOrder.getWOptLock(customerOrder.getProfileId(), customerOrder.getId(), orderRepository);
+                        } catch (Exception ex) {
+                            log.error("error during getWOptLock", ex);
+                            context.getStateMachine().setStateMachineError(new BizOrderLockAcquireException());
+                            transactionStatus.setRollbackOnly();
+                            return false;
+                        }
 
                         bizOrderLocked.setOrderState(context.getTarget().getId());
                         bizOrderLocked.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
@@ -290,6 +299,7 @@ public class CustomStateMachineBuilder {
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
                             context.getStateMachine().setStateMachineError(new BizOrderPersistenceException());
+                            transactionStatus.setRollbackOnly();
                             return false;
                         }
                         // save task
@@ -298,7 +308,7 @@ public class CustomStateMachineBuilder {
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
                             context.getStateMachine().setStateMachineError(new TaskPersistenceException());
-                            transactionManager.rollback(transactionStatus);
+                            transactionStatus.setRollbackOnly();
                             return false;
                         }
                         return true;
@@ -331,7 +341,15 @@ public class CustomStateMachineBuilder {
                     .execute(transactionStatus -> {
                         // apply opt lock to this transaction,
                         // this could thrown ex as well if customerOrder is updated before this transaction within same thread
-                        BizOrder bizOrderLocked = BizOrder.getWOptLock(customerOrder.getProfileId(), customerOrder.getId(), orderRepository);
+                        BizOrder bizOrderLocked;
+                        try {
+                            bizOrderLocked = BizOrder.getWOptLock(customerOrder.getProfileId(), customerOrder.getId(), orderRepository);
+                        } catch (Exception ex) {
+                            log.error("error during getWOptLock", ex);
+                            context.getStateMachine().setStateMachineError(new BizOrderLockAcquireException());
+                            transactionStatus.setRollbackOnly();
+                            return false;
+                        }
 
                         bizOrderLocked.setOrderState(context.getTarget().getId());
                         bizOrderLocked.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
@@ -341,6 +359,7 @@ public class CustomStateMachineBuilder {
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
                             context.getStateMachine().setStateMachineError(new BizOrderPersistenceException());
+                            transactionStatus.setRollbackOnly();
                             return false;
                         }
                         // save task
@@ -349,9 +368,10 @@ public class CustomStateMachineBuilder {
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
                             context.getStateMachine().setStateMachineError(new TaskPersistenceException());
-                            transactionManager.rollback(transactionStatus);
+                            transactionStatus.setRollbackOnly();
                             return false;
                         }
+                        log.info("confirmOrderTask success");
                         return true;
                     });
             return Boolean.TRUE.equals(execute);

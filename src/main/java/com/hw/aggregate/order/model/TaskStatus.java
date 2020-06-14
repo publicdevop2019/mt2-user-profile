@@ -4,7 +4,7 @@ import javax.persistence.AttributeConverter;
 
 public enum TaskStatus {
     STARTED,
-    COMPLETED,
+    ROLLBACK,
     COMMITTED;
 
     public static class DBConverter implements AttributeConverter<TaskStatus, String> {

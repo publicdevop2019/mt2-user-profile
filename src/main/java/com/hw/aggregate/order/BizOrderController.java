@@ -54,6 +54,13 @@ public class BizOrderController {
         return ResponseEntity.ok(orderService.confirmPayment(ServiceUtility.getUserId(authorization), profileId, orderId));
     }
 
+    @GetMapping("profiles/{profileId}/orders/scheduler/resubmit")
+    public ResponseEntity<BizOrderConfirmStatusRepresentation> manualResubmit() {
+        log.info("manually resubmit order");
+        orderService.resubmitOrder();
+        return ResponseEntity.ok().build();
+    }
+
     @PutMapping("profiles/{profileId}/orders/{orderId}/replace")
     public ResponseEntity<Void> reserveAgain(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody PlaceBizOrderAgainCommand newOrder) {
         return ResponseEntity.ok().header("Location", orderService.reserveAgain(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder).getPaymentLink()).build();

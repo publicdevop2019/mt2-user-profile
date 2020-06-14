@@ -57,17 +57,20 @@ public class CustomStateMachineEventListener
             } catch (InterruptedException e) {
                 log.warn("thread was interrupted", e);
                 Thread.currentThread().interrupt();
+                return;
             } catch (ExecutionException e) {
                 log.error("error during rollback transaction async call", e);
+                return;
             }
-            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
+            log.info("rollback transaction async call complete");
+            transactionalTask.setTaskStatus(TaskStatus.ROLLBACK);
             try {
                 taskRepository.saveAndFlush(transactionalTask);
             } catch (Exception ex) {
-                log.error("error during task status update, task remain in started status", ex);
+                log.info("error during task status update, task remain in started status", ex);
             }
         } else {
-            log.error("error happened in non-transactional context, no rollback will be triggered");
+            log.info("error happened in non-transactional context, no rollback will be triggered");
         }
     }
 }

@@ -178,10 +178,9 @@ public class BizOrderApplicationService {
                     @Override
                     protected void doInTransactionWithoutResult(TransactionStatus status) {
                         String transactionId = TransactionIdGenerator.getTxId();
-                        log.info("Expired order scheduler started, transactionId generated {}", transactionId);
                         Date from = Date.from(Instant.ofEpochMilli(Instant.now().toEpochMilli() - expireAfter * 60 * 1000));
                         List<BizOrder> expiredOrderList = customerOrderRepository.findExpiredNotPaidReserved(from);
-                        log.info("Expired order(s) found {}", expiredOrderList.stream().map(BizOrder::getId).collect(Collectors.toList()).toString());
+                        log.info("expired order(s) found {}", expiredOrderList.stream().map(BizOrder::getId).collect(Collectors.toList()).toString());
                         Map<String, Integer> stringIntegerHashMap = new HashMap<>();
                         expiredOrderList.forEach(expiredOrder -> {
                             Map<String, Integer> orderProductMap = expiredOrder.getProductSummary();
@@ -189,18 +188,18 @@ public class BizOrderApplicationService {
                         });
                         try {
                             if (!stringIntegerHashMap.keySet().isEmpty()) {
-                                log.info("Release product(s) in order(s) :: " + stringIntegerHashMap.toString());
+                                log.info("release product(s) in order(s) :: " + stringIntegerHashMap.toString());
                                 productService.increaseOrderStorage(stringIntegerHashMap, transactionId);
                                 /** update order state*/
                                 expiredOrderList.forEach(e -> {
                                     e.setOrderState(BizOrderStatus.NOT_PAID_RECYCLED);
                                 });
                             }
-                            log.info("Expired order(s) released");
+                            log.info("expired order(s) released");
                             customerOrderRepository.saveAll(expiredOrderList);
                             customerOrderRepository.flush();
                         } catch (Exception ex) {
-                            log.error("Error during release storage, revoke last operation", ex);
+                            log.error("error during release storage, revoke last operation", ex);
                             CompletableFuture.runAsync(() ->
                                     productService.rollbackTransaction(transactionId), customExecutor
                             );
@@ -212,17 +211,16 @@ public class BizOrderApplicationService {
 
     @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.resubmit}")
     public void resubmitOrder() {
-        log.debug("start of resubmitOrder");
         List<BizOrder> paidReserved = customerOrderRepository.findPaidReserved();
-        log.info("Paid reserved order(s) found {}", paidReserved.stream().map(BizOrder::getId).collect(Collectors.toList()));
+        log.info("paid reserved order(s) found {}", paidReserved.stream().map(BizOrder::getId).collect(Collectors.toList()));
         if (!paidReserved.isEmpty()) {
             // submit one order for now
             paidReserved.forEach(order -> {
                 try {
                     confirmOrder(null, order.getProfileId(), order.getId());
-                    log.info("Resubmit order {} success", order.getId());
+                    log.info("resubmit order {} success", order.getId());
                 } catch (Exception e) {
-                    log.error("Resubmit order {} failed", order.getId(), e);
+                    log.error("resubmit order {} failed", order.getId(), e);
                 }
             });
         }
