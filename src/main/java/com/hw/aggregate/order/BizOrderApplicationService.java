@@ -40,7 +40,11 @@ import java.util.stream.Collectors;
 import static com.hw.aggregate.order.model.AppConstant.BIZ_ORDER;
 import static com.hw.aggregate.order.model.AppConstant.UPDATE_ADDRESS_CMD;
 import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
-
+/**
+ * make sure state machine, guard and action is referring to same entity
+ * so version will always be consistent, otherwise state machine might trigger wrong operation
+ * or guard & action will get incorrectly committed
+ */
 @Service
 @Slf4j
 @EnableScheduling
@@ -118,9 +122,10 @@ public class BizOrderApplicationService {
     }
 
     @ProfileExistAndOwnerOnly
+    @Transactional
     public BizOrderConfirmStatusRepresentation confirmPayment(String userId, Long profileId, Long orderId) {
         log.debug("start of confirmPayment {}", orderId);
-        BizOrder customerOrder = BizOrder.get(profileId, orderId, customerOrderRepository);
+        BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
         stateMachine.sendEvent(BizOrderEvent.CONFIRM_PAYMENT);
@@ -132,24 +137,30 @@ public class BizOrderApplicationService {
 
     @ProfileExistAndOwnerOnly
     public void confirmOrder(String userId, Long profileId, Long orderId) {
-        log.debug("start of confirmOrder {}", orderId);
-        BizOrder customerOrder = BizOrder.get(profileId, orderId, customerOrderRepository);
-        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
-        stateMachine.sendEvent(BizOrderEvent.PREPARE_CONFIRM_ORDER);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
-        stateMachine.sendEvent(BizOrderEvent.CONFIRM_ORDER);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
+        new TransactionTemplate(transactionManager).execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus status) {
+                log.debug("start of confirmOrder {}", orderId);
+                BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
+                StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+                stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
+                stateMachine.sendEvent(BizOrderEvent.PREPARE_CONFIRM_ORDER);
+                if (stateMachine.hasStateMachineError()) {
+                    throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+                }
+                stateMachine.sendEvent(BizOrderEvent.CONFIRM_ORDER);
+                if (stateMachine.hasStateMachineError()) {
+                    throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+                }
+            }
+        });
     }
 
     @ProfileExistAndOwnerOnly
+    @Transactional
     public BizOrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceBizOrderAgainCommand command) {
         log.info("reserve order {} again", orderId);
-        BizOrder customerOrder = BizOrder.get(profileId, orderId, customerOrderRepository);
+        BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, customerOrderRepository);
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(UPDATE_ADDRESS_CMD, command);
         stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
