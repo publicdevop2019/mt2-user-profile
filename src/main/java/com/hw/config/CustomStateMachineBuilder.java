@@ -224,7 +224,7 @@ public class CustomStateMachineBuilder {
             bizOrder.setTransactionHistory(new HashMap<>());
 
             bizOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
-            transactionalTask.setTaskStatus(TaskStatus.COMMITTED);
+            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
             // start local transaction, manually rollback since no ex will be thrown
             // not set @Transactional at service level also prevents long running transaction
             // above is applicable only to create new bizOrder
@@ -276,7 +276,7 @@ public class CustomStateMachineBuilder {
                 context.getStateMachine().setStateMachineError(new BizOrderStorageDecreaseException());
                 return false;
             }
-            transactionalTask.setTaskStatus(TaskStatus.COMMITTED);
+            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
             bizOrder.setOrderState(context.getTarget().getId());
             bizOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
             bizOrder.updateAddress(context.getExtendedState().get(UPDATE_ADDRESS_CMD, PlaceBizOrderAgainCommand.class));
@@ -318,7 +318,7 @@ public class CustomStateMachineBuilder {
                 context.getStateMachine().setStateMachineError(new ActualStorageDecreaseException());
                 return false;
             }
-            transactionalTask.setTaskStatus(TaskStatus.COMMITTED);
+            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
             bizOrder.setOrderState(context.getTarget().getId());
             bizOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
 

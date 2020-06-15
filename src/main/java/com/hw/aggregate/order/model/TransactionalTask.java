@@ -25,6 +25,9 @@ public class TransactionalTask extends Auditable {
     private String transactionId;
     private Long customerOrderId;
 
+    @Version
+    private Integer version;
+
     public TransactionalTask(Long id, BizOrderEvent taskName, TaskStatus taskStatus, String transactionId, Long customerOrderId) {
         this.id = id;
         this.taskName = taskName;
