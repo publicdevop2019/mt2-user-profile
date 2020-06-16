@@ -54,7 +54,7 @@ public class BizOrderApplicationService {
     @Value("${order.expireAfter}")
     private Long expireAfter;
 
-    @Value("${order.taskExpireAfter}")
+    @Value("${task.expireAfter}")
     private Long taskExpireAfter;
 
     @Autowired
