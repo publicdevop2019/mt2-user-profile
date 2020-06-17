@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.hw.aggregate.order.model.AppConstant.TX_TASK;
+import static com.hw.config.AppConstant.TX_TASK;
 
 @Slf4j
 @Component

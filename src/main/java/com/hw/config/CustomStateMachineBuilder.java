@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static com.hw.aggregate.order.model.AppConstant.*;
+import static com.hw.config.AppConstant.*;
 
 /**
  * each guard is an unit of work, roll back when failure happen

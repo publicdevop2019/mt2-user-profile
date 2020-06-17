@@ -34,8 +34,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import static com.hw.aggregate.order.model.AppConstant.BIZ_ORDER;
-import static com.hw.aggregate.order.model.AppConstant.UPDATE_ADDRESS_CMD;
+import static com.hw.config.AppConstant.BIZ_ORDER;
+import static com.hw.config.AppConstant.UPDATE_ADDRESS_CMD;
 import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
 
 /**
