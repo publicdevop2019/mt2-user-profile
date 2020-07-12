@@ -4,10 +4,10 @@ import com.hw.aggregate.cart.model.CartItem;
 import lombok.Data;
 
 @Data
-public class CartItemRepresentation {
+public class CartItemCreatedRepresentation {
     private String cartItemId;
 
-    public CartItemRepresentation(CartItem cartItem) {
+    public CartItemCreatedRepresentation(CartItem cartItem) {
         cartItemId = cartItem.getId().toString();
     }
 }

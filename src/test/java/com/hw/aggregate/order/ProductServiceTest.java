@@ -41,7 +41,7 @@ public class ProductServiceTest {
         Mockito.doReturn(resp).when(this.mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
         Mockito.doThrow(mock).when(mock3).writeValueAsString(any(Object.class));
-        productService.decreaseOrderStorage(new HashMap<>(), rStr());
+        productService.decreaseOrderStorage(new ArrayList<>(), rStr());
         Mockito.verify(this.mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
     }
     @Test
@@ -50,7 +50,7 @@ public class ProductServiceTest {
         Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
         Mockito.doReturn("dummy").when(mock3).writeValueAsString(any(Object.class));
-        productService.decreaseOrderStorage(new HashMap<>(), rStr());
+        productService.decreaseOrderStorage(new ArrayList<>(), rStr());
         Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
     }
 
@@ -60,7 +60,7 @@ public class ProductServiceTest {
         Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
         Mockito.doReturn("dummy").when(mock3).writeValueAsString(any(Object.class));
-        productService.increaseOrderStorage(new HashMap<>(), rStr());
+        productService.increaseOrderStorage(new ArrayList<>(), rStr());
         Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
     }
 
@@ -70,7 +70,7 @@ public class ProductServiceTest {
         Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
         Mockito.doReturn("dummy").when(mock3).writeValueAsString(any(Object.class));
-        productService.decreaseActualStorage(new HashMap<>(), rStr());
+        productService.decreaseActualStorage(new ArrayList<>(), rStr());
         Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
     }
 

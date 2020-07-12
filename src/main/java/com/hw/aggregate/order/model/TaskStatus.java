@@ -1,5 +1,7 @@
 package com.hw.aggregate.order.model;
 
+import com.hw.shared.EnumDBConverter;
+
 public enum TaskStatus {
     STARTED,
     ROLLBACK,

@@ -24,12 +24,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionCallbackWithoutResult;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.persistence.EntityManager;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -165,6 +169,7 @@ public class BizOrderApplicationService {
     public BizOrderPaymentLinkRepresentation reserveAgain(String userId, Long profileId, Long orderId, PlaceBizOrderAgainCommand command) {
         log.info("reserve order {} again", orderId);
         BizOrder customerOrder = BizOrder.getWOptLock(profileId, orderId, bizOrderRepository);
+        log.info("order status {}", customerOrder.getOrderState());
         StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
         stateMachine.getExtendedState().getVariables().put(UPDATE_ADDRESS_CMD, command);
         stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
@@ -195,15 +200,15 @@ public class BizOrderApplicationService {
                         String transactionId = TransactionIdGenerator.getTxId();
                         Date from = Date.from(Instant.ofEpochMilli(Instant.now().toEpochMilli() - expireAfter * 60 * 1000));
                         List<BizOrder> expiredOrderList = bizOrderRepository.findExpiredNotPaidReserved(from);
-                        Map<String, Integer> stringIntegerHashMap = new HashMap<>();
+                        List<StorageChangeDetail> details = new ArrayList<>();
                         expiredOrderList.forEach(expiredOrder -> {
-                            Map<String, Integer> orderProductMap = expiredOrder.getProductSummary();
-                            orderProductMap.forEach((key, value) -> stringIntegerHashMap.merge(key, value, Integer::sum));
+                            List<StorageChangeDetail> var1 = expiredOrder.getStorageChangeDetails();
+                            details.addAll(var1);
                         });
                         try {
-                            if (!stringIntegerHashMap.keySet().isEmpty()) {
+                            if (!details.isEmpty()) {
                                 log.info("expired order(s) found {}", expiredOrderList.stream().map(BizOrder::getId).collect(Collectors.toList()).toString());
-                                productService.increaseOrderStorage(stringIntegerHashMap, transactionId);
+                                productService.increaseOrderStorage(details, transactionId);
                                 /** update order state*/
                                 expiredOrderList.forEach(e -> {
                                     e.setOrderState(BizOrderStatus.NOT_PAID_RECYCLED);

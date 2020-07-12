@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+import static com.hw.aggregate.Helper.rLong;
 import static com.hw.aggregate.Helper.rStr;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -67,10 +68,10 @@ public class BizOrderApplicationServiceTest {
     private BizOrderItem getCustomerOrderItem() {
         BizOrderItem customerOrderItem = new BizOrderItem();
 
-        customerOrderItem.setFinalPrice("0");
+        customerOrderItem.setFinalPrice(BigDecimal.ZERO);
         customerOrderItem.setImageUrlSmall(rStr());
         customerOrderItem.setName(rStr());
-        customerOrderItem.setProductId(rStr());
+        customerOrderItem.setProductId(rLong());
 
         List<BizOrderItemAddOn> customerOrderItemAddOns = new ArrayList<>();
         BizOrderItemAddOn customerOrderItemAddOn0 = new BizOrderItemAddOn();

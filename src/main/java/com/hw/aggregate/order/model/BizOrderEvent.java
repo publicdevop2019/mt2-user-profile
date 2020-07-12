@@ -1,5 +1,7 @@
 package com.hw.aggregate.order.model;
 
+import com.hw.shared.EnumDBConverter;
+
 /**
  * use separate prepare event so logic will not miss triggered
  */

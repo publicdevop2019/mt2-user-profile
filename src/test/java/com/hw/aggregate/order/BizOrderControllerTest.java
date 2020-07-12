@@ -29,8 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static com.hw.aggregate.Helper.rJwt;
-import static com.hw.aggregate.Helper.rLong;
+import static com.hw.aggregate.Helper.*;
 import static org.mockito.ArgumentMatchers.*;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -88,10 +87,10 @@ public class BizOrderControllerTest {
     private BizOrderItem getCustomerOrderItem() {
         BizOrderItem customerOrderItem = new BizOrderItem();
 
-        customerOrderItem.setFinalPrice(getRandomString());
+        customerOrderItem.setFinalPrice(rBigDecimal());
         customerOrderItem.setImageUrlSmall(getRandomString());
         customerOrderItem.setName(getRandomString());
-        customerOrderItem.setProductId(getRandomString());
+        customerOrderItem.setProductId(rLong());
 
         List<BizOrderItemAddOn> customerOrderItemAddOns = new ArrayList<>();
         BizOrderItemAddOn customerOrderItemAddOn0 = new BizOrderItemAddOn();

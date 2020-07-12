@@ -2,7 +2,7 @@ package com.hw.aggregate.cart;
 
 import com.hw.aggregate.cart.command.CreateCartItemCommand;
 import com.hw.aggregate.cart.model.CartItem;
-import com.hw.aggregate.cart.representation.CartItemRepresentation;
+import com.hw.aggregate.cart.representation.CartItemCreatedRepresentation;
 import com.hw.aggregate.cart.representation.CartSummaryRepresentation;
 import com.hw.config.ProfileExistAndOwnerOnly;
 import com.hw.shared.IdGenerator;
@@ -27,8 +27,8 @@ public class CartApplicationService {
 
     @ProfileExistAndOwnerOnly
     @Transactional
-    public CartItemRepresentation addCartItem(String authUserId, Long profileId, CreateCartItemCommand addCartItemCommand) {
-        return new CartItemRepresentation(CartItem.create(idGenerator.getId(), profileId, addCartItemCommand, cartRepository));
+    public CartItemCreatedRepresentation addCartItem(String authUserId, Long profileId, CreateCartItemCommand addCartItemCommand) {
+        return new CartItemCreatedRepresentation(CartItem.create(idGenerator.getId(), profileId, addCartItemCommand, cartRepository));
     }
 
     @ProfileExistAndOwnerOnly

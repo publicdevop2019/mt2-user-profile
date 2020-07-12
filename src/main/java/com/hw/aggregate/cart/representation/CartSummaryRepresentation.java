@@ -5,6 +5,7 @@ import com.hw.aggregate.order.model.BizOrderItemAddOn;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Data
@@ -24,6 +25,7 @@ public class CartSummaryRepresentation {
         private String finalPrice;
         private String imageUrlSmall;
         private String productId;
+        private Set<String> attributesSales;
 
         public CartSummaryCardRepresentation(CartItem cartItem) {
             this.id = cartItem.getId();
@@ -32,6 +34,7 @@ public class CartSummaryRepresentation {
             this.finalPrice = cartItem.getFinalPrice();
             this.imageUrlSmall = cartItem.getImageUrlSmall();
             this.productId = cartItem.getProductId();
+            this.attributesSales = cartItem.getAttributesSales();
         }
     }
 }

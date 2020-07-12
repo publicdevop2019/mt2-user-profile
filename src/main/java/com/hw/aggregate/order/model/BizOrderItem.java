@@ -8,16 +8,15 @@ import javax.persistence.Embeddable;
 import javax.persistence.ManyToOne;
 import javax.validation.constraints.NotBlank;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Set;
 
 @Embeddable
 @Data
 public class BizOrderItem implements Serializable {
 
     private static final long serialVersionUID = 1;
-
-    @ManyToOne
-    private transient BizOrder customerOrder;
 
     @NotBlank
     @Column(nullable = false)
@@ -29,12 +28,13 @@ public class BizOrderItem implements Serializable {
 
     @NotBlank
     @Column(nullable = false)
-    private String finalPrice;
+    private BigDecimal finalPrice;
 
     @NotBlank
     @Column(nullable = false)
-    private String productId;
+    private Long productId;
+    @Convert(converter = StringSetConverter.class)
+    private Set<String> attributesSales;
 
     private String imageUrlSmall;
-
 }

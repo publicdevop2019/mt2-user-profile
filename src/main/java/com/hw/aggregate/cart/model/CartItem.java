@@ -7,6 +7,7 @@ import com.hw.aggregate.cart.exception.CartItemNotExistException;
 import com.hw.aggregate.cart.exception.MaxCartItemException;
 import com.hw.aggregate.order.model.BizOrderItemAddOn;
 import com.hw.aggregate.order.model.ProductOptionMapper;
+import com.hw.aggregate.order.model.StringSetConverter;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -14,6 +15,7 @@ import javax.persistence.*;
 import javax.validation.constraints.NotBlank;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Entity
 @Table(name = "Cart")
@@ -45,6 +47,9 @@ public class CartItem {
     @Column(nullable = false)
     private String productId;
 
+    @Convert(converter = StringSetConverter.class)
+    private Set<String> attributesSales;
+
     public static CartItem create(Long id, Long profileId, CreateCartItemCommand command, CartRepository cartRepository) {
         List<CartItem> byProfileId = cartRepository.findByProfileId(profileId);
         if (byProfileId.size() == 10)
@@ -60,6 +65,7 @@ public class CartItem {
         this.finalPrice = command.getFinalPrice();
         this.imageUrlSmall = command.getImageUrlSmall();
         this.productId = command.getProductId();
+        this.attributesSales = command.getAttributesSales();
     }
 
     public static CartItem get(Long profileId, Long cartItemId, CartRepository cartRepository) {

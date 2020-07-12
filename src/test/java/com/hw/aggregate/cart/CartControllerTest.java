@@ -2,7 +2,7 @@ package com.hw.aggregate.cart;
 
 import com.hw.aggregate.cart.command.CreateCartItemCommand;
 import com.hw.aggregate.cart.model.CartItem;
-import com.hw.aggregate.cart.representation.CartItemRepresentation;
+import com.hw.aggregate.cart.representation.CartItemCreatedRepresentation;
 import com.hw.aggregate.cart.representation.CartSummaryRepresentation;
 import org.junit.Assert;
 import org.junit.Test;
@@ -39,7 +39,7 @@ public class CartControllerTest {
         CartItem cartItem = new CartItem();
         Long aLong = rLong();
         cartItem.setId(aLong);
-        Mockito.doReturn(new CartItemRepresentation(cartItem)).when(cartApplicationService).addCartItem(anyString(), anyLong(), any(CreateCartItemCommand.class));
+        Mockito.doReturn(new CartItemCreatedRepresentation(cartItem)).when(cartApplicationService).addCartItem(anyString(), anyLong(), any(CreateCartItemCommand.class));
         ResponseEntity<Void> voidResponseEntity = cartController.addCartItem(rJwt(), rLong(), new CreateCartItemCommand());
         Assert.assertEquals(aLong.toString(), voidResponseEntity.getHeaders().getLocation().toString());
 

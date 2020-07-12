@@ -1,10 +1,10 @@
 package com.hw.aggregate.order;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hw.aggregate.order.exception.ActualStorageDecreaseException;
 import com.hw.aggregate.order.exception.ProductInfoValidationException;
 import com.hw.aggregate.order.model.BizOrderItem;
+import com.hw.aggregate.order.model.StorageChange;
+import com.hw.aggregate.order.model.StorageChangeDetail;
 import com.hw.shared.EurekaRegistryHelper;
 import com.hw.shared.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @Slf4j
@@ -38,47 +37,45 @@ public class ProductService {
     private String validateUrl;
 
     @Value("${url.revoke}")
-    private String revokeUrl;
-
-    @Autowired
-    private ObjectMapper mapper;
+    private String rollbackUrl;
 
     @Autowired
     private ResourceServiceTokenHelper tokenHelper;
 
 
-    public void decreaseOrderStorage(Map<String, Integer> productMap, String optToken) {
-        changeStorage(decreaseUrl, productMap, optToken);
+    public void decreaseOrderStorage(List<StorageChangeDetail> changeList, String txId) {
+        StorageChange storageChange = new StorageChange();
+        storageChange.setTxId(txId);
+        storageChange.setChangeList(changeList);
+        changeStorage(decreaseUrl, storageChange);
     }
 
-    public void increaseOrderStorage(Map<String, Integer> productMap, String optToken) {
-        changeStorage(increaseUrl, productMap, optToken);
+    public void increaseOrderStorage(List<StorageChangeDetail> changeList, String txId) {
+        StorageChange storageChange = new StorageChange();
+        storageChange.setTxId(txId);
+        storageChange.setChangeList(changeList);
+        changeStorage(increaseUrl, storageChange);
     }
 
-    public void rollbackTransaction(String optToken) {
+    public void rollbackTransaction(String txId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(headers);
-        tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + revokeUrl + "?optToken=" + optToken, HttpMethod.PUT, hashMapHttpEntity, String.class);
+        tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + rollbackUrl + "?txId=" + txId, HttpMethod.PUT, hashMapHttpEntity, String.class);
     }
 
-    public void decreaseActualStorage(Map<String, Integer> productMap, String optToken) throws ActualStorageDecreaseException {
-        changeStorage(soldUrl, productMap, optToken);
+    public void decreaseActualStorage(List<StorageChangeDetail> changeList, String txId) throws ActualStorageDecreaseException {
+        StorageChange storageChange = new StorageChange();
+        storageChange.setTxId(txId);
+        storageChange.setChangeList(changeList);
+        changeStorage(soldUrl, storageChange);
     }
 
-    private void changeStorage(String url, Map<String, Integer> productMap, String optToken) {
-        String body = null;
-        try {
-            body = mapper.writeValueAsString(productMap);
-        } catch (JsonProcessingException e) {
-            /**
-             * this block is purposely left blank
-             */
-        }
+    private void changeStorage(String url, StorageChange change) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(body, headers);
-        tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + url + "?optToken=" + optToken, HttpMethod.PUT, hashMapHttpEntity, String.class);
+        HttpEntity<StorageChange> hashMapHttpEntity = new HttpEntity<>(change, headers);
+        tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + url, HttpMethod.PUT, hashMapHttpEntity, String.class);
     }
 
     public void validateProductInfo(List<BizOrderItem> customerOrderItemList) {

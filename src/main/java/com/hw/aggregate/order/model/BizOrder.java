@@ -95,6 +95,7 @@ public class BizOrder extends Auditable {
             customerOrderItem.setProductId(e.getProductId());
             customerOrderItem.setName(e.getName());
             customerOrderItem.setImageUrlSmall(e.getImageUrlSmall());
+            customerOrderItem.setAttributesSales(e.getAttributesSales());
             List<BizOrderItemAddOn> collect1 = null;
             if (e.getSelectedOptions() != null) {
                 collect1 = e.getSelectedOptions().stream().map(e2 -> {
@@ -131,35 +132,30 @@ public class BizOrder extends Auditable {
         this.paid = false;
     }
 
-    /**
-     * merge multiple same product into one if possible
-     *
-     * @return
-     */
-    public Map<String, Integer> getProductSummary() {
-        HashMap<String, Integer> stringIntegerHashMap = new HashMap<>();
+    public List<StorageChangeDetail> getStorageChangeDetails() {
+        List<StorageChangeDetail> details = new ArrayList<>();
         readOnlyProductList.forEach(e -> {
-            int defaultAmount = 1;
+            int amount = 1;
             if (e.getSelectedOptions() != null) {
                 Optional<BizOrderItemAddOn> qty = e.getSelectedOptions().stream().filter(el -> el.getTitle().equals("qty")).findFirst();
                 if (qty.isPresent() && !qty.get().getOptions().isEmpty()) {
                     /**
                      * deduct amount based on qty value, otherwise default is 1
                      */
-                    defaultAmount = Integer.parseInt(qty.get().getOptions().get(0).getOptionValue());
+                    amount = Integer.parseInt(qty.get().getOptions().get(0).getOptionValue());
                 }
             }
-            if (stringIntegerHashMap.containsKey(e.getProductId())) {
-                stringIntegerHashMap.put(e.getProductId(), stringIntegerHashMap.get(e.getProductId()) + defaultAmount);
-            } else {
-                stringIntegerHashMap.put(e.getProductId(), defaultAmount);
-            }
+            StorageChangeDetail storageChangeDetail = new StorageChangeDetail();
+            storageChangeDetail.setAmount(amount);
+            storageChangeDetail.setAttributeSales(e.getAttributesSales());
+            storageChangeDetail.setProductId(e.getProductId());
+            details.add(storageChangeDetail);
         });
-        return stringIntegerHashMap;
+        return details;
     }
 
     private void validatePaymentAmount() {
-        BigDecimal reduce = readOnlyProductList.stream().map(e -> BigDecimal.valueOf(Double.parseDouble(e.getFinalPrice()))).reduce(BigDecimal.valueOf(0), BigDecimal::add);
+        BigDecimal reduce = readOnlyProductList.stream().map(BizOrderItem::getFinalPrice).reduce(BigDecimal.valueOf(0), BigDecimal::add);
         if (paymentAmt.compareTo(reduce) != 0)
             throw new BizOrderPaymentMismatchException();
     }

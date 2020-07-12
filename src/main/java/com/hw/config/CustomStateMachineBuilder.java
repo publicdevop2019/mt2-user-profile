@@ -165,19 +165,25 @@ public class CustomStateMachineBuilder {
         };
     }
 
+    /**
+     * run async so transaction can be committed,
+     * otherwise transaction will not be committed until order is confirmed
+     */
     private Action<BizOrderStatus, BizOrderEvent> autoConfirm() {
-        return context -> {
-            log.info("start of autoConfirm");
-            BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
-            try {
-                orderApplicationService.confirmOrder(customerOrder.getCreatedBy(), customerOrder.getProfileId(), customerOrder.getId());
-            } catch (Exception ex) {
-                // catch thrown ex and set to upper level state machine,
-                // otherwise will return incorrect status code
-                log.error("error during auto confirm", ex);
-                context.getStateMachine().setStateMachineError(ex);
-            }
-        };
+        return context -> CompletableFuture.runAsync(() -> {
+                    log.info("start of autoConfirm");
+                    BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
+                    try {
+                        orderApplicationService.confirmOrder(customerOrder.getCreatedBy(), customerOrder.getProfileId(), customerOrder.getId());
+                    } catch (Exception ex) {
+                        // catch thrown ex and set to upper level state machine,
+                        // otherwise will return incorrect status code
+                        log.error("error during auto confirm", ex);
+                        context.getStateMachine().setStateMachineError(ex);
+                    }
+                }
+                , customExecutor
+        );
     }
 
     private Guard<BizOrderStatus, BizOrderEvent> createNewOrderTask() {
@@ -197,7 +203,7 @@ public class CustomStateMachineBuilder {
 
             // decrease order storage
             CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                    productService.decreaseOrderStorage(bizOrder.getProductSummary(), transactionalTask.getTransactionId()), customExecutor
+                    productService.decreaseOrderStorage(bizOrder.getStorageChangeDetails(), transactionalTask.getTransactionId()), customExecutor
             );
             CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
             try {
@@ -270,7 +276,7 @@ public class CustomStateMachineBuilder {
             BizOrder bizOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
             try {
-                productService.decreaseOrderStorage(bizOrder.getProductSummary(), transactionalTask.getTransactionId());
+                productService.decreaseOrderStorage(bizOrder.getStorageChangeDetails(), transactionalTask.getTransactionId());
             } catch (Exception ex) {
                 log.error("error during decrease order storage");
                 context.getStateMachine().setStateMachineError(new BizOrderStorageDecreaseException());
@@ -312,7 +318,7 @@ public class CustomStateMachineBuilder {
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
             log.info("start of decreaseActualStorage for {}", bizOrder.getId());
             try {
-                productService.decreaseActualStorage(bizOrder.getProductSummary(), transactionalTask.getTransactionId());
+                productService.decreaseActualStorage(bizOrder.getStorageChangeDetails(), transactionalTask.getTransactionId());
             } catch (Exception ex) {
                 log.error("error during decreaseActualStorage", ex);
                 context.getStateMachine().setStateMachineError(new ActualStorageDecreaseException());

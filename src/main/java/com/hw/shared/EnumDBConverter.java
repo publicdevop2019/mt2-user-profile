@@ -1,4 +1,4 @@
-package com.hw.aggregate.order.model;
+package com.hw.shared;
 
 import javax.persistence.AttributeConverter;
 

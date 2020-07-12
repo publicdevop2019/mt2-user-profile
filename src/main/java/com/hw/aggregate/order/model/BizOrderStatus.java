@@ -1,5 +1,7 @@
 package com.hw.aggregate.order.model;
 
+import com.hw.shared.EnumDBConverter;
+
 public enum BizOrderStatus {
     NOT_PAID_RESERVED,
     NOT_PAID_RECYCLED,

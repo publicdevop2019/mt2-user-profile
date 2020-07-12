@@ -6,14 +6,14 @@ import org.junit.Test;
 
 import static com.hw.aggregate.Helper.rLong;
 
-public class CartItemRepresentationTest {
+public class CartItemCreatedRepresentationTest {
 
     @Test
     public void getCartItemId() {
         CartItem cartItem = new CartItem();
         Long aLong = rLong();
         cartItem.setId(aLong);
-        CartItemRepresentation cartItemRepresentation = new CartItemRepresentation(cartItem);
+        CartItemCreatedRepresentation cartItemRepresentation = new CartItemCreatedRepresentation(cartItem);
         Assert.assertEquals(cartItemRepresentation.getCartItemId(), cartItem.getId().toString());
     }
 }
