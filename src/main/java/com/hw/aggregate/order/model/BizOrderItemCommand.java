@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Data
@@ -14,5 +15,6 @@ public class BizOrderItemCommand {
     private Long productId;
     private String imageUrlSmall;
     private Set<String> attributesSales;
+    private Map<String,String> attrIdMap;
 
 }

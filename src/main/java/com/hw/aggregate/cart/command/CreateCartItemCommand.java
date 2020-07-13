@@ -4,6 +4,7 @@ import com.hw.aggregate.order.model.BizOrderItemAddOn;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Data
@@ -20,5 +21,7 @@ public class CreateCartItemCommand {
     private String productId;
 
     private Set<String> attributesSales;
+
+    private Map<String, String> attrIdMap;
 
 }

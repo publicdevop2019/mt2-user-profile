@@ -9,7 +9,9 @@ import javax.persistence.ManyToOne;
 import javax.validation.constraints.NotBlank;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Embeddable
@@ -37,4 +39,6 @@ public class BizOrderItem implements Serializable {
     private Set<String> attributesSales;
 
     private String imageUrlSmall;
+
+    private HashMap<String,String> attrIdMap;
 }

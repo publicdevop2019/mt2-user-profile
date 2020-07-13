@@ -13,9 +13,7 @@ import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotBlank;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Entity
 @Table(name = "Cart")
@@ -50,6 +48,8 @@ public class CartItem {
     @Convert(converter = StringSetConverter.class)
     private Set<String> attributesSales;
 
+    private HashMap<String,String> attrIdMap;
+
     public static CartItem create(Long id, Long profileId, CreateCartItemCommand command, CartRepository cartRepository) {
         List<CartItem> byProfileId = cartRepository.findByProfileId(profileId);
         if (byProfileId.size() == 10)
@@ -66,6 +66,7 @@ public class CartItem {
         this.imageUrlSmall = command.getImageUrlSmall();
         this.productId = command.getProductId();
         this.attributesSales = command.getAttributesSales();
+        this.attrIdMap = new HashMap<>(command.getAttrIdMap());
     }
 
     public static CartItem get(Long profileId, Long cartItemId, CartRepository cartRepository) {
