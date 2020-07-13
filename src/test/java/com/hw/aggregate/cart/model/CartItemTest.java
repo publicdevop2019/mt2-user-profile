@@ -10,6 +10,7 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Optional;
 
 import static com.hw.aggregate.Helper.rLong;
@@ -37,8 +38,9 @@ public class CartItemTest {
         Mockito.doReturn(spy).when(mock).findByProfileId(anyLong());
         Mockito.doReturn(0).when(spy).size();
         Mockito.doReturn(new CartItem()).when(mock).save(any(CartItem.class));
-
-        CartItem cartItem = CartItem.create(rLong(), rLong(), new CreateCartItemCommand(), mock);
+        CreateCartItemCommand createCartItemCommand = new CreateCartItemCommand();
+        createCartItemCommand.setAttrIdMap(new HashMap<>());
+        CartItem cartItem = CartItem.create(rLong(), rLong(), createCartItemCommand, mock);
         Assert.assertNotNull(cartItem);
     }
 
