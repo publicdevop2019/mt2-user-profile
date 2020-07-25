@@ -96,7 +96,8 @@ public class BizOrder extends Auditable {
             customerOrderItem.setName(e.getName());
             customerOrderItem.setImageUrlSmall(e.getImageUrlSmall());
             customerOrderItem.setAttributesSales(e.getAttributesSales());
-            customerOrderItem.setAttrIdMap(new HashMap<>(e.getAttrIdMap()));
+            if (e.getAttrIdMap() != null)
+                customerOrderItem.setAttrIdMap(new HashMap<>(e.getAttrIdMap()));
             List<BizOrderItemAddOn> collect1 = null;
             if (e.getSelectedOptions() != null) {
                 collect1 = e.getSelectedOptions().stream().map(e2 -> {
