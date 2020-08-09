@@ -23,7 +23,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             DataIntegrityViolationException.class,
             ObjectOptimisticLockingFailureException.class,
             JwtTokenExtractException.class,
-            UnSupportedSortConfigException.class,
+            UnsupportedQueryException.class,
             MaxPageSizeExceedException.class
     })
     protected ResponseEntity<Object> handle400Exception(RuntimeException ex, WebRequest request) {

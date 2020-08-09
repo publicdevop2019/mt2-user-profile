@@ -5,17 +5,19 @@ import com.hw.aggregate.order.exception.ProductInfoValidationException;
 import com.hw.aggregate.order.model.BizOrderItem;
 import com.hw.aggregate.order.model.StorageChange;
 import com.hw.aggregate.order.model.StorageChangeDetail;
+import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
 import com.hw.shared.EurekaRegistryHelper;
 import com.hw.shared.ResourceServiceTokenHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import static com.hw.shared.AppConstant.HTTP_PARAM_QUERY;
 
 @Service
 @Slf4j
@@ -33,8 +35,8 @@ public class ProductService {
     @Value("${url.increaseUrl}")
     private String increaseUrl;
 
-    @Value("${url.validateUrl}")
-    private String validateUrl;
+    @Value("${url.productUrl}")
+    private String productUrl;
 
     @Value("${url.revoke}")
     private String rollbackUrl;
@@ -78,16 +80,22 @@ public class ProductService {
         tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + url, HttpMethod.PUT, hashMapHttpEntity, String.class);
     }
 
-    public void validateProductInfo(List<BizOrderItem> customerOrderItemList) {
+    public AppProductSumPagedRep getProductsInfo(List<BizOrderItem> customerOrderItemList) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<List<BizOrderItem>> hashMapHttpEntity = new HttpEntity<>(customerOrderItemList, headers);
-        ParameterizedTypeReference<HashMap<String, String>> responseType =
-                new ParameterizedTypeReference<>() {
-                };
-        ResponseEntity<HashMap<String, String>> exchange = tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + validateUrl, HttpMethod.POST, hashMapHttpEntity, responseType);
-        if (exchange.getBody() == null || !"true".equals(exchange.getBody().get("result")))
+
+        List<String> collect = customerOrderItemList.stream().map(e -> e.getProductId().toString()).collect(Collectors.toList());
+        String query = getQuery(collect);
+        ResponseEntity<AppProductSumPagedRep> exchange = tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + productUrl + query, HttpMethod.GET, hashMapHttpEntity, AppProductSumPagedRep.class);
+        if (exchange.getStatusCode() != HttpStatus.OK)
             throw new ProductInfoValidationException();
+        return exchange.getBody();
+    }
+
+    private String getQuery(List<String> ids) {
+        return "?" + HTTP_PARAM_QUERY + "=id:" + String.join(".", ids);
+
     }
 
 }

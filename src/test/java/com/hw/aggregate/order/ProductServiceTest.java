@@ -85,7 +85,7 @@ public class ProductServiceTest {
         Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(ParameterizedTypeReference.class));
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
         Mockito.doReturn(null).when(resp).getBody();
-        productService.validateProductInfo(new ArrayList<>());
+        productService.getProductsInfo(new ArrayList<>());
     }
 
     @Test(expected = ProductInfoValidationException.class)
@@ -94,7 +94,7 @@ public class ProductServiceTest {
         Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(ParameterizedTypeReference.class));
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
         Mockito.doReturn(new HashMap<>()).when(resp).getBody();
-        productService.validateProductInfo(new ArrayList<>());
+        productService.getProductsInfo(new ArrayList<>());
     }
 
     @Test
@@ -105,7 +105,7 @@ public class ProductServiceTest {
         HashMap<Object, Object> objectObjectHashMap = new HashMap<>();
         objectObjectHashMap.put("result", "true");
         Mockito.doReturn(objectObjectHashMap).when(resp).getBody();
-        productService.validateProductInfo(new ArrayList<>());
+        productService.getProductsInfo(new ArrayList<>());
         Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(ParameterizedTypeReference.class));
     }
 }

@@ -1,0 +1,20 @@
+package com.hw.aggregate.order.model.product;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.util.Set;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+public class AppProductSku {
+    private Set<String> attributesSales;
+    private Integer storageOrder;
+    private Long productId;
+    private Integer storageActual;
+    private BigDecimal price;
+    private Integer sales;
+}

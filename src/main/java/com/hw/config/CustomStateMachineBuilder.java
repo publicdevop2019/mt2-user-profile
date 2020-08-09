@@ -5,6 +5,7 @@ import com.hw.aggregate.order.*;
 import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.exception.*;
 import com.hw.aggregate.order.model.*;
+import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
 import com.hw.shared.IdGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,8 +20,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.persistence.EntityManager;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -192,8 +195,8 @@ public class CustomStateMachineBuilder {
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
             log.info("start of prepareNewOrder of {}", bizOrder.getId());
             // validate order product info
-            CompletableFuture<Void> validateResultFuture = CompletableFuture.runAsync(() ->
-                    productService.validateProductInfo(bizOrder.getReadOnlyProductList()), customExecutor
+            CompletableFuture<AppProductSumPagedRep> validateResultFuture = CompletableFuture.supplyAsync(() ->
+                    productService.getProductsInfo(bizOrder.getReadOnlyProductList()), customExecutor
             );
 
             // generate payment QR link
@@ -208,6 +211,10 @@ public class CustomStateMachineBuilder {
             CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
             try {
                 bizOrder.setPaymentLink(paymentQRLinkFuture.get());
+                AppProductSumPagedRep appProductSumPagedRep = validateResultFuture.get();
+                boolean result = validateProducts(appProductSumPagedRep,bizOrder.getReadOnlyProductList());
+                if (!result)
+                    return false;
                 allDoneFuture.get();
             } catch (ExecutionException ex) {
                 log.error("error during prepare order async call", ex);
@@ -268,6 +275,15 @@ public class CustomStateMachineBuilder {
                     });
             return Boolean.TRUE.equals(execute);
         };
+    }
+
+    private boolean validateProducts(AppProductSumPagedRep appProductSumPagedRep, List<BizOrderItem> products) {
+        List<AppProductSumPagedRep.ProductAdminCardRepresentation> data = appProductSumPagedRep.getData();
+            data.stream().forEach(e->e.);
+        products.forEach(e->{
+//            e.getProductId()
+        });
+        return false;
     }
 
     private Guard<BizOrderStatus, BizOrderEvent> reserveOrderTask() {
