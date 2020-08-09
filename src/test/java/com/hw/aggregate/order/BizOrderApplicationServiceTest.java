@@ -100,30 +100,4 @@ public class BizOrderApplicationServiceTest {
     }
 
 
-    @Test
-    public void releaseExpiredOrder() {
-        ReflectionTestUtils.setField(orderApplicationService, "expireAfter", 1000L);
-        Mockito.doReturn(new ArrayList<>()).when(orderRepository).findExpiredNotPaidReserved(any());
-        orderApplicationService.releaseExpiredOrder();
-        Mockito.verify(productService, times(0)).increaseOrderStorage(any(), anyString());
-    }
-
-    @Test
-    public void releaseExpiredOrder_w_order_found() {
-        ReflectionTestUtils.setField(orderApplicationService, "expireAfter", 1000L);
-        ArrayList<BizOrder> customerOrders = new ArrayList<>();
-        BizOrder customerOrder = getCustomerOrder();
-        customerOrder.setOrderState(BizOrderStatus.NOT_PAID_RESERVED);
-        customerOrders.add(customerOrder);
-        Mockito.doReturn(customerOrders).when(orderRepository).findExpiredNotPaidReserved(any());
-        orderApplicationService.releaseExpiredOrder();
-        Mockito.verify(productService, times(1)).increaseOrderStorage(any(), anyString());
-    }
-
-    @Test
-    public void resubmitOrder() {
-        Mockito.doReturn(new ArrayList<>()).when(orderRepository).findPaidReserved();
-        orderApplicationService.resubmitOrder();
-        Mockito.verify(productService, times(0)).decreaseActualStorage(any(), anyString());
-    }
 }

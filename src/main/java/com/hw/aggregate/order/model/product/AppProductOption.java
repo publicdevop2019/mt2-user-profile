@@ -15,6 +15,9 @@ public class AppProductOption {
     public static class OptionItem {
         public String optionValue;
         public String priceVar;
+
+        public OptionItem() {
+        }
     }
 
 }

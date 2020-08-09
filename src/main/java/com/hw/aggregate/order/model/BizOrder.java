@@ -6,6 +6,7 @@ import com.hw.aggregate.order.exception.BizOrderAccessException;
 import com.hw.aggregate.order.exception.BizOrderNotExistException;
 import com.hw.aggregate.order.exception.BizOrderPaymentMismatchException;
 import com.hw.shared.Auditable;
+import com.hw.shared.PatchCommand;
 import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,6 +20,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.hw.shared.AppConstant.PATCH_OP_TYPE_DIFF;
+import static com.hw.shared.AppConstant.PATCH_OP_TYPE_SUM;
 
 @Entity
 @Table(name = "OrderDetail")
@@ -134,8 +138,8 @@ public class BizOrder extends Auditable {
         this.paid = false;
     }
 
-    public List<StorageChangeDetail> getStorageChangeDetails() {
-        List<StorageChangeDetail> details = new ArrayList<>();
+    public List<PatchCommand> getReserveOrderPatchCommands() {
+        List<PatchCommand> details = new ArrayList<>();
         readOnlyProductList.forEach(e -> {
             int amount = 1;
             if (e.getSelectedOptions() != null) {
@@ -147,11 +151,54 @@ public class BizOrder extends Auditable {
                     amount = Integer.parseInt(qty.get().getOptions().get(0).getOptionValue());
                 }
             }
-            StorageChangeDetail storageChangeDetail = new StorageChangeDetail();
-            storageChangeDetail.setAmount(amount);
-            storageChangeDetail.setAttributeSales(e.getAttributesSales());
-            storageChangeDetail.setProductId(e.getProductId());
-            details.add(storageChangeDetail);
+            PatchCommand patchCommand = new PatchCommand();
+            patchCommand.setOp(PATCH_OP_TYPE_DIFF);
+            patchCommand.setValue(String.valueOf(amount));
+            patchCommand.setPath(getPatchPath(e, "storageOrder"));
+            details.add(patchCommand);
+        });
+        return details;
+    }
+
+    private String getPatchPath(BizOrderItem e, String fieldName) {
+        if (e.getAttributesSales() != null && e.getAttributesSales().size() > 0) {
+            String replace = String.join(",", e.getAttributesSales()).replace(":", "-").replace("/", "~/");
+            return "/" + e.getProductId() + "/skus?query=attributesSales:" + replace + "/" + fieldName;
+        } else {
+            return "/" + e.getProductId() + "/" + fieldName;
+        }
+    }
+
+    public List<PatchCommand> getConfirmOrderPatchCommands() {
+        List<PatchCommand> details = new ArrayList<>();
+        readOnlyProductList.forEach(e -> {
+            int amount = 1;
+            if (e.getSelectedOptions() != null) {
+                Optional<BizOrderItemAddOn> qty = e.getSelectedOptions().stream().filter(el -> el.getTitle().equals("qty")).findFirst();
+                if (qty.isPresent() && !qty.get().getOptions().isEmpty()) {
+                    /**
+                     * deduct amount based on qty value, otherwise default is 1
+                     */
+                    amount = Integer.parseInt(qty.get().getOptions().get(0).getOptionValue());
+                }
+            }
+            PatchCommand storageActualCmd = new PatchCommand();
+            storageActualCmd.setOp(PATCH_OP_TYPE_DIFF);
+            storageActualCmd.setValue(String.valueOf(amount));
+            storageActualCmd.setPath(getPatchPath(e, "storageActual"));
+            PatchCommand salesCmd = new PatchCommand();
+            salesCmd.setOp(PATCH_OP_TYPE_SUM);
+            salesCmd.setValue(String.valueOf(amount));
+            salesCmd.setPath(getPatchPath(e, "sales"));
+            if (e.getAttributesSales() != null && e.getAttributesSales().size() > 0) {
+                PatchCommand totalSalesCmd = new PatchCommand();
+                totalSalesCmd.setOp(PATCH_OP_TYPE_SUM);
+                totalSalesCmd.setValue(String.valueOf(amount));
+                totalSalesCmd.setPath("/" + e.getProductId() + "/" + "sales");
+                details.add(totalSalesCmd);
+            }
+            details.add(storageActualCmd);
+            details.add(salesCmd);
         });
         return details;
     }

@@ -5,6 +5,8 @@ import com.hw.aggregate.order.*;
 import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.exception.*;
 import com.hw.aggregate.order.model.*;
+import com.hw.aggregate.order.model.product.AppProductOption;
+import com.hw.aggregate.order.model.product.AppProductSku;
 import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
 import com.hw.shared.IdGenerator;
 import lombok.extern.slf4j.Slf4j;
@@ -20,12 +22,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.persistence.EntityManager;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
+import java.math.BigDecimal;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.hw.config.AppConstant.*;
 
@@ -206,15 +208,17 @@ public class CustomStateMachineBuilder {
 
             // decrease order storage
             CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                    productService.decreaseOrderStorage(bizOrder.getStorageChangeDetails(), transactionalTask.getTransactionId()), customExecutor
+                    productService.updateProductStorage(bizOrder.getReserveOrderPatchCommands(), transactionalTask.getTransactionId()), customExecutor
             );
             CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
             try {
                 bizOrder.setPaymentLink(paymentQRLinkFuture.get());
                 AppProductSumPagedRep appProductSumPagedRep = validateResultFuture.get();
-                boolean result = validateProducts(appProductSumPagedRep,bizOrder.getReadOnlyProductList());
-                if (!result)
+                boolean result = validateProducts(bizOrder.getReadOnlyProductList(), appProductSumPagedRep);
+                if (!result) {
+                    context.getStateMachine().setStateMachineError(new ProductInfoValidationException());
                     return false;
+                }
                 allDoneFuture.get();
             } catch (ExecutionException ex) {
                 log.error("error during prepare order async call", ex);
@@ -277,13 +281,87 @@ public class CustomStateMachineBuilder {
         };
     }
 
-    private boolean validateProducts(AppProductSumPagedRep appProductSumPagedRep, List<BizOrderItem> products) {
-        List<AppProductSumPagedRep.ProductAdminCardRepresentation> data = appProductSumPagedRep.getData();
-            data.stream().forEach(e->e.);
-        products.forEach(e->{
-//            e.getProductId()
+    private boolean validateProducts(List<BizOrderItem> commands, AppProductSumPagedRep appProductSumPagedRep) {
+        return !commands.stream().anyMatch(command -> {
+            Optional<AppProductSumPagedRep.ProductAdminCardRepresentation> byId = appProductSumPagedRep.getData().stream().filter(e -> e.getId().equals(command.getProductId())).findFirst();
+            //validate product match
+            if (byId.isEmpty())
+                return true;
+            BigDecimal price;
+            if (byId.get().getProductSkuList() != null && byId.get().getProductSkuList().size() != 0) {
+                List<AppProductSku> collect = byId.get().getProductSkuList().stream().filter(productSku -> new TreeSet(productSku.getAttributesSales()).equals(new TreeSet(command.getAttributesSales()))).collect(Collectors.toList());
+                price = collect.get(0).getPrice();
+            } else {
+                price = byId.get().getLowestPrice();
+            }
+            //if no option present then compare final price
+            if (command.getSelectedOptions() == null || command.getSelectedOptions().size() == 0) {
+                return price.compareTo(command.getFinalPrice()) != 0;
+            }
+            //validate product option match
+            List<AppProductOption> storedOption = byId.get().getSelectedOptions();
+            if (storedOption == null || storedOption.size() == 0)
+                return true;
+            boolean optionAllMatch = command.getSelectedOptions().stream().allMatch(userSelected -> {
+                //check selected option is valid option
+                Optional<AppProductOption> first = storedOption.stream().filter(storedOptionItem -> {
+                    // compare title
+                    if (!storedOptionItem.title.equals(userSelected.getTitle()))
+                        return false;
+                    //compare option value for each title
+                    String optionValue = userSelected.getOptions().get(0).getOptionValue();
+                    Optional<AppProductOption.OptionItem> first1 = storedOptionItem.options.stream().filter(optionItem -> optionItem.getOptionValue().equals(optionValue)).findFirst();
+                    if (first1.isEmpty())
+                        return false;
+                    return true;
+                }).findFirst();
+                if (first.isEmpty())
+                    return false;
+                else {
+                    return true;
+                }
+            });
+            if (!optionAllMatch)
+                return true;
+            //validate product final price
+            BigDecimal finalPrice = command.getFinalPrice();
+            // get all price variable
+            List<String> userSelectedAddOnTitles = command.getSelectedOptions().stream().map(BizOrderItemAddOn::getTitle).collect(Collectors.toList());
+            // filter option based on title
+            Stream<AppProductOption> storedAddonMatchingUserSelection = byId.get().getSelectedOptions().stream().filter(var1 -> userSelectedAddOnTitles.contains(var1.getTitle()));
+            // map to value detail for each title
+            List<String> priceVarCollection = storedAddonMatchingUserSelection.map(storedMatchAddon -> {
+                String title = storedMatchAddon.getTitle();
+                //find right option for title
+                Optional<BizOrderItemAddOn> user_addon_option = command.getSelectedOptions().stream().filter(e -> e.getTitle().equals(title)).findFirst();
+                BizOrderItemAddOnSelection user_optionItem = user_addon_option.get().getOptions().get(0);
+                Optional<AppProductOption.OptionItem> first = storedMatchAddon.getOptions().stream().filter(db_optionItem -> db_optionItem.getOptionValue().equals(user_optionItem.getOptionValue())).findFirst();
+                return first.get().getPriceVar();
+            }).collect(Collectors.toList());
+            for (String priceVar : priceVarCollection) {
+                if (priceVar.contains("+")) {
+                    double v = Double.parseDouble(priceVar.replace("+", ""));
+                    BigDecimal bigDecimal = BigDecimal.valueOf(v);
+                    price = price.add(bigDecimal);
+                } else if (priceVar.contains("-")) {
+                    double v = Double.parseDouble(priceVar.replace("-", ""));
+                    BigDecimal bigDecimal = BigDecimal.valueOf(v);
+                    price = price.subtract(bigDecimal);
+
+                } else if (priceVar.contains("*")) {
+                    double v = Double.parseDouble(priceVar.replace("*", ""));
+                    BigDecimal bigDecimal = BigDecimal.valueOf(v);
+                    price = price.multiply(bigDecimal);
+                } else {
+                    log.error("unknown operation type");
+                }
+            }
+            if (price.compareTo(finalPrice) == 0) {
+                log.debug("value does match for product {}, expected {} actual {}", command.getProductId(), price, finalPrice);
+                return false;
+            }
+            return true;
         });
-        return false;
     }
 
     private Guard<BizOrderStatus, BizOrderEvent> reserveOrderTask() {
@@ -292,7 +370,7 @@ public class CustomStateMachineBuilder {
             BizOrder bizOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
             try {
-                productService.decreaseOrderStorage(bizOrder.getStorageChangeDetails(), transactionalTask.getTransactionId());
+                productService.updateProductStorage(bizOrder.getReserveOrderPatchCommands(), transactionalTask.getTransactionId());
             } catch (Exception ex) {
                 log.error("error during decrease order storage");
                 context.getStateMachine().setStateMachineError(new BizOrderStorageDecreaseException());
@@ -334,7 +412,7 @@ public class CustomStateMachineBuilder {
             TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
             log.info("start of decreaseActualStorage for {}", bizOrder.getId());
             try {
-                productService.decreaseActualStorage(bizOrder.getStorageChangeDetails(), transactionalTask.getTransactionId());
+                productService.updateProductStorage(bizOrder.getConfirmOrderPatchCommands(), transactionalTask.getTransactionId());
             } catch (Exception ex) {
                 log.error("error during decreaseActualStorage", ex);
                 context.getStateMachine().setStateMachineError(new ActualStorageDecreaseException());

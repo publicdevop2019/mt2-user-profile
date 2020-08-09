@@ -1,5 +1,7 @@
 package com.hw.aggregate.order;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hw.aggregate.order.command.CreateBizOrderCommand;
 import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.exception.BizOrderSchedulerProductRecycleException;
@@ -9,9 +11,7 @@ import com.hw.aggregate.order.representation.*;
 import com.hw.config.CustomStateMachineBuilder;
 import com.hw.config.ProfileExistAndOwnerOnly;
 import com.hw.config.TransactionIdGenerator;
-import com.hw.shared.EurekaRegistryHelper;
-import com.hw.shared.IdGenerator;
-import com.hw.shared.ResourceServiceTokenHelper;
+import com.hw.shared.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -24,11 +24,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionCallbackWithoutResult;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.persistence.EntityManager;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
@@ -41,6 +41,8 @@ import java.util.stream.Collectors;
 import static com.hw.config.AppConstant.BIZ_ORDER;
 import static com.hw.config.AppConstant.UPDATE_ADDRESS_CMD;
 import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
+import static com.hw.shared.AppConstant.PATCH_OP_TYPE_DIFF;
+import static com.hw.shared.AppConstant.PATCH_OP_TYPE_SUM;
 
 /**
  * make sure state machine, guard and action is referring to same entity
@@ -72,6 +74,9 @@ public class BizOrderApplicationService {
 
     @Autowired
     private ProductService productService;
+
+    @Autowired
+    private ObjectMapper om;
 
     @Autowired
     private IdGenerator idGenerator;
@@ -200,15 +205,23 @@ public class BizOrderApplicationService {
                         String transactionId = TransactionIdGenerator.getTxId();
                         Date from = Date.from(Instant.ofEpochMilli(Instant.now().toEpochMilli() - expireAfter * 60 * 1000));
                         List<BizOrder> expiredOrderList = bizOrderRepository.findExpiredNotPaidReserved(from);
-                        List<StorageChangeDetail> details = new ArrayList<>();
+                        List<PatchCommand> details = new ArrayList<>();
                         expiredOrderList.forEach(expiredOrder -> {
-                            List<StorageChangeDetail> var1 = expiredOrder.getStorageChangeDetails();
+                            List<PatchCommand> var1 = expiredOrder.getReserveOrderPatchCommands();
                             details.addAll(var1);
+                        });
+                        List<PatchCommand> deepCopy = getDeepCopy(details);
+                        deepCopy.forEach(e -> {
+                            if (e.getOp().equalsIgnoreCase(PATCH_OP_TYPE_SUM)) {
+                                e.setOp(PATCH_OP_TYPE_DIFF);
+                            } else {
+                                e.setOp(PATCH_OP_TYPE_SUM);
+                            }
                         });
                         try {
                             if (!details.isEmpty()) {
                                 log.info("expired order(s) found {}", expiredOrderList.stream().map(BizOrder::getId).collect(Collectors.toList()).toString());
-                                productService.increaseOrderStorage(details, transactionId);
+                                productService.updateProductStorage(details, transactionId);
                                 /** update order state*/
                                 expiredOrderList.forEach(e -> {
                                     e.setOrderState(BizOrderStatus.NOT_PAID_RECYCLED);
@@ -306,5 +319,17 @@ public class BizOrderApplicationService {
             log.info("error during task status update, task remain in started status", ex);
             throw new BizOrderSchedulerTaskRollbackException();
         }
+    }
+
+    private List<PatchCommand> getDeepCopy(List<PatchCommand> patchCommands) {
+        List<PatchCommand> deepCopy;
+        try {
+            deepCopy = om.readValue(om.writeValueAsString(patchCommands), new TypeReference<List<PatchCommand>>() {
+            });
+        } catch (IOException e) {
+            log.error("error during deep copy", e);
+            throw new DeepCopyException();
+        }
+        return deepCopy;
     }
 }

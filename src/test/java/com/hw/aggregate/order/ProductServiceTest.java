@@ -40,7 +40,7 @@ public class ProductServiceTest {
         JsonProcessingException mock = Mockito.mock(JsonProcessingException.class);
         Mockito.doReturn(resp).when(this.mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        productService.decreaseOrderStorage(new ArrayList<>(), rStr());
+        productService.updateProductStorage(new ArrayList<>(), rStr());
         Mockito.verify(this.mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
     }
     @Test
@@ -48,25 +48,7 @@ public class ProductServiceTest {
         ResponseEntity resp = Mockito.mock(ResponseEntity.class);
         Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        productService.decreaseOrderStorage(new ArrayList<>(), rStr());
-        Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
-    }
-
-    @Test
-    public void increaseOrderStorage() throws JsonProcessingException {
-        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
-        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
-        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        productService.increaseOrderStorage(new ArrayList<>(), rStr());
-        Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
-    }
-
-    @Test
-    public void decreaseActualStorage() throws JsonProcessingException {
-        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
-        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
-        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        productService.decreaseActualStorage(new ArrayList<>(), rStr());
+        productService.updateProductStorage(new ArrayList<>(), rStr());
         Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
     }
 

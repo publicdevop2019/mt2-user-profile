@@ -1,6 +1,5 @@
 package com.hw.shared;
 
-import javax.annotation.Nullable;
 import javax.persistence.EntityManager;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaUpdate;
@@ -45,7 +44,7 @@ public abstract class UpdateQueryBuilder<T> {
             CriteriaBuilder cb = em.getCriteriaBuilder();
             CriteriaUpdate<T> criteriaUpdate = cb.createCriteriaUpdate(clazz);
             Root<T> root = criteriaUpdate.from(clazz);
-            Predicate or = getWhereClause(root, jsonPatchCommandListHashMap.get(e),e);
+            Predicate or = getWhereClause(root, jsonPatchCommandListHashMap.get(e), e);
             if (or != null)
                 criteriaUpdate.where(or);
             setUpdateValue(root, criteriaUpdate, e);
@@ -70,6 +69,6 @@ public abstract class UpdateQueryBuilder<T> {
 
     protected abstract void setUpdateValue(Root<T> root, CriteriaUpdate<T> criteriaUpdate, PatchCommand operationLike);
 
-    protected abstract Predicate getWhereClause(Root<T> root, List<String> ids, @Nullable PatchCommand command);
+    protected abstract Predicate getWhereClause(Root<T> root, List<String> ids, PatchCommand command);
 
 }

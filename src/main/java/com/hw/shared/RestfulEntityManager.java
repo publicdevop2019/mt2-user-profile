@@ -1,8 +1,5 @@
 package com.hw.shared;
 
-import com.hw.aggregate.product.exception.QueryBuilderNotFoundException;
-
-import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +24,7 @@ public abstract class RestfulEntityManager<T> {
 
     //GET service-name/role-name/entity-collection - read object collection with pagination
     //GET service-name/role-name/object-collection?query={condition-clause}
-    public SumPagedRep<T> readByQuery(RoleEnum roleEnum, @Nullable String query, @Nullable String page, @Nullable String config, Class<T> clazz) {
+    public SumPagedRep<T> readByQuery(RoleEnum roleEnum, String query, String page, String config, Class<T> clazz) {
         SelectQueryBuilder<T> selectQueryBuilder = this.selectQueryBuilder.get(roleEnum);
         if (selectQueryBuilder == null)
             throw new QueryBuilderNotFoundException();
