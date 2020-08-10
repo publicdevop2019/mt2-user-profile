@@ -161,12 +161,8 @@ public class BizOrder extends Auditable {
     }
 
     private String getPatchPath(BizOrderItem e, String fieldName) {
-        if (e.getAttributesSales() != null && e.getAttributesSales().size() > 0) {
-            String replace = String.join(",", e.getAttributesSales()).replace(":", "-").replace("/", "~/");
-            return "/" + e.getProductId() + "/skus?query=attributesSales:" + replace + "/" + fieldName;
-        } else {
-            return "/" + e.getProductId() + "/" + fieldName;
-        }
+        String replace = String.join(",", e.getAttributesSales()).replace(":", "-").replace("/", "~/");
+        return "/" + e.getProductId() + "/skus?query=attributesSales:" + replace + "/" + fieldName;
     }
 
     public List<PatchCommand> getConfirmOrderPatchCommands() {
@@ -190,13 +186,11 @@ public class BizOrder extends Auditable {
             salesCmd.setOp(PATCH_OP_TYPE_SUM);
             salesCmd.setValue(String.valueOf(amount));
             salesCmd.setPath(getPatchPath(e, "sales"));
-            if (e.getAttributesSales() != null && e.getAttributesSales().size() > 0) {
-                PatchCommand totalSalesCmd = new PatchCommand();
-                totalSalesCmd.setOp(PATCH_OP_TYPE_SUM);
-                totalSalesCmd.setValue(String.valueOf(amount));
-                totalSalesCmd.setPath("/" + e.getProductId() + "/" + "sales");
-                details.add(totalSalesCmd);
-            }
+            PatchCommand totalSalesCmd = new PatchCommand();
+            totalSalesCmd.setOp(PATCH_OP_TYPE_SUM);
+            totalSalesCmd.setValue(String.valueOf(amount));
+            totalSalesCmd.setPath("/" + e.getProductId() + "/" + "totalSales");
+            details.add(totalSalesCmd);
             details.add(storageActualCmd);
             details.add(salesCmd);
         });
