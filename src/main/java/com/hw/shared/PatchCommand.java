@@ -10,6 +10,7 @@ public class PatchCommand implements Comparable<PatchCommand>, Serializable {
     private String op;
     private String path;
     private Object value;
+    private Integer expect;
 
     @Override
     public int compareTo(PatchCommand to) {

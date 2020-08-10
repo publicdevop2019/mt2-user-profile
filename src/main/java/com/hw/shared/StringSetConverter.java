@@ -15,7 +15,7 @@ public class StringSetConverter implements AttributeConverter<Set<String>, Strin
     @Override
     public String convertToDatabaseColumn(Set<String> strings) {
         if (ObjectUtils.isEmpty(strings))
-            return null;
+            return "";
         return String.join(",", strings);
     }
 

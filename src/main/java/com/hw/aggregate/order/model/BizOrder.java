@@ -155,6 +155,7 @@ public class BizOrder extends Auditable {
             patchCommand.setOp(PATCH_OP_TYPE_DIFF);
             patchCommand.setValue(String.valueOf(amount));
             patchCommand.setPath(getPatchPath(e, "storageOrder"));
+            patchCommand.setExpect(1);
             details.add(patchCommand);
         });
         return details;
@@ -182,14 +183,17 @@ public class BizOrder extends Auditable {
             storageActualCmd.setOp(PATCH_OP_TYPE_DIFF);
             storageActualCmd.setValue(String.valueOf(amount));
             storageActualCmd.setPath(getPatchPath(e, "storageActual"));
+            storageActualCmd.setExpect(1);
             PatchCommand salesCmd = new PatchCommand();
             salesCmd.setOp(PATCH_OP_TYPE_SUM);
             salesCmd.setValue(String.valueOf(amount));
             salesCmd.setPath(getPatchPath(e, "sales"));
+            salesCmd.setExpect(1);
             PatchCommand totalSalesCmd = new PatchCommand();
             totalSalesCmd.setOp(PATCH_OP_TYPE_SUM);
             totalSalesCmd.setValue(String.valueOf(amount));
             totalSalesCmd.setPath("/" + e.getProductId() + "/" + "totalSales");
+            totalSalesCmd.setExpect(1);
             details.add(totalSalesCmd);
             details.add(storageActualCmd);
             details.add(salesCmd);
