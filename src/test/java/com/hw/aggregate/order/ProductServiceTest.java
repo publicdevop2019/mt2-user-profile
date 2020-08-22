@@ -11,7 +11,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -43,6 +42,7 @@ public class ProductServiceTest {
         productService.updateProductStorage(new ArrayList<>(), rStr());
         Mockito.verify(this.mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
     }
+
     @Test
     public void decreaseOrderStorage() throws JsonProcessingException {
         ResponseEntity resp = Mockito.mock(ResponseEntity.class);
@@ -64,30 +64,9 @@ public class ProductServiceTest {
     @Test(expected = ProductInfoValidationException.class)
     public void validateProductInfo() {
         ResponseEntity resp = Mockito.mock(ResponseEntity.class);
-        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(ParameterizedTypeReference.class));
+        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
         Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        Mockito.doReturn(null).when(resp).getBody();
         productService.getProductsInfo(new ArrayList<>());
     }
 
-    @Test(expected = ProductInfoValidationException.class)
-    public void validateProductInfo2() {
-        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
-        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(ParameterizedTypeReference.class));
-        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        Mockito.doReturn(new HashMap<>()).when(resp).getBody();
-        productService.getProductsInfo(new ArrayList<>());
-    }
-
-    @Test
-    public void validateProductInfo_success() {
-        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
-        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(ParameterizedTypeReference.class));
-        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        HashMap<Object, Object> objectObjectHashMap = new HashMap<>();
-        objectObjectHashMap.put("result", "true");
-        Mockito.doReturn(objectObjectHashMap).when(resp).getBody();
-        productService.getProductsInfo(new ArrayList<>());
-        Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(ParameterizedTypeReference.class));
-    }
 }
