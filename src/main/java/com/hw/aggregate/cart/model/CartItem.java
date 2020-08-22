@@ -8,6 +8,7 @@ import com.hw.aggregate.cart.exception.MaxCartItemException;
 import com.hw.aggregate.order.model.BizOrderItemAddOn;
 import com.hw.aggregate.order.model.ProductOptionMapper;
 import com.hw.aggregate.order.model.StringSetConverter;
+import com.hw.shared.LinkedHashSetConverter;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -48,7 +49,7 @@ public class CartItem {
     @Column(nullable = false)
     private String productId;
 
-    @Convert(converter = StringSetConverter.class)
+    @Convert(converter = LinkedHashSetConverter.class)
     private Set<String> attributesSales;
 
     private HashMap<String, String> attrIdMap;
