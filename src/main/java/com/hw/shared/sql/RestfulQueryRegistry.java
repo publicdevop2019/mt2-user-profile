@@ -1,26 +1,21 @@
-package com.hw.shared;
+package com.hw.shared.sql;
+
+import com.hw.shared.Auditable;
+import com.hw.shared.sql.builder.SelectQueryBuilder;
+import com.hw.shared.sql.builder.SoftDeleteQueryBuilder;
+import com.hw.shared.sql.builder.UpdateQueryBuilder;
+import com.hw.shared.sql.exception.QueryBuilderNotFoundException;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public abstract class RestfulEntityManager<T> {
-    public enum RoleEnum {
-        ROOT,
-        ADMIN,
-        CUSTOMER,
-        APP,
-        PUBLIC
-    }
-
+public abstract class RestfulQueryRegistry<T extends Auditable> {
     protected Map<RoleEnum, SelectQueryBuilder<T>> selectQueryBuilder = new HashMap<>();
     protected Map<RoleEnum, UpdateQueryBuilder<T>> updateQueryBuilder = new HashMap<>();
-    protected Map<RoleEnum, DeleteQueryBuilder<T>> deleteQueryBuilder = new HashMap<>();
+    protected Map<RoleEnum, SoftDeleteQueryBuilder<T>> deleteQueryBuilder = new HashMap<>();
 
     protected abstract void configQueryBuilder();
-
-    //    abstract <S> T create(S command);
-
 
     //GET service-name/role-name/entity-collection - read object collection with pagination
     //GET service-name/role-name/object-collection?query={condition-clause}
@@ -36,14 +31,16 @@ public abstract class RestfulEntityManager<T> {
         return new SumPagedRep<>(select, aLong);
     }
 
+    //    abstract <S> T create(S command);
+
     // convert GET service-name/role-name/entity-collection/{entity-id} to ByQuery
     public SumPagedRep<T> readById(RoleEnum roleEnum, String id, Class<T> clazz) {
         return readByQuery(roleEnum, convertIdToQuery(id), null, skipCount(), clazz);
     }
 
     public Integer deleteByQuery(RoleEnum roleEnum, String query, Class<T> clazz) {
-        DeleteQueryBuilder<T> deleteQueryBuilder = this.deleteQueryBuilder.get(roleEnum);
-        if (selectQueryBuilder == null)
+        SoftDeleteQueryBuilder<T> deleteQueryBuilder = this.deleteQueryBuilder.get(roleEnum);
+        if (deleteQueryBuilder == null)
             throw new QueryBuilderNotFoundException();
         return deleteQueryBuilder.delete(query, clazz);
     }
@@ -54,7 +51,7 @@ public abstract class RestfulEntityManager<T> {
 
     public Integer update(RoleEnum roleEnum, List<PatchCommand> commands, Class<T> clazz) {
         UpdateQueryBuilder<T> updateQueryBuilder = this.updateQueryBuilder.get(roleEnum);
-        if (selectQueryBuilder == null)
+        if (updateQueryBuilder == null)
             throw new QueryBuilderNotFoundException();
         return updateQueryBuilder.update(commands, clazz);
     }
@@ -70,6 +67,14 @@ public abstract class RestfulEntityManager<T> {
 
     private String convertIdToQuery(String id) {
         return "id:" + id;
+    }
+
+    public enum RoleEnum {
+        ROOT,
+        ADMIN,
+        USER,
+        APP,
+        PUBLIC
     }
 
 }
