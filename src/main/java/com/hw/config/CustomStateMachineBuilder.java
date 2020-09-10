@@ -288,12 +288,8 @@ public class CustomStateMachineBuilder {
             if (byId.isEmpty())
                 return true;
             BigDecimal price;
-            if (byId.get().getProductSkuList() != null && byId.get().getProductSkuList().size() != 0) {
-                List<AppProductSku> collect = byId.get().getProductSkuList().stream().filter(productSku -> new TreeSet(productSku.getAttributesSales()).equals(new TreeSet(command.getAttributesSales()))).collect(Collectors.toList());
-                price = collect.get(0).getPrice();
-            } else {
-                price = byId.get().getLowestPrice();
-            }
+            List<AppProductSku> collect = byId.get().getProductSkuList().stream().filter(productSku -> new TreeSet(productSku.getAttributesSales()).equals(new TreeSet(command.getAttributesSales()))).collect(Collectors.toList());
+            price = collect.get(0).getPrice();
             //if no option present then compare final price
             if (command.getSelectedOptions() == null || command.getSelectedOptions().size() == 0) {
                 return price.compareTo(command.getFinalPrice()) != 0;

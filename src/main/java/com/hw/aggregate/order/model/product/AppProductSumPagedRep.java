@@ -15,8 +15,5 @@ public class AppProductSumPagedRep {
         private Long id;
         private List<AppProductOption> selectedOptions;
         private List<AppProductSku> productSkuList;
-        private Integer storageOrder;
-        private Integer storageActual;
-        private BigDecimal lowestPrice;
     }
 }

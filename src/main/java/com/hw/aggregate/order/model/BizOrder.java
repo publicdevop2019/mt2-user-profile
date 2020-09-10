@@ -6,7 +6,7 @@ import com.hw.aggregate.order.exception.BizOrderAccessException;
 import com.hw.aggregate.order.exception.BizOrderNotExistException;
 import com.hw.aggregate.order.exception.BizOrderPaymentMismatchException;
 import com.hw.shared.Auditable;
-import com.hw.shared.PatchCommand;
+import com.hw.shared.sql.PatchCommand;
 import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

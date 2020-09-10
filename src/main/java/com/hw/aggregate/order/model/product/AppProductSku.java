@@ -12,9 +12,5 @@ import java.util.Set;
 @Data
 public class AppProductSku {
     private Set<String> attributesSales;
-    private Integer storageOrder;
-    private Long productId;
-    private Integer storageActual;
     private BigDecimal price;
-    private Integer sales;
 }
