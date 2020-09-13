@@ -29,7 +29,7 @@ public class ProductService {
     private String productUrl;
 
     @Value("${url.products.change.app}")
-    private String change;
+    private String changeUrl;
 
     @Autowired
     private ResourceServiceTokenHelper tokenHelper;
@@ -47,7 +47,7 @@ public class ProductService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> hashMapHttpEntity = new HttpEntity<>(headers);
-        tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + change + "/" + changeId, HttpMethod.DELETE, hashMapHttpEntity, String.class);
+        tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + changeUrl + "?" + HTTP_PARAM_QUERY + "=" + HTTP_HEADER_CHANGE_ID + ":" + changeId, HttpMethod.DELETE, hashMapHttpEntity, String.class);
     }
 
     public AppProductSumPagedRep getProductsInfo(List<BizOrderItem> customerOrderItemList) {

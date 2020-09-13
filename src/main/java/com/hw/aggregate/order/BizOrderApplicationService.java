@@ -12,6 +12,7 @@ import com.hw.config.CustomStateMachineBuilder;
 import com.hw.config.ProfileExistAndOwnerOnly;
 import com.hw.config.TransactionIdGenerator;
 import com.hw.shared.*;
+import com.hw.shared.sql.PatchCommand;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

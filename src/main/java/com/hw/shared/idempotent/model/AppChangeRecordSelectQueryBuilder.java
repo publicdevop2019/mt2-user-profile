@@ -11,11 +11,10 @@ import static com.hw.shared.idempotent.model.ChangeRecord.CHANGE_ID;
 import static com.hw.shared.idempotent.model.ChangeRecord.ENTITY_TYPE;
 
 @Component
-public class RootChangeRecordSelectQueryBuilder extends SelectQueryBuilder<ChangeRecord> {
-    RootChangeRecordSelectQueryBuilder() {
+public class AppChangeRecordSelectQueryBuilder extends SelectQueryBuilder<ChangeRecord> {
+    AppChangeRecordSelectQueryBuilder() {
         supportedWhereField.put(ENTITY_TYPE, new SelectFieldStringEqualClause<>(ENTITY_TYPE));
         supportedWhereField.put(CHANGE_ID, new SelectFieldStringEqualClause<>(CHANGE_ID));
-        allowEmptyClause = true;
     }
 
     @Autowired
