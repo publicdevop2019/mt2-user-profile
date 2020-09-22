@@ -1,16 +1,9 @@
 package com.hw.config;
 
-import com.hw.aggregate.address.exception.AddressAccessException;
-import com.hw.aggregate.address.exception.AddressNotExistException;
 import com.hw.aggregate.address.exception.DuplicateAddressException;
 import com.hw.aggregate.address.exception.MaxAddressCountException;
-import com.hw.aggregate.cart.exception.CartItemAccessException;
-import com.hw.aggregate.cart.exception.CartItemNotExistException;
 import com.hw.aggregate.cart.exception.MaxCartItemException;
 import com.hw.aggregate.order.exception.*;
-import com.hw.aggregate.profile.exception.ProfileAccessException;
-import com.hw.aggregate.profile.exception.ProfileAlreadyExistException;
-import com.hw.aggregate.profile.exception.ProfileNotExistException;
 import com.hw.shared.ErrorMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
@@ -31,14 +24,9 @@ import static com.hw.shared.AppConstant.HTTP_HEADER_ERROR_ID;
 public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(value = {
-            BizOrderNotExistException.class,
             BizOrderPaymentMismatchException.class,
             ProductInfoValidationException.class,
-            ProfileAlreadyExistException.class,
-            ProfileNotExistException.class,
-            CartItemNotExistException.class,
             MaxCartItemException.class,
-            AddressNotExistException.class,
             DuplicateAddressException.class,
             MaxAddressCountException.class,
             BizOrderPersistenceException.class
@@ -64,16 +52,4 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
         return handleExceptionInternal(ex, errorMessage, httpHeaders, HttpStatus.INTERNAL_SERVER_ERROR, request);
     }
 
-    @ExceptionHandler(value = {
-            BizOrderAccessException.class,
-            ProfileAccessException.class,
-            CartItemAccessException.class,
-            AddressAccessException.class,
-    })
-    protected ResponseEntity<Object> handle403Exception(RuntimeException ex, WebRequest request) {
-        ErrorMessage errorMessage = new ErrorMessage(ex);
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.set(HTTP_HEADER_ERROR_ID, errorMessage.getErrorId());
-        return handleExceptionInternal(ex, errorMessage, httpHeaders, HttpStatus.FORBIDDEN, request);
-    }
 }

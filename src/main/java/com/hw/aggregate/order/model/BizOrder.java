@@ -1,15 +1,19 @@
 package com.hw.aggregate.order.model;
 
 import com.hw.aggregate.order.BizOrderRepository;
-import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
-import com.hw.aggregate.order.exception.BizOrderAccessException;
-import com.hw.aggregate.order.exception.BizOrderNotExistException;
+import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
+import com.hw.aggregate.order.command.UserPlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.exception.BizOrderPaymentMismatchException;
+import com.hw.config.CustomStateMachineBuilder;
 import com.hw.shared.Auditable;
+import com.hw.shared.rest.IdBasedEntity;
+import com.hw.shared.rest.exception.EntityNotExistException;
 import com.hw.shared.sql.PatchCommand;
 import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.statemachine.StateMachine;
 import org.springframework.util.StringUtils;
 
 import javax.persistence.*;
@@ -21,22 +25,24 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.hw.config.AppConstant.BIZ_ORDER;
+import static com.hw.config.AppConstant.UPDATE_ADDRESS_CMD;
+import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
 import static com.hw.shared.AppConstant.PATCH_OP_TYPE_DIFF;
 import static com.hw.shared.AppConstant.PATCH_OP_TYPE_SUM;
 
 @Entity
-@Table(name = "OrderDetail")
+@Table(name = "biz_order")
 @Data
 @NoArgsConstructor
-public class BizOrder extends Auditable {
+@Slf4j
+public class BizOrder extends Auditable implements IdBasedEntity {
     /**
      * id setter is required to correctly work with BeanPropertyRowMapper for spring batch
      */
     @Id
     private Long id;
 
-    @Column(name = "fk_profile")
-    private Long profileId;
     /**
      * Address product all treat as embedded element instead of an entity
      */
@@ -50,7 +56,7 @@ public class BizOrder extends Auditable {
 
     @Column
     @ElementCollection
-    @CollectionTable(name = "order_product_snapshot", joinColumns = @JoinColumn(name = "order_id"))
+    @CollectionTable(name = "biz_order_product_snapshot", joinColumns = @JoinColumn(name = "order_id"))
     private List<BizOrderItem> writeOnlyProductList;
 
     @NotEmpty
@@ -65,9 +71,6 @@ public class BizOrder extends Auditable {
 
     private String paymentDate;
 
-    @Convert(converter = MapConverter.class)
-    private Map<BizOrderEvent, String> transactionHistory;
-
     @NotNull
     @Column
     private Boolean paid;
@@ -76,6 +79,7 @@ public class BizOrder extends Auditable {
     @Column(length = 25)
     @Convert(converter = BizOrderStatus.DBConverter.class)
     private BizOrderStatus orderState;
+    public static final String ENTITY_ORDER_ORDER_STATE = "orderState";
 
     @NotNull
     @Column(nullable = false)
@@ -84,16 +88,28 @@ public class BizOrder extends Auditable {
     @Version
     private Integer version;
 
+    public static BizOrder create(long id, UserCreateBizOrderCommand command, CustomStateMachineBuilder customStateMachineBuilder) {
+        log.debug("start of createNew");
+        BizOrder customerOrder = new BizOrder(id, command);
+        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
+        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
+        stateMachine.sendEvent(BizOrderEvent.PREPARE_NEW_ORDER);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
+        stateMachine.sendEvent(BizOrderEvent.NEW_ORDER);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
+        return customerOrder;
+    }
+
     public void updateModifiedByUserAt() {
         this.modifiedByUserAt = Date.from(Instant.now());
     }
 
-    public static BizOrder create(Long id, Long profileId, List<BizOrderItemCommand> productList, BizOrderAddressCmdRep address, String paymentType, BigDecimal paymentAmt) {
-        return new BizOrder(id, profileId, productList, address, paymentType, paymentAmt);
-    }
-
-    private BizOrder(Long id, Long profileId, List<BizOrderItemCommand> productList, BizOrderAddressCmdRep address, String paymentType, BigDecimal paymentAmt) {
-        List<BizOrderItem> collect2 = productList.stream().map(e -> {
+    private BizOrder(Long id, UserCreateBizOrderCommand command) {
+        List<BizOrderItem> collect2 = command.getProductList().stream().map(e -> {
             BizOrderItem customerOrderItem = new BizOrderItem();
             customerOrderItem.setFinalPrice(e.getFinalPrice());
             customerOrderItem.setProductId(e.getProductId());
@@ -117,22 +133,21 @@ public class BizOrder extends Auditable {
             return customerOrderItem;
         }).collect(Collectors.toList());
         this.readOnlyProductList = new ArrayList<>(collect2);
-        this.paymentAmt = paymentAmt;
+        this.paymentAmt = command.getPaymentAmt();
         validatePaymentAmount();
         this.id = id;
-        this.profileId = profileId;
         this.writeOnlyProductList = collect2;
         BizOrderAddress customerOrderAddress = new BizOrderAddress();
-        customerOrderAddress.setOrderAddressCity(address.getCity());
-        customerOrderAddress.setOrderAddressCountry(address.getCountry());
-        customerOrderAddress.setOrderAddressFullName(address.getFullName());
-        customerOrderAddress.setOrderAddressLine1(address.getLine1());
-        customerOrderAddress.setOrderAddressLine2(address.getLine2());
-        customerOrderAddress.setOrderAddressPhoneNumber(address.getPhoneNumber());
-        customerOrderAddress.setOrderAddressProvince(address.getProvince());
-        customerOrderAddress.setOrderAddressPostalCode(address.getPostalCode());
+        customerOrderAddress.setOrderAddressCity(command.getAddress().getCity());
+        customerOrderAddress.setOrderAddressCountry(command.getAddress().getCountry());
+        customerOrderAddress.setOrderAddressFullName(command.getAddress().getFullName());
+        customerOrderAddress.setOrderAddressLine1(command.getAddress().getLine1());
+        customerOrderAddress.setOrderAddressLine2(command.getAddress().getLine2());
+        customerOrderAddress.setOrderAddressPhoneNumber(command.getAddress().getPhoneNumber());
+        customerOrderAddress.setOrderAddressProvince(command.getAddress().getProvince());
+        customerOrderAddress.setOrderAddressPostalCode(command.getAddress().getPostalCode());
         this.address = customerOrderAddress;
-        this.paymentType = paymentType;
+        this.paymentType = command.getPaymentType();
         this.modifiedByUserAt = Date.from(Instant.now());
         this.orderState = BizOrderStatus.DRAFT;
         this.paid = false;
@@ -207,26 +222,14 @@ public class BizOrder extends Auditable {
             throw new BizOrderPaymentMismatchException();
     }
 
-    public static BizOrder get(Long profileId, Long orderId, BizOrderRepository orderRepository) {
-        Optional<BizOrder> byId = orderRepository.findById(orderId);
-        checkAccess(byId, profileId);
-        return byId.get();
-    }
-
-    public static BizOrder getWOptLock(Long profileId, Long orderId, BizOrderRepository orderRepository) {
-        Optional<BizOrder> byId = orderRepository.findByIdOptLock(orderId);
-        checkAccess(byId, profileId);
-        return byId.get();
-    }
-
-    private static void checkAccess(Optional<BizOrder> byId, Long profileId) {
+    public static BizOrder getWOptLock(Long id, String userId, BizOrderRepository orderRepository) {
+        Optional<BizOrder> byId = orderRepository.findByIdOptLock(id, userId);
         if (byId.isEmpty())
-            throw new BizOrderNotExistException();
-        if (!byId.get().getProfileId().equals(profileId))
-            throw new BizOrderAccessException();
+            throw new EntityNotExistException();
+        return byId.get();
     }
 
-    public void updateAddress(PlaceBizOrderAgainCommand command) {
+    public void updateAddress(UserPlaceBizOrderAgainCommand command) {
         if (command.getAddress() != null
                 && StringUtils.hasText(command.getAddress().getCountry())
                 && StringUtils.hasText(command.getAddress().getProvince())
@@ -246,6 +249,47 @@ public class BizOrder extends Auditable {
             address.setOrderAddressPhoneNumber(command.getAddress().getPhoneNumber());
         }
         updateModifiedByUserAt();
+    }
+
+    public void confirmPayment(CustomStateMachineBuilder customStateMachineBuilder) {
+        log.debug("start of confirmPayment {}", id);
+        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(this.getOrderState());
+        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, this);
+        stateMachine.sendEvent(BizOrderEvent.CONFIRM_PAYMENT);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
+
+    }
+
+    public void submit(CustomStateMachineBuilder customStateMachineBuilder) {
+        log.debug("start of confirmOrder {}", id);
+        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(this.getOrderState());
+        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, this);
+        stateMachine.sendEvent(BizOrderEvent.PREPARE_CONFIRM_ORDER);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
+        stateMachine.sendEvent(BizOrderEvent.CONFIRM_ORDER);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
+    }
+
+    public void reserve(CustomStateMachineBuilder customStateMachineBuilder, UserPlaceBizOrderAgainCommand command) {
+        log.info("reserve order {} again", id);
+        log.info("order status {}", this.getOrderState());
+        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(this.getOrderState());
+        stateMachine.getExtendedState().getVariables().put(UPDATE_ADDRESS_CMD, command);
+        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, this);
+        stateMachine.sendEvent(BizOrderEvent.PREPARE_RESERVE);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
+        stateMachine.sendEvent(BizOrderEvent.RESERVE);
+        if (stateMachine.hasStateMachineError()) {
+            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
+        }
     }
 }
 

@@ -1,74 +1,85 @@
 package com.hw.aggregate.order;
 
-import com.hw.aggregate.order.command.CreateBizOrderCommand;
-import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
+import com.hw.aggregate.address.model.UserThreadLocal;
+import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
+import com.hw.aggregate.order.command.UserPlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation;
-import com.hw.aggregate.order.representation.BizOrderSummaryAdminRepresentation;
-import com.hw.aggregate.order.representation.BizOrderSummaryCustomerRepresentation;
 import com.hw.shared.ServiceUtility;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import static com.hw.shared.AppConstant.*;
 
 @Slf4j
 @RestController
-@RequestMapping(produces = "application/json")
+@RequestMapping(produces = "application/json", path = "orders")
 public class BizOrderController {
 
     @Autowired
-    private BizOrderApplicationService orderService;
+    private AdminBizOrderApplicationService adminBizOrderApplicationService;
+    @Autowired
+    private UserBizOrderApplicationService userBizOrderApplicationService;
 
-    @GetMapping("orders")
-    public ResponseEntity<List<BizOrderSummaryAdminRepresentation.BizOrderAdminCardRepresentation>> getAllOrdersForAdmin() {
-        return ResponseEntity.ok(orderService.getAllOrdersForAdmin().getAdminRepresentations());
+    @GetMapping("admin")
+    public ResponseEntity<?> readForAdminByQuery(
+            @RequestParam(value = HTTP_PARAM_QUERY, required = false) String queryParam,
+            @RequestParam(value = HTTP_PARAM_PAGE, required = false) String pageParam,
+            @RequestParam(value = HTTP_PARAM_SKIP_COUNT, required = false) String skipCount
+    ) {
+        return ResponseEntity.ok(adminBizOrderApplicationService.readByQuery(queryParam, pageParam, skipCount));
     }
 
-    @GetMapping("profiles/{profileId}/orders")
-    public ResponseEntity<List<BizOrderSummaryCustomerRepresentation.BizOrderCustomerBriefRepresentation>> getAllOrdersForCustomer(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId) {
-        return ResponseEntity.ok(orderService.getAllOrders(ServiceUtility.getUserId(authorization), profileId).getOrderList());
+    @GetMapping("admin/{id}")
+    public ResponseEntity<?> readForAdminById(@PathVariable(name = "id") Long id) {
+        return ResponseEntity.ok(adminBizOrderApplicationService.readById(id));
     }
 
-    @PostMapping("profiles/{profileId}/orders/{orderId}")
-    public ResponseEntity<Void> reserveOrder(@RequestHeader("authorization") String authorization,
-                                             @PathVariable(name = "profileId") Long profileId,
-                                             @PathVariable(name = "orderId") Long orderId,
-                                             @RequestBody CreateBizOrderCommand newOrder) {
-        return ResponseEntity.ok().header("Location", orderService.createNew(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder).getPaymentLink()).build();
+    @GetMapping("user")
+    public ResponseEntity<?> readForUserByQuery(
+            @RequestHeader("authorization") String authorization,
+            @RequestParam(value = HTTP_PARAM_QUERY, required = false) String queryParam,
+            @RequestParam(value = HTTP_PARAM_PAGE, required = false) String pageParam,
+            @RequestParam(value = HTTP_PARAM_SKIP_COUNT, required = false) String skipCount
+    ) {
+        UserThreadLocal.unset();
+        UserThreadLocal.set(ServiceUtility.getUserId(authorization));
+        return ResponseEntity.ok(userBizOrderApplicationService.readByQuery(queryParam, pageParam, skipCount));
     }
 
-    @GetMapping("profiles/{profileId}/orders/{orderId}")
-    public ResponseEntity<com.hw.aggregate.order.representation.BizOrderCustomerRepresentation> getOrderById(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
-        return ResponseEntity.ok(orderService.getOrderForCustomer(ServiceUtility.getUserId(authorization), profileId, orderId));
+    @GetMapping("user/{id}")
+    public ResponseEntity<?> readForUserById(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id) {
+        UserThreadLocal.unset();
+        UserThreadLocal.set(ServiceUtility.getUserId(authorization));
+        return ResponseEntity.ok(userBizOrderApplicationService.readById(id));
     }
 
-    @GetMapping("profiles/{profileId}/orders/id")
-    public ResponseEntity<Void> getOrderId() {
-        return ResponseEntity.ok().header("Location", orderService.getOrderId()).build();
+    @PostMapping("user")
+    public ResponseEntity<Void> createForUser(
+            @RequestHeader("authorization") String authorization,
+            @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId,
+            @RequestBody UserCreateBizOrderCommand command) {
+        UserThreadLocal.unset();
+        UserThreadLocal.set(ServiceUtility.getUserId(authorization));
+        return ResponseEntity.ok().header("Location", userBizOrderApplicationService.createNew(command, changeId).getPaymentLink()).build();
     }
 
-    @GetMapping("profiles/{profileId}/orders/{orderId}/confirm")
-    public ResponseEntity<BizOrderConfirmStatusRepresentation> confirmOrderPaymentStatus(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
-        return ResponseEntity.ok(orderService.confirmPayment(ServiceUtility.getUserId(authorization), profileId, orderId));
+    @PutMapping("user/{id}/confirm")
+    public ResponseEntity<BizOrderConfirmStatusRepresentation> confirmPaymentForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id) {
+        return ResponseEntity.ok(userBizOrderApplicationService.confirmPayment(id, ServiceUtility.getUserId(authorization)));
     }
 
-    @GetMapping("profiles/{profileId}/orders/scheduler/resubmit")
-    public ResponseEntity<BizOrderConfirmStatusRepresentation> manualResubmit() {
-        log.info("manually resubmit order");
-        orderService.resubmitOrder();
-        return ResponseEntity.ok().build();
+    @PutMapping("user/{id}/reserve")
+    public ResponseEntity<Void> reserveForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestBody UserPlaceBizOrderAgainCommand command) {
+        return ResponseEntity.ok().header("Location", userBizOrderApplicationService.reserve(id, ServiceUtility.getUserId(authorization), command).getPaymentLink()).build();
     }
 
-    @PutMapping("profiles/{profileId}/orders/{orderId}/replace")
-    public ResponseEntity<Void> reserveAgain(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId, @RequestBody PlaceBizOrderAgainCommand newOrder) {
-        return ResponseEntity.ok().header("Location", orderService.reserveAgain(ServiceUtility.getUserId(authorization), profileId, orderId, newOrder).getPaymentLink()).build();
-    }
-
-    @DeleteMapping("profiles/{profileId}/orders/{orderId}")
-    public ResponseEntity<Void> deleteOrder(@RequestHeader("authorization") String authorization, @PathVariable(name = "profileId") Long profileId, @PathVariable(name = "orderId") Long orderId) {
-        orderService.deleteOrder(ServiceUtility.getUserId(authorization), profileId, orderId);
+    @DeleteMapping("user/{id}")
+    public ResponseEntity<Void> deleteForUserById(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId) {
+        UserThreadLocal.unset();
+        UserThreadLocal.set(ServiceUtility.getUserId(authorization));
+        userBizOrderApplicationService.deleteById(id, changeId);
         return ResponseEntity.ok().build();
     }
 }

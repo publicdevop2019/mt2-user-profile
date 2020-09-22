@@ -1,14 +1,20 @@
 package com.hw.config;
 
-import com.hw.aggregate.cart.CartApplicationService;
+import com.hw.aggregate.cart.UserBizCartApplicationService;
 import com.hw.aggregate.order.*;
-import com.hw.aggregate.order.command.PlaceBizOrderAgainCommand;
+import com.hw.aggregate.order.command.UserPlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.exception.*;
 import com.hw.aggregate.order.model.*;
 import com.hw.aggregate.order.model.product.AppProductOption;
 import com.hw.aggregate.order.model.product.AppProductSku;
 import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
+import com.hw.aggregate.task.AppBizTaskApplicationService;
+import com.hw.aggregate.task.command.AppCreateBizTaskCommand;
+import com.hw.aggregate.task.command.AppUpdateBizTaskCommand;
+import com.hw.aggregate.task.model.BizTaskStatus;
+import com.hw.aggregate.task.representation.AppBizTaskRep;
 import com.hw.shared.IdGenerator;
+import com.hw.shared.rest.CreatedEntityRep;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -48,16 +54,16 @@ public class CustomStateMachineBuilder {
     private MessengerService messengerService;
 
     @Autowired
-    private BizOrderApplicationService orderApplicationService;
+    private UserBizOrderApplicationService applicationService;
 
     @Autowired
-    private CartApplicationService cartApplicationService;
+    private UserBizCartApplicationService userBizCartApplicationService;
 
     @Autowired
     private BizOrderRepository orderRepository;
 
     @Autowired
-    private TransactionalTaskRepository taskRepository;
+    private AppBizTaskApplicationService appBizTaskApplicationService;
 
     @Autowired
     @Qualifier("CustomPool")
@@ -160,9 +166,12 @@ public class CustomStateMachineBuilder {
             try {
                 String txId = TransactionIdGenerator.getTxId();
                 BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
-                TransactionalTask transactionalTask = new TransactionalTask(idGenerator.getId(), event, TaskStatus.STARTED, txId, customerOrder.getId());
-                context.getExtendedState().getVariables().put(TX_TASK, transactionalTask);
-                taskRepository.saveAndFlush(transactionalTask);
+                AppCreateBizTaskCommand appCreateBizTaskCommand = new AppCreateBizTaskCommand();
+                appCreateBizTaskCommand.setReferenceId(customerOrder.getId());
+                appCreateBizTaskCommand.setTaskName(event);
+                appCreateBizTaskCommand.setTransactionId(txId);
+                CreatedEntityRep createdEntityRep = appBizTaskApplicationService.create(appCreateBizTaskCommand, UUID.randomUUID().toString());
+                context.getExtendedState().getVariables().put(TX_TASK, createdEntityRep);
             } catch (Exception ex) {
                 log.error("error during data persist", ex);
                 context.getStateMachine().setStateMachineError(new TaskPersistenceException());
@@ -178,14 +187,7 @@ public class CustomStateMachineBuilder {
         return context -> CompletableFuture.runAsync(() -> {
                     log.info("start of autoConfirm");
                     BizOrder customerOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
-                    try {
-                        orderApplicationService.confirmOrder(customerOrder.getCreatedBy(), customerOrder.getProfileId(), customerOrder.getId());
-                    } catch (Exception ex) {
-                        // catch thrown ex and set to upper level state machine,
-                        // otherwise will return incorrect status code
-                        log.error("error during auto confirm", ex);
-                        context.getStateMachine().setStateMachineError(ex);
-                    }
+                    applicationService.submitOrder(customerOrder.getId(), customerOrder.getCreatedBy());
                 }
                 , customExecutor
         );
@@ -194,7 +196,8 @@ public class CustomStateMachineBuilder {
     private Guard<BizOrderStatus, BizOrderEvent> createNewOrderTask() {
         return context -> {
             BizOrder bizOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
-            TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
+            CreatedEntityRep transactionalTask = context.getExtendedState().get(TX_TASK, CreatedEntityRep.class);
+            AppBizTaskRep appBizTaskRep = appBizTaskApplicationService.readById(transactionalTask.getId());
             log.info("start of prepareNewOrder of {}", bizOrder.getId());
             // validate order product info
             CompletableFuture<AppProductSumPagedRep> validateResultFuture = CompletableFuture.supplyAsync(() ->
@@ -203,12 +206,12 @@ public class CustomStateMachineBuilder {
 
             // generate payment QR link
             CompletableFuture<String> paymentQRLinkFuture = CompletableFuture.supplyAsync(() ->
-                    paymentService.generatePaymentLink(bizOrder.getId().toString(), transactionalTask.getTransactionId()), customExecutor
+                    paymentService.generatePaymentLink(bizOrder.getId().toString(), appBizTaskRep.getTransactionId()), customExecutor
             );
 
             // decrease order storage
             CompletableFuture<Void> decreaseOrderStorageFuture = CompletableFuture.runAsync(() ->
-                    productService.updateProductStorage(bizOrder.getReserveOrderPatchCommands(), transactionalTask.getTransactionId()), customExecutor
+                    productService.updateProductStorage(bizOrder.getReserveOrderPatchCommands(), appBizTaskRep.getTransactionId()), customExecutor
             );
             CompletableFuture<Void> allDoneFuture = CompletableFuture.allOf(validateResultFuture, paymentQRLinkFuture, decreaseOrderStorageFuture);
             try {
@@ -238,10 +241,6 @@ public class CustomStateMachineBuilder {
             // manually set order state so it can be update to database
             bizOrder.setOrderState(context.getTarget().getId());
 
-            bizOrder.setTransactionHistory(new HashMap<>());
-
-            bizOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
-            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
             // start local transaction, manually rollback since no ex will be thrown
             // not set @Transactional at service level also prevents long running transaction
             // above is applicable only to create new bizOrder
@@ -250,7 +249,7 @@ public class CustomStateMachineBuilder {
                     .execute(transactionStatus -> {
                         //clear user cart
                         try {
-                            cartApplicationService.clearCartItem(bizOrder.getProfileId());
+                            userBizCartApplicationService.deleteByQuery(null, UUID.randomUUID().toString());
                         } catch (Exception ex) {
                             log.error("error during clear cart", ex);
                             context.getStateMachine().setStateMachineError(new CartClearException());
@@ -268,7 +267,9 @@ public class CustomStateMachineBuilder {
                         }
                         // save task
                         try {
-                            taskRepository.saveAndFlush(transactionalTask);
+                            AppUpdateBizTaskCommand appUpdateBizTaskCommand = new AppUpdateBizTaskCommand();
+                            appUpdateBizTaskCommand.setTaskStatus(BizTaskStatus.COMPLETED);
+                            appBizTaskApplicationService.replaceById(transactionalTask.getId(), appUpdateBizTaskCommand, UUID.randomUUID().toString());
                         } catch (Exception ex) {
                             log.error("error during data persist", ex);
                             context.getStateMachine().setStateMachineError(new TaskPersistenceException());
@@ -364,18 +365,18 @@ public class CustomStateMachineBuilder {
         return context -> {
             log.info("start of decreaseOrderStorage");
             BizOrder bizOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
-            TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
+            CreatedEntityRep createdTask = context.getExtendedState().get(TX_TASK, CreatedEntityRep.class);
+            AppBizTaskRep appBizTaskRep = appBizTaskApplicationService.readById(createdTask.getId());
+
             try {
-                productService.updateProductStorage(bizOrder.getReserveOrderPatchCommands(), transactionalTask.getTransactionId());
+                productService.updateProductStorage(bizOrder.getReserveOrderPatchCommands(), appBizTaskRep.getTransactionId());
             } catch (Exception ex) {
                 log.error("error during decrease order storage");
                 context.getStateMachine().setStateMachineError(new BizOrderStorageDecreaseException());
                 return false;
             }
-            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
             bizOrder.setOrderState(context.getTarget().getId());
-            bizOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
-            bizOrder.updateAddress(context.getExtendedState().get(UPDATE_ADDRESS_CMD, PlaceBizOrderAgainCommand.class));
+            bizOrder.updateAddress(context.getExtendedState().get(UPDATE_ADDRESS_CMD, UserPlaceBizOrderAgainCommand.class));
             try {
                 orderRepository.saveAndFlush(bizOrder);
             } catch (Exception ex) {
@@ -385,7 +386,9 @@ public class CustomStateMachineBuilder {
             }
             // save task
             try {
-                taskRepository.saveAndFlush(transactionalTask);
+                AppUpdateBizTaskCommand appUpdateBizTaskCommand = new AppUpdateBizTaskCommand();
+                appUpdateBizTaskCommand.setTaskStatus(BizTaskStatus.COMPLETED);
+                appBizTaskApplicationService.replaceById(createdTask.getId(), appUpdateBizTaskCommand, UUID.randomUUID().toString());
             } catch (Exception ex) {
                 log.error("error during data persist", ex);
                 context.getStateMachine().setStateMachineError(new TaskPersistenceException());
@@ -405,18 +408,17 @@ public class CustomStateMachineBuilder {
     private Guard<BizOrderStatus, BizOrderEvent> confirmOrderTask() {
         return context -> {
             BizOrder bizOrder = context.getExtendedState().get(BIZ_ORDER, BizOrder.class);
-            TransactionalTask transactionalTask = context.getExtendedState().get(TX_TASK, TransactionalTask.class);
+            CreatedEntityRep createdTask = context.getExtendedState().get(TX_TASK, CreatedEntityRep.class);
+            AppBizTaskRep appBizTaskRep = appBizTaskApplicationService.readById(createdTask.getId());
             log.info("start of decreaseActualStorage for {}", bizOrder.getId());
             try {
-                productService.updateProductStorage(bizOrder.getConfirmOrderPatchCommands(), transactionalTask.getTransactionId());
+                productService.updateProductStorage(bizOrder.getConfirmOrderPatchCommands(), appBizTaskRep.getTransactionId());
             } catch (Exception ex) {
                 log.error("error during decreaseActualStorage", ex);
                 context.getStateMachine().setStateMachineError(new ActualStorageDecreaseException());
                 return false;
             }
-            transactionalTask.setTaskStatus(TaskStatus.COMPLETED);
             bizOrder.setOrderState(context.getTarget().getId());
-            bizOrder.getTransactionHistory().put(context.getEvent(), transactionalTask.getTransactionId());
 
             try {
                 orderRepository.saveAndFlush(bizOrder);
@@ -427,7 +429,9 @@ public class CustomStateMachineBuilder {
             }
             // save task
             try {
-                taskRepository.saveAndFlush(transactionalTask);
+                AppUpdateBizTaskCommand appUpdateBizTaskCommand = new AppUpdateBizTaskCommand();
+                appUpdateBizTaskCommand.setTaskStatus(BizTaskStatus.COMPLETED);
+                appBizTaskApplicationService.replaceById(createdTask.getId(), appUpdateBizTaskCommand, UUID.randomUUID().toString());
             } catch (Exception ex) {
                 log.error("error during data persist", ex);
                 context.getStateMachine().setStateMachineError(new TaskPersistenceException());

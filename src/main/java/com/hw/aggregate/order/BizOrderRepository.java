@@ -13,11 +13,10 @@ import java.util.Optional;
 
 @Repository
 public interface BizOrderRepository extends JpaRepository<BizOrder, Long> {
-    List<BizOrder> findByProfileId(Long profileId);
 
     @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
-    @Query("SELECT p FROM #{#entityName} as p WHERE p.id = ?1")
-    Optional<BizOrder> findByIdOptLock(Long id);
+    @Query("SELECT p FROM #{#entityName} as p WHERE p.id = ?1 AND p.createdBy = ?2 AND (p.deleted = false OR p.deleted = null)")
+    Optional<BizOrder> findByIdOptLock(Long id,String userId);
 
     @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
     @Query("SELECT p FROM #{#entityName} as p WHERE p.modifiedByUserAt < ?1 AND p.orderState = 'NOT_PAID_RESERVED'")
