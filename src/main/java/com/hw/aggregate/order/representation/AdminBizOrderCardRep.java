@@ -6,6 +6,7 @@ import com.hw.aggregate.order.model.BizOrderStatus;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.Date;
 import java.util.List;
 
 @Data
@@ -14,6 +15,8 @@ public class AdminBizOrderCardRep {
     private BigDecimal paymentAmt;
     private BizOrderStatus orderState;
     private List<BizOrderItem> productList;
+    private Date createdAt;
+    private String createdBy;
 
     public AdminBizOrderCardRep(BizOrder bizOrder) {
 
@@ -21,5 +24,7 @@ public class AdminBizOrderCardRep {
         this.productList = bizOrder.getReadOnlyProductList();
         this.paymentAmt = bizOrder.getPaymentAmt();
         this.orderState = bizOrder.getOrderState();
+        this.createdAt = bizOrder.getCreatedAt();
+        this.createdBy = bizOrder.getCreatedBy();
     }
 }
