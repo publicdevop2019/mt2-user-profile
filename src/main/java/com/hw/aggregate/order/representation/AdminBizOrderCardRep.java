@@ -15,7 +15,7 @@ public class AdminBizOrderCardRep {
     private BigDecimal paymentAmt;
     private BizOrderStatus orderState;
     private List<BizOrderItem> productList;
-    private Date createdAt;
+    private long createdAt;
     private String createdBy;
 
     public AdminBizOrderCardRep(BizOrder bizOrder) {
@@ -24,7 +24,7 @@ public class AdminBizOrderCardRep {
         this.productList = bizOrder.getReadOnlyProductList();
         this.paymentAmt = bizOrder.getPaymentAmt();
         this.orderState = bizOrder.getOrderState();
-        this.createdAt = bizOrder.getCreatedAt();
+        this.createdAt = bizOrder.getCreatedAt().getTime();
         this.createdBy = bizOrder.getCreatedBy();
     }
 }

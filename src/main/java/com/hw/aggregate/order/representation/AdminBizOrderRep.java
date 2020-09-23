@@ -19,11 +19,11 @@ public class AdminBizOrderRep {
     private String paymentDate;
     private Boolean paid;
     private BizOrderStatus orderState;
-    private Date modifiedByUserAt;
+    private long modifiedByUserAt;
     private String createdBy;
-    private Date createdAt;
+    private long createdAt;
     private String modifiedBy;
-    private Date modifiedAt;
+    private long modifiedAt;
 
     public AdminBizOrderRep(BizOrder bizOrder) {
         this.id = bizOrder.getId();
@@ -35,10 +35,10 @@ public class AdminBizOrderRep {
         this.paymentDate = bizOrder.getPaymentDate();
         this.paid = bizOrder.getPaid();
         this.orderState = bizOrder.getOrderState();
-        this.modifiedByUserAt = bizOrder.getModifiedByUserAt();
+        this.modifiedByUserAt = bizOrder.getModifiedByUserAt().getTime();
         this.createdBy = bizOrder.getCreatedBy();
-        this.createdAt = bizOrder.getCreatedAt();
+        this.createdAt = bizOrder.getCreatedAt().getTime();
         this.modifiedBy = bizOrder.getModifiedBy();
-        this.modifiedAt = bizOrder.getModifiedAt();
+        this.modifiedAt = bizOrder.getModifiedAt().getTime();
     }
 }

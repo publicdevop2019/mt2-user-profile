@@ -20,7 +20,7 @@ public class AdminBizAddressCardRep {
     private String province;
 
     private String country;
-    private Date createdAt;
+    private long createdAt;
 
     public AdminBizAddressCardRep(BizAddress bizAddress) {
         this.id = bizAddress.getId();
@@ -30,7 +30,7 @@ public class AdminBizAddressCardRep {
         this.city = bizAddress.getCity();
         this.province = bizAddress.getProvince();
         this.country = bizAddress.getCountry();
-        this.createdAt = bizAddress.getCreatedAt();
+        this.createdAt = bizAddress.getCreatedAt().getTime();
     }
 
 }

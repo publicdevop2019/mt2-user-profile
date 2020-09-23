@@ -16,9 +16,9 @@ public class AdminBizTaskCardRep {
     private String rollbackReason;
     private Integer version;
     private String createdBy;
-    private Date createdAt;
+    private long createdAt;
     private String modifiedBy;
-    private Date modifiedAt;
+    private long modifiedAt;
 
     public AdminBizTaskCardRep(BizTask bizTask) {
 
@@ -30,8 +30,8 @@ public class AdminBizTaskCardRep {
         this.referenceId = bizTask.getReferenceId();
         this.version = bizTask.getVersion();
         this.createdBy = bizTask.getCreatedBy();
-        this.createdAt = bizTask.getCreatedAt();
+        this.createdAt = bizTask.getCreatedAt().getTime();
         this.modifiedBy = bizTask.getModifiedBy();
-        this.modifiedAt = bizTask.getModifiedAt();
+        this.modifiedAt = bizTask.getModifiedAt().getTime();
     }
 }

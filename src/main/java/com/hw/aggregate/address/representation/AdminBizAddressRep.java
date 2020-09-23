@@ -25,9 +25,9 @@ public class AdminBizAddressRep {
 
     private String country;
     private String createdBy;
-    private Date createdAt;
+    private long createdAt;
     private String modifiedBy;
-    private Date modifiedAt;
+    private long modifiedAt;
 
     public AdminBizAddressRep(BizAddress bizAddress) {
         this.id = bizAddress.getId();
@@ -39,9 +39,9 @@ public class AdminBizAddressRep {
         this.city = bizAddress.getCity();
         this.province = bizAddress.getProvince();
         this.country = bizAddress.getCountry();
-        this.modifiedAt = bizAddress.getModifiedAt();
+        this.modifiedAt = bizAddress.getModifiedAt().getTime();
         this.modifiedBy = bizAddress.getModifiedBy();
-        this.createdAt = bizAddress.getCreatedAt();
+        this.createdAt = bizAddress.getCreatedAt().getTime();
         this.createdBy = bizAddress.getCreatedBy();
     }
 }
