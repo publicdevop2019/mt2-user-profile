@@ -1,10 +1,10 @@
 package com.hw.aggregate.order;
 
-import com.hw.shared.UserThreadLocal;
+import com.hw.aggregate.address.command.UserUpdateBizAddressCommand;
 import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
-import com.hw.aggregate.order.command.UserPlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation;
 import com.hw.shared.ServiceUtility;
+import com.hw.shared.UserThreadLocal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -65,14 +65,33 @@ public class BizOrderController {
         return ResponseEntity.ok().header("Location", userBizOrderApplicationService.createNew(command, changeId).getPaymentLink()).build();
     }
 
+    @PutMapping("user/{id}")
+    public ResponseEntity<Void> confirmPaymentForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId,
+                                                      @RequestBody UserUpdateBizAddressCommand command) {
+        UserThreadLocal.unset();
+        UserThreadLocal.set(ServiceUtility.getUserId(authorization));
+        userBizOrderApplicationService.replaceById(id, command, changeId);
+        return ResponseEntity.ok().build();
+    }
+
     @PutMapping("user/{id}/confirm")
-    public ResponseEntity<BizOrderConfirmStatusRepresentation> confirmPaymentForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id) {
-        return ResponseEntity.ok(userBizOrderApplicationService.confirmPayment(id, ServiceUtility.getUserId(authorization)));
+    public ResponseEntity<BizOrderConfirmStatusRepresentation> confirmPaymentForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId) {
+        return ResponseEntity.ok(userBizOrderApplicationService.confirmPayment(id, ServiceUtility.getUserId(authorization), changeId));
     }
 
     @PutMapping("user/{id}/reserve")
-    public ResponseEntity<Void> reserveForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestBody UserPlaceBizOrderAgainCommand command) {
-        return ResponseEntity.ok().header("Location", userBizOrderApplicationService.reserve(id, ServiceUtility.getUserId(authorization), command).getPaymentLink()).build();
+    public ResponseEntity<Void> reserveForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId) {
+        UserThreadLocal.unset();
+        UserThreadLocal.set(ServiceUtility.getUserId(authorization));
+        return ResponseEntity.ok().header("Location", userBizOrderApplicationService.reserve(id, ServiceUtility.getUserId(authorization), changeId).getPaymentLink()).build();
+    }
+
+    @GetMapping("user/{id}/validate")
+    public ResponseEntity<Void> validateForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id) {
+        UserThreadLocal.unset();
+        UserThreadLocal.set(ServiceUtility.getUserId(authorization));
+        userBizOrderApplicationService.validate(id, ServiceUtility.getUserId(authorization));
+        return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("user/{id}")

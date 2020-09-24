@@ -33,40 +33,40 @@ public class ProductServiceTest {
     @Mock
     ObjectMapper mock3;
 
-    @Test
-    public void decreaseOrderStorage_json_ex() throws JsonProcessingException {
-        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
-        JsonProcessingException mock = Mockito.mock(JsonProcessingException.class);
-        Mockito.doReturn(resp).when(this.mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
-        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        productService.updateProductStorage(new ArrayList<>(), rStr());
-        Mockito.verify(this.mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
-    }
-
-    @Test
-    public void decreaseOrderStorage() throws JsonProcessingException {
-        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
-        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
-        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        productService.updateProductStorage(new ArrayList<>(), rStr());
-        Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
-    }
-
-    @Test
-    public void rollbackChange() {
-        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
-        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
-        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        productService.rollbackTransaction(rStr());
-        Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
-    }
-
-    @Test(expected = ProductInfoValidationException.class)
-    public void validateProductInfo() {
-        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
-        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
-        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
-        productService.getProductsInfo(new ArrayList<>());
-    }
+//    @Test
+//    public void decreaseOrderStorage_json_ex() throws JsonProcessingException {
+//        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
+//        JsonProcessingException mock = Mockito.mock(JsonProcessingException.class);
+//        Mockito.doReturn(resp).when(this.mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
+//        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
+//        productService.updateProductStorage(new ArrayList<>(), rStr());
+//        Mockito.verify(this.mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
+//    }
+//
+//    @Test
+//    public void decreaseOrderStorage() throws JsonProcessingException {
+//        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
+//        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
+//        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
+//        productService.updateProductStorage(new ArrayList<>(), rStr());
+//        Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
+//    }
+//
+//    @Test
+//    public void rollbackChange() {
+//        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
+//        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
+//        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
+//        productService.rollbackTransaction(rStr());
+//        Mockito.verify(mock, Mockito.times(1)).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
+//    }
+//
+//    @Test(expected = ProductInfoValidationException.class)
+//    public void validateProductInfo() {
+//        ResponseEntity resp = Mockito.mock(ResponseEntity.class);
+//        Mockito.doReturn(resp).when(mock).exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(Class.class));
+//        Mockito.doReturn("dummy").when(mock2).getProxyHomePageUrl();
+//        productService.getProductsInfo(new ArrayList<>());
+//    }
 
 }

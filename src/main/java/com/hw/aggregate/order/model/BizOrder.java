@@ -1,11 +1,15 @@
 package com.hw.aggregate.order.model;
 
 import com.hw.aggregate.order.BizOrderRepository;
+import com.hw.aggregate.order.SagaOrchestratorService;
 import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
 import com.hw.aggregate.order.command.UserPlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.exception.BizOrderPaymentMismatchException;
-import com.hw.config.CustomStateMachineBuilder;
+import com.hw.aggregate.order.model.product.AppProductOption;
+import com.hw.aggregate.order.model.product.AppProductSku;
+import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
 import com.hw.shared.Auditable;
+import com.hw.shared.UserThreadLocal;
 import com.hw.shared.rest.IdBasedEntity;
 import com.hw.shared.rest.exception.EntityNotExistException;
 import com.hw.shared.sql.PatchCommand;
@@ -13,7 +17,6 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.statemachine.StateMachine;
 import org.springframework.util.StringUtils;
 
 import javax.persistence.*;
@@ -24,10 +27,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static com.hw.config.AppConstant.BIZ_ORDER;
-import static com.hw.config.AppConstant.UPDATE_ADDRESS_CMD;
-import static com.hw.config.CustomStateMachineEventListener.ERROR_CLASS;
 import static com.hw.shared.AppConstant.PATCH_OP_TYPE_DIFF;
 import static com.hw.shared.AppConstant.PATCH_OP_TYPE_SUM;
 
@@ -88,19 +89,22 @@ public class BizOrder extends Auditable implements IdBasedEntity {
     @Version
     private Integer version;
 
-    public static BizOrder create(long id, UserCreateBizOrderCommand command, CustomStateMachineBuilder customStateMachineBuilder) {
+    public static BizOrder create(long id, UserCreateBizOrderCommand command, SagaOrchestratorService sagaOrchestratorService, String changeId) {
         log.debug("start of createNew");
         BizOrder customerOrder = new BizOrder(id, command);
-        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(customerOrder.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, customerOrder);
-        stateMachine.sendEvent(BizOrderEvent.PREPARE_NEW_ORDER);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
-        stateMachine.sendEvent(BizOrderEvent.NEW_ORDER);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
+        SagaOrchestratorService.CreateBizStateMachineCommand createBizStateMachineCommand = new SagaOrchestratorService.CreateBizStateMachineCommand();
+        createBizStateMachineCommand.setOrderId(id);
+        createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.NEW_ORDER);
+        createBizStateMachineCommand.setCreatedBy(UserThreadLocal.get());
+        createBizStateMachineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
+        createBizStateMachineCommand.setOrderState(customerOrder.orderState);
+        createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_NEW_ORDER);
+        createBizStateMachineCommand.setOrderStorageChange(customerOrder.getReserveOrderPatchCommands());
+        createBizStateMachineCommand.setActualStorageChange(customerOrder.getConfirmOrderPatchCommands());
+        createBizStateMachineCommand.setTxId(changeId);
+        SagaOrchestratorService.BizStateMachineRep start = sagaOrchestratorService.start(createBizStateMachineCommand);
+        customerOrder.setPaymentLink(start.getPaymentLink());
+        customerOrder.setOrderState(start.getOrderState());
         return customerOrder;
     }
 
@@ -251,45 +255,113 @@ public class BizOrder extends Auditable implements IdBasedEntity {
         updateModifiedByUserAt();
     }
 
-    public void confirmPayment(CustomStateMachineBuilder customStateMachineBuilder) {
+    public void confirmPayment(SagaOrchestratorService sagaOrchestratorService, String changeId) {
         log.debug("start of confirmPayment {}", id);
-        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(this.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, this);
-        stateMachine.sendEvent(BizOrderEvent.CONFIRM_PAYMENT);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
-
+        SagaOrchestratorService.CreateBizStateMachineCommand createBizStateMachineCommand = new SagaOrchestratorService.CreateBizStateMachineCommand();
+        createBizStateMachineCommand.setOrderId(id);
+        createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.CONFIRM_PAYMENT);
+        createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_CONFIRM_PAYMENT);
+        createBizStateMachineCommand.setCreatedBy(UserThreadLocal.get());
+        createBizStateMachineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
+        createBizStateMachineCommand.setOrderState(this.orderState);
+        createBizStateMachineCommand.setTxId(changeId);
+        SagaOrchestratorService.BizStateMachineRep start = sagaOrchestratorService.start(createBizStateMachineCommand);
+        this.setOrderState(start.getOrderState());
+        this.setPaid(start.getPaymentStatus());
     }
 
-    public void submit(CustomStateMachineBuilder customStateMachineBuilder) {
-        log.debug("start of confirmOrder {}", id);
-        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(this.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, this);
-        stateMachine.sendEvent(BizOrderEvent.PREPARE_CONFIRM_ORDER);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
-        stateMachine.sendEvent(BizOrderEvent.CONFIRM_ORDER);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
-    }
-
-    public void reserve(CustomStateMachineBuilder customStateMachineBuilder, UserPlaceBizOrderAgainCommand command) {
+    public void reserve(SagaOrchestratorService sagaOrchestratorService, String changeId) {
         log.info("reserve order {} again", id);
         log.info("order status {}", this.getOrderState());
-        StateMachine<BizOrderStatus, BizOrderEvent> stateMachine = customStateMachineBuilder.buildMachine(this.getOrderState());
-        stateMachine.getExtendedState().getVariables().put(UPDATE_ADDRESS_CMD, command);
-        stateMachine.getExtendedState().getVariables().put(BIZ_ORDER, this);
-        stateMachine.sendEvent(BizOrderEvent.PREPARE_RESERVE);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
-        stateMachine.sendEvent(BizOrderEvent.RESERVE);
-        if (stateMachine.hasStateMachineError()) {
-            throw stateMachine.getExtendedState().get(ERROR_CLASS, RuntimeException.class);
-        }
+        SagaOrchestratorService.CreateBizStateMachineCommand createBizStateMachineCommand = new SagaOrchestratorService.CreateBizStateMachineCommand();
+        createBizStateMachineCommand.setOrderId(id);
+        createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.RESERVE);
+        createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_RESERVE);
+        createBizStateMachineCommand.setCreatedBy(UserThreadLocal.get());
+        createBizStateMachineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
+        createBizStateMachineCommand.setOrderState(this.orderState);
+        createBizStateMachineCommand.setTxId(changeId);
+        SagaOrchestratorService.BizStateMachineRep start = sagaOrchestratorService.start(createBizStateMachineCommand);
+        this.setOrderState(start.getOrderState());
+        this.setPaymentLink(start.getPaymentLink());
+    }
+    public boolean validateProducts(AppProductSumPagedRep appProductSumPagedRep) {
+        return !this.getReadOnlyProductList().stream().anyMatch(command -> {
+            Optional<AppProductSumPagedRep.ProductAdminCardRepresentation> byId = appProductSumPagedRep.getData().stream().filter(e -> e.getId().equals(command.getProductId())).findFirst();
+            //validate product match
+            if (byId.isEmpty())
+                return true;
+            BigDecimal price;
+            List<AppProductSku> collect = byId.get().getProductSkuList().stream().filter(productSku -> new TreeSet(productSku.getAttributesSales()).equals(new TreeSet(command.getAttributesSales()))).collect(Collectors.toList());
+            price = collect.get(0).getPrice();
+            //if no option present then compare final price
+            if (command.getSelectedOptions() == null || command.getSelectedOptions().size() == 0) {
+                return price.compareTo(command.getFinalPrice()) != 0;
+            }
+            //validate product option match
+            List<AppProductOption> storedOption = byId.get().getSelectedOptions();
+            if (storedOption == null || storedOption.size() == 0)
+                return true;
+            boolean optionAllMatch = command.getSelectedOptions().stream().allMatch(userSelected -> {
+                //check selected option is valid option
+                Optional<AppProductOption> first = storedOption.stream().filter(storedOptionItem -> {
+                    // compare title
+                    if (!storedOptionItem.title.equals(userSelected.getTitle()))
+                        return false;
+                    //compare option value for each title
+                    String optionValue = userSelected.getOptions().get(0).getOptionValue();
+                    Optional<AppProductOption.OptionItem> first1 = storedOptionItem.options.stream().filter(optionItem -> optionItem.getOptionValue().equals(optionValue)).findFirst();
+                    if (first1.isEmpty())
+                        return false;
+                    return true;
+                }).findFirst();
+                if (first.isEmpty())
+                    return false;
+                else {
+                    return true;
+                }
+            });
+            if (!optionAllMatch)
+                return true;
+            //validate product final price
+            BigDecimal finalPrice = command.getFinalPrice();
+            // get all price variable
+            List<String> userSelectedAddOnTitles = command.getSelectedOptions().stream().map(BizOrderItemAddOn::getTitle).collect(Collectors.toList());
+            // filter option based on title
+            Stream<AppProductOption> storedAddonMatchingUserSelection = byId.get().getSelectedOptions().stream().filter(var1 -> userSelectedAddOnTitles.contains(var1.getTitle()));
+            // map to value detail for each title
+            List<String> priceVarCollection = storedAddonMatchingUserSelection.map(storedMatchAddon -> {
+                String title = storedMatchAddon.getTitle();
+                //find right option for title
+                Optional<BizOrderItemAddOn> user_addon_option = command.getSelectedOptions().stream().filter(e -> e.getTitle().equals(title)).findFirst();
+                BizOrderItemAddOnSelection user_optionItem = user_addon_option.get().getOptions().get(0);
+                Optional<AppProductOption.OptionItem> first = storedMatchAddon.getOptions().stream().filter(db_optionItem -> db_optionItem.getOptionValue().equals(user_optionItem.getOptionValue())).findFirst();
+                return first.get().getPriceVar();
+            }).collect(Collectors.toList());
+            for (String priceVar : priceVarCollection) {
+                if (priceVar.contains("+")) {
+                    double v = Double.parseDouble(priceVar.replace("+", ""));
+                    BigDecimal bigDecimal = BigDecimal.valueOf(v);
+                    price = price.add(bigDecimal);
+                } else if (priceVar.contains("-")) {
+                    double v = Double.parseDouble(priceVar.replace("-", ""));
+                    BigDecimal bigDecimal = BigDecimal.valueOf(v);
+                    price = price.subtract(bigDecimal);
+
+                } else if (priceVar.contains("*")) {
+                    double v = Double.parseDouble(priceVar.replace("*", ""));
+                    BigDecimal bigDecimal = BigDecimal.valueOf(v);
+                    price = price.multiply(bigDecimal);
+                } else {
+                    log.error("unknown operation type");
+                }
+            }
+            if (price.compareTo(finalPrice) == 0) {
+                log.debug("value does match for product {}, expected {} actual {}", command.getProductId(), price, finalPrice);
+                return false;
+            }
+            return true;
+        });
     }
 }
 
