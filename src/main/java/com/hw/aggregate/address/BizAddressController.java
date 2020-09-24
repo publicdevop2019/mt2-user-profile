@@ -2,7 +2,7 @@ package com.hw.aggregate.address;
 
 import com.hw.aggregate.address.command.UserCreateBizAddressCommand;
 import com.hw.aggregate.address.command.UserUpdateBizAddressCommand;
-import com.hw.aggregate.address.model.UserThreadLocal;
+import com.hw.shared.UserThreadLocal;
 import com.hw.shared.ServiceUtility;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

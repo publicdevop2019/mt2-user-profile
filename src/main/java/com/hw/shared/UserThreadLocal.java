@@ -1,4 +1,4 @@
-package com.hw.aggregate.address.model;
+package com.hw.shared;
 
 public class UserThreadLocal {
     public static final ThreadLocal<String> userThreadLocal = new ThreadLocal<>();

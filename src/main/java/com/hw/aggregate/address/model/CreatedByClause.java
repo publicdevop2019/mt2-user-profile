@@ -1,8 +1,8 @@
 package com.hw.aggregate.address.model;
 
 import com.hw.config.UserIdNotFoundException;
+import com.hw.shared.UserThreadLocal;
 import com.hw.shared.sql.clause.WhereClause;
-import org.springframework.stereotype.Component;
 
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.Predicate;

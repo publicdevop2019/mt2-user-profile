@@ -1,6 +1,6 @@
 package com.hw.aggregate.cart;
 
-import com.hw.aggregate.address.model.UserThreadLocal;
+import com.hw.shared.UserThreadLocal;
 import com.hw.aggregate.cart.command.UserCreateBizCartItemCommand;
 import com.hw.shared.ServiceUtility;
 import org.springframework.beans.factory.annotation.Autowired;

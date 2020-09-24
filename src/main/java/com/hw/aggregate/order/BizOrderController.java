@@ -1,6 +1,6 @@
 package com.hw.aggregate.order;
 
-import com.hw.aggregate.address.model.UserThreadLocal;
+import com.hw.shared.UserThreadLocal;
 import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
 import com.hw.aggregate.order.command.UserPlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation;
