@@ -18,11 +18,13 @@ public class UserBizOrderRep {
     private BizOrderStatus orderState;
 
     private BigDecimal paymentAmt;
+    private String paymentLink;
 
     public UserBizOrderRep(BizOrder customerOrder) {
         this.id = customerOrder.getId();
         this.productList = customerOrder.getReadOnlyProductList();
         this.paymentType = customerOrder.getPaymentType();
+        this.paymentLink = customerOrder.getPaymentLink();
         this.paymentAmt = customerOrder.getPaymentAmt();
         this.orderState = customerOrder.getOrderState();
         BizOrderAddress address = customerOrder.getAddress();

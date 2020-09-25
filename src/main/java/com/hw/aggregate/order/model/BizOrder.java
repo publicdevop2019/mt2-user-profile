@@ -2,6 +2,7 @@ package com.hw.aggregate.order.model;
 
 import com.hw.aggregate.order.BizOrderRepository;
 import com.hw.aggregate.order.SagaOrchestratorService;
+import com.hw.aggregate.order.command.AppCreateBizOrderCommand;
 import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
 import com.hw.aggregate.order.command.UserPlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.exception.BizOrderPaymentMismatchException;
@@ -74,7 +75,7 @@ public class BizOrder extends Auditable implements IdBasedEntity {
 
     @NotNull
     @Column
-    private Boolean paid;
+    private boolean paid;
 
     @Getter
     @Column(length = 25)
@@ -89,31 +90,60 @@ public class BizOrder extends Auditable implements IdBasedEntity {
     @Version
     private Integer version;
 
-    public static BizOrder create(long id, UserCreateBizOrderCommand command, SagaOrchestratorService sagaOrchestratorService, String changeId) {
+    public BizOrder(AppCreateBizOrderCommand command) {
+        List<BizOrderItem> collect2 = command.getProductList();
+        this.readOnlyProductList = new ArrayList<>(collect2);
+        this.paymentAmt = command.getPaymentAmt();
+        validatePaymentAmount();
+        this.id = command.getOrderId();
+        this.writeOnlyProductList = collect2;
+        BizOrderAddress customerOrderAddress = new BizOrderAddress();
+        customerOrderAddress.setOrderAddressCity(command.getAddress().getCity());
+        customerOrderAddress.setOrderAddressCountry(command.getAddress().getCountry());
+        customerOrderAddress.setOrderAddressFullName(command.getAddress().getFullName());
+        customerOrderAddress.setOrderAddressLine1(command.getAddress().getLine1());
+        customerOrderAddress.setOrderAddressLine2(command.getAddress().getLine2());
+        customerOrderAddress.setOrderAddressPhoneNumber(command.getAddress().getPhoneNumber());
+        customerOrderAddress.setOrderAddressProvince(command.getAddress().getProvince());
+        customerOrderAddress.setOrderAddressPostalCode(command.getAddress().getPostalCode());
+        this.address = customerOrderAddress;
+        this.paymentType = command.getPaymentType();
+        this.paymentLink = command.getPaymentLink();
+        this.modifiedByUserAt = Date.from(Instant.now());
+        this.orderState = command.getOrderState();
+        this.paid = false;
+    }
+
+    public static void prepare(long id, UserCreateBizOrderCommand command, SagaOrchestratorService sagaOrchestratorService, String changeId) {
         log.debug("start of createNew");
-        BizOrder customerOrder = new BizOrder(id, command);
-        SagaOrchestratorService.CreateBizStateMachineCommand createBizStateMachineCommand = new SagaOrchestratorService.CreateBizStateMachineCommand();
-        createBizStateMachineCommand.setOrderId(id);
-        createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.NEW_ORDER);
-        createBizStateMachineCommand.setCreatedBy(UserThreadLocal.get());
-        createBizStateMachineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
-        createBizStateMachineCommand.setOrderState(customerOrder.orderState);
-        createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_NEW_ORDER);
-        createBizStateMachineCommand.setOrderStorageChange(customerOrder.getReserveOrderPatchCommands());
-        createBizStateMachineCommand.setActualStorageChange(customerOrder.getConfirmOrderPatchCommands());
-        createBizStateMachineCommand.setTxId(changeId);
-        SagaOrchestratorService.BizStateMachineRep start = sagaOrchestratorService.start(createBizStateMachineCommand);
-        customerOrder.setPaymentLink(start.getPaymentLink());
-        customerOrder.setOrderState(start.getOrderState());
-        return customerOrder;
+        SagaOrchestratorService.CreateBizStateMachineCommand machineCommand = new SagaOrchestratorService.CreateBizStateMachineCommand();
+        List<BizOrderItem> collect2 = getBizOrderItems(command.getProductList());
+        machineCommand.setOrderId(id);
+        machineCommand.setBizOrderEvent(BizOrderEvent.NEW_ORDER);
+        machineCommand.setCreatedBy(UserThreadLocal.get());
+        machineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
+        machineCommand.setOrderState(BizOrderStatus.DRAFT);
+        machineCommand.setPrepareEvent(BizOrderEvent.PREPARE_NEW_ORDER);
+        machineCommand.setOrderStorageChange(BizOrder.getReserveOrderPatchCommands(collect2));
+        machineCommand.setActualStorageChange(BizOrder.getConfirmOrderPatchCommands(collect2));
+        machineCommand.setTxId(changeId);
+        machineCommand.setPaymentAmt(command.getPaymentAmt());
+        machineCommand.setPaymentType(command.getPaymentType());
+        machineCommand.setAddress(command.getAddress());
+        machineCommand.setProductList(collect2);
+        sagaOrchestratorService.startTx(machineCommand);
+    }
+
+    public static BizOrder create(AppCreateBizOrderCommand command) {
+        return new BizOrder(command);
     }
 
     public void updateModifiedByUserAt() {
         this.modifiedByUserAt = Date.from(Instant.now());
     }
 
-    private BizOrder(Long id, UserCreateBizOrderCommand command) {
-        List<BizOrderItem> collect2 = command.getProductList().stream().map(e -> {
+    private static List<BizOrderItem> getBizOrderItems(List<BizOrderItemCommand> productList) {
+        return productList.stream().map(e -> {
             BizOrderItem customerOrderItem = new BizOrderItem();
             customerOrderItem.setFinalPrice(e.getFinalPrice());
             customerOrderItem.setProductId(e.getProductId());
@@ -136,30 +166,11 @@ public class BizOrder extends Auditable implements IdBasedEntity {
             customerOrderItem.setSelectedOptions(collect1);
             return customerOrderItem;
         }).collect(Collectors.toList());
-        this.readOnlyProductList = new ArrayList<>(collect2);
-        this.paymentAmt = command.getPaymentAmt();
-        validatePaymentAmount();
-        this.id = id;
-        this.writeOnlyProductList = collect2;
-        BizOrderAddress customerOrderAddress = new BizOrderAddress();
-        customerOrderAddress.setOrderAddressCity(command.getAddress().getCity());
-        customerOrderAddress.setOrderAddressCountry(command.getAddress().getCountry());
-        customerOrderAddress.setOrderAddressFullName(command.getAddress().getFullName());
-        customerOrderAddress.setOrderAddressLine1(command.getAddress().getLine1());
-        customerOrderAddress.setOrderAddressLine2(command.getAddress().getLine2());
-        customerOrderAddress.setOrderAddressPhoneNumber(command.getAddress().getPhoneNumber());
-        customerOrderAddress.setOrderAddressProvince(command.getAddress().getProvince());
-        customerOrderAddress.setOrderAddressPostalCode(command.getAddress().getPostalCode());
-        this.address = customerOrderAddress;
-        this.paymentType = command.getPaymentType();
-        this.modifiedByUserAt = Date.from(Instant.now());
-        this.orderState = BizOrderStatus.DRAFT;
-        this.paid = false;
     }
 
-    public List<PatchCommand> getReserveOrderPatchCommands() {
+    public static List<PatchCommand> getReserveOrderPatchCommands(List<BizOrderItem> collect2) {
         List<PatchCommand> details = new ArrayList<>();
-        readOnlyProductList.forEach(e -> {
+        collect2.forEach(e -> {
             int amount = 1;
             if (e.getSelectedOptions() != null) {
                 Optional<BizOrderItemAddOn> qty = e.getSelectedOptions().stream().filter(el -> el.getTitle().equals("qty")).findFirst();
@@ -180,14 +191,14 @@ public class BizOrder extends Auditable implements IdBasedEntity {
         return details;
     }
 
-    private String getPatchPath(BizOrderItem e, String fieldName) {
+    private static String getPatchPath(BizOrderItem e, String fieldName) {
         String replace = String.join(",", e.getAttributesSales()).replace(":", "-").replace("/", "~/");
         return "/" + e.getProductId() + "/skus?query=attributesSales:" + replace + "/" + fieldName;
     }
 
-    public List<PatchCommand> getConfirmOrderPatchCommands() {
+    public static List<PatchCommand> getConfirmOrderPatchCommands(List<BizOrderItem> collect2) {
         List<PatchCommand> details = new ArrayList<>();
-        readOnlyProductList.forEach(e -> {
+        collect2.forEach(e -> {
             int amount = 1;
             if (e.getSelectedOptions() != null) {
                 Optional<BizOrderItemAddOn> qty = e.getSelectedOptions().stream().filter(el -> el.getTitle().equals("qty")).findFirst();
@@ -265,9 +276,7 @@ public class BizOrder extends Auditable implements IdBasedEntity {
         createBizStateMachineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
         createBizStateMachineCommand.setOrderState(this.orderState);
         createBizStateMachineCommand.setTxId(changeId);
-        SagaOrchestratorService.BizStateMachineRep start = sagaOrchestratorService.start(createBizStateMachineCommand);
-        this.setOrderState(start.getOrderState());
-        this.setPaid(start.getPaymentStatus());
+        sagaOrchestratorService.startTx(createBizStateMachineCommand);
     }
 
     public void reserve(SagaOrchestratorService sagaOrchestratorService, String changeId) {
@@ -281,12 +290,11 @@ public class BizOrder extends Auditable implements IdBasedEntity {
         createBizStateMachineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
         createBizStateMachineCommand.setOrderState(this.orderState);
         createBizStateMachineCommand.setTxId(changeId);
-        SagaOrchestratorService.BizStateMachineRep start = sagaOrchestratorService.start(createBizStateMachineCommand);
-        this.setOrderState(start.getOrderState());
-        this.setPaymentLink(start.getPaymentLink());
+        sagaOrchestratorService.startTx(createBizStateMachineCommand);
     }
-    public boolean validateProducts(AppProductSumPagedRep appProductSumPagedRep) {
-        return !this.getReadOnlyProductList().stream().anyMatch(command -> {
+
+    public static boolean validateProducts(AppProductSumPagedRep appProductSumPagedRep, List<BizOrderItem> orderItems) {
+        return orderItems.stream().noneMatch(command -> {
             Optional<AppProductSumPagedRep.ProductAdminCardRepresentation> byId = appProductSumPagedRep.getData().stream().filter(e -> e.getId().equals(command.getProductId())).findFirst();
             //validate product match
             if (byId.isEmpty())

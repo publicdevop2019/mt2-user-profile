@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hw.aggregate.order.model.BizOrder;
 import com.hw.aggregate.order.model.BizOrderEvent;
 import com.hw.aggregate.order.model.BizOrderStatus;
-import com.hw.aggregate.task.BizTaskRepository;
 import com.hw.shared.DeepCopyException;
 import com.hw.shared.sql.PatchCommand;
 import lombok.extern.slf4j.Slf4j;
@@ -46,8 +45,8 @@ public class AppBizOrderScheduler {
     @Autowired
     private BizOrderRepository bizOrderRepository;
 
-    @Autowired
-    private BizTaskRepository taskRepository;
+//    @Autowired
+//    private BizTaskRepository taskRepository;
 
     @Autowired
     private ProductService productService;
@@ -55,9 +54,9 @@ public class AppBizOrderScheduler {
     @Autowired
     private ObjectMapper om;
 
-    @Autowired
-    @Qualifier("CustomPool")
-    private TaskExecutor customExecutor;
+//    @Autowired
+//    @Qualifier("CustomPool")
+//    private TaskExecutor customExecutor;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -69,7 +68,7 @@ public class AppBizOrderScheduler {
     private UserBizOrderApplicationService userBizOrderApplicationService;
 
 
-    @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.release}")
+//    @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.release}")
     public void releaseExpiredOrder() {
         new TransactionTemplate(transactionManager)
                 .execute(new TransactionCallbackWithoutResult() {
@@ -80,7 +79,7 @@ public class AppBizOrderScheduler {
                         List<BizOrder> expiredOrderList = bizOrderRepository.findExpiredNotPaidReserved(from);
                         List<PatchCommand> details = new ArrayList<>();
                         expiredOrderList.forEach(expiredOrder -> {
-                            List<PatchCommand> var1 = expiredOrder.getReserveOrderPatchCommands();
+                            List<PatchCommand> var1 = expiredOrder.getReserveOrderPatchCommands(expiredOrder.getReadOnlyProductList());
                             details.addAll(var1);
                         });
                         List<PatchCommand> deepCopy = getDeepCopy(details);
@@ -99,10 +98,10 @@ public class AppBizOrderScheduler {
                             createBizStateMachineCommand.setOrderState(BizOrderStatus.NOT_PAID_RESERVED);
                             createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_RECYCLE_ORDER_STORAGE);
                             createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.RECYCLE_ORDER_STORAGE);
-                            SagaOrchestratorService.BizStateMachineRep start = sagaOrchestratorService.start(createBizStateMachineCommand);
+                            sagaOrchestratorService.startTx(createBizStateMachineCommand);
                             /** update order state*/
                             expiredOrderList.forEach(e -> {
-                                e.setOrderState(start.getOrderState());
+//                                e.setOrderState(start.getOrderState());
                             });
                             log.info("expired order(s) released");
                             bizOrderRepository.saveAll(expiredOrderList);
@@ -112,7 +111,7 @@ public class AppBizOrderScheduler {
                 });
     }
 
-    @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.resubmit}")
+//    @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.resubmit}")
     public void resubmitOrder() {
         List<BizOrder> paidReserved = bizOrderRepository.findPaidReserved();
         if (!paidReserved.isEmpty()) {
@@ -121,12 +120,12 @@ public class AppBizOrderScheduler {
             paidReserved.forEach(order -> {
                 SagaOrchestratorService.CreateBizStateMachineCommand createBizStateMachineCommand = new SagaOrchestratorService.CreateBizStateMachineCommand();
                 createBizStateMachineCommand.setTxId(UUID.randomUUID().toString());
-                createBizStateMachineCommand.setOrderStorageChange(order.getConfirmOrderPatchCommands());
+                createBizStateMachineCommand.setOrderStorageChange(order.getConfirmOrderPatchCommands(order.getReadOnlyProductList()));
                 createBizStateMachineCommand.setOrderState(order.getOrderState());
                 createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_CONFIRM_ORDER);
                 createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.CONFIRM_ORDER);
-                SagaOrchestratorService.BizStateMachineRep start = sagaOrchestratorService.start(createBizStateMachineCommand);
-                order.setOrderState(start.getOrderState());
+                sagaOrchestratorService.startTx(createBizStateMachineCommand);
+//                order.setOrderState(start.getOrderState());
             });
         }
     }

@@ -5,10 +5,8 @@ import lombok.Data;
 @Data
 public class BizOrderPaymentLinkRepresentation {
     private String paymentLink;
-    private Boolean paymentStatus;
 
-    public BizOrderPaymentLinkRepresentation(String paymentLink, boolean paymentStatus) {
+    public BizOrderPaymentLinkRepresentation(String paymentLink) {
         this.paymentLink = paymentLink;
-        this.paymentStatus = paymentStatus;
     }
 }

@@ -3,7 +3,9 @@ package com.hw.config;
 import com.hw.aggregate.address.exception.DuplicateAddressException;
 import com.hw.aggregate.address.exception.MaxAddressCountException;
 import com.hw.aggregate.cart.exception.MaxCartItemException;
-import com.hw.aggregate.order.exception.*;
+import com.hw.aggregate.order.exception.BizOrderCreationUnknownException;
+import com.hw.aggregate.order.exception.BizOrderPaymentMismatchException;
+import com.hw.aggregate.order.exception.ProductInfoValidationException;
 import com.hw.shared.ErrorMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
@@ -29,7 +31,6 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             MaxCartItemException.class,
             DuplicateAddressException.class,
             MaxAddressCountException.class,
-            BizOrderPersistenceException.class
     })
     protected ResponseEntity<Object> handle400Exception(RuntimeException ex, WebRequest request) {
         ErrorMessage errorMessage = new ErrorMessage(ex);
@@ -39,11 +40,7 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler(value = {
-            ActualStorageDecreaseException.class,
-            BizOrderStorageDecreaseException.class,
             BizOrderCreationUnknownException.class,
-            PaymentQRLinkGenerationException.class,
-            StateMachineCreationException.class,
     })
     protected ResponseEntity<Object> handle500Exception(RuntimeException ex, WebRequest request) {
         ErrorMessage errorMessage = new ErrorMessage(ex);

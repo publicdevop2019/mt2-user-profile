@@ -3,10 +3,8 @@ package com.hw.aggregate.order;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
 import com.hw.aggregate.order.command.UserPlaceBizOrderAgainCommand;
-import com.hw.aggregate.order.exception.ProductInfoValidationException;
 import com.hw.aggregate.order.model.BizOrder;
 import com.hw.aggregate.order.model.BizOrderQueryRegistry;
-import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
 import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation;
 import com.hw.aggregate.order.representation.BizOrderPaymentLinkRepresentation;
 import com.hw.aggregate.order.representation.UserBizOrderCardRep;
@@ -21,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
@@ -61,28 +60,26 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
         om = om2;
         appChangeRecordApplicationService = changeHistoryRepository;
     }
-
-    @Transactional
-    public BizOrderPaymentLinkRepresentation createNew(Object command, String changeId) {
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public BizOrderPaymentLinkRepresentation prepareOrder(Object command, String changeId) {
         long id = idGenerator.getId();
-        saveChangeRecord(null, changeId, OperationType.POST, "id:" + id);
-        BizOrder bizOrder = BizOrder.create(id, (UserCreateBizOrderCommand) command, sagaOrchestratorService, changeId);
-        BizOrder save = repo.save(bizOrder);
-        return new BizOrderPaymentLinkRepresentation(save.getPaymentLink(), save.getPaid());
+        BizOrder.prepare(id, (UserCreateBizOrderCommand) command, sagaOrchestratorService, changeId);
+        UserBizOrderRep userBizOrderRep = readById(id);
+        return new BizOrderPaymentLinkRepresentation(userBizOrderRep.getPaymentLink());
     }
 
     @Transactional
     public BizOrderConfirmStatusRepresentation confirmPayment(Long id, String userId, String changeId) {
         BizOrder customerOrder = BizOrder.getWOptLock(id, userId, repo2);
         customerOrder.confirmPayment(sagaOrchestratorService, changeId);
-        return new BizOrderConfirmStatusRepresentation(customerOrder.getPaid());
+        return new BizOrderConfirmStatusRepresentation(customerOrder.isPaid());
     }
 
     @Transactional
     public BizOrderPaymentLinkRepresentation reserve(Long id, String userId, String changeId) {
         BizOrder customerOrder = BizOrder.getWOptLock(id, userId, repo2);
         customerOrder.reserve(sagaOrchestratorService, changeId);
-        return new BizOrderPaymentLinkRepresentation(customerOrder.getPaymentLink(), customerOrder.getPaid());
+        return new BizOrderPaymentLinkRepresentation(customerOrder.getPaymentLink());
     }
 
     @Override
@@ -124,13 +121,5 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
     @Override
     protected void postPatch(BizOrder bizOrder, Map<String, Object> params, VoidTypedClass middleLayer) {
 
-    }
-
-    public void validate(Long id, String userId) {
-        BizOrder customerOrder = BizOrder.getWOptLock(id, userId, repo2);
-        AppProductSumPagedRep productsInfo = productService.getProductsInfo(customerOrder.getReadOnlyProductList());
-        if (!customerOrder.validateProducts(productsInfo)) {
-            throw new ProductInfoValidationException();
-        }
     }
 }

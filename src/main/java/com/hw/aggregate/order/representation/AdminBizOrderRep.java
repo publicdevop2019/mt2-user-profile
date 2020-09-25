@@ -17,7 +17,7 @@ public class AdminBizOrderRep {
     private String paymentLink;
     private BigDecimal paymentAmt;
     private String paymentDate;
-    private Boolean paid;
+    private boolean paid;
     private BizOrderStatus orderState;
     private long modifiedByUserAt;
     private String createdBy;
@@ -33,7 +33,7 @@ public class AdminBizOrderRep {
         this.paymentLink = bizOrder.getPaymentLink();
         this.paymentAmt = bizOrder.getPaymentAmt();
         this.paymentDate = bizOrder.getPaymentDate();
-        this.paid = bizOrder.getPaid();
+        this.paid = bizOrder.isPaid();
         this.orderState = bizOrder.getOrderState();
         this.modifiedByUserAt = bizOrder.getModifiedByUserAt().getTime();
         this.createdBy = bizOrder.getCreatedBy();

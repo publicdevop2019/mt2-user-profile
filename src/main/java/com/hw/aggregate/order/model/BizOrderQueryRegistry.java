@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+
 @Component
 public class BizOrderQueryRegistry extends RestfulQueryRegistry<BizOrder> {
     @Autowired
@@ -13,12 +14,15 @@ public class BizOrderQueryRegistry extends RestfulQueryRegistry<BizOrder> {
     private UserBizOrderDeleteQueryBuilder userBizOrderDeleteQueryBuilder;
     @Autowired
     private UserBizOrderSelectQueryBuilder userBizOrderSelectQueryBuilder;
+    @Autowired
+    private AppBizOrderSelectQueryBuilder appBizOrderSelectQueryBuilder;
 
     @Override
     @PostConstruct
     protected void configQueryBuilder() {
         selectQueryBuilder.put(RoleEnum.USER, userBizOrderSelectQueryBuilder);
         selectQueryBuilder.put(RoleEnum.ADMIN, adminBizOrderSelectQueryBuilder);
+        selectQueryBuilder.put(RoleEnum.APP, appBizOrderSelectQueryBuilder);
         deleteQueryBuilder.put(RoleEnum.USER, userBizOrderDeleteQueryBuilder);
     }
 }
