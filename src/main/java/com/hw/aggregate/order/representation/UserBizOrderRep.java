@@ -19,6 +19,7 @@ public class UserBizOrderRep {
 
     private BigDecimal paymentAmt;
     private String paymentLink;
+    private boolean paid;
 
     public UserBizOrderRep(BizOrder customerOrder) {
         this.id = customerOrder.getId();
@@ -37,6 +38,7 @@ public class UserBizOrderRep {
         this.address.setLine2(address.getOrderAddressLine2());
         this.address.setPhoneNumber(address.getOrderAddressPhoneNumber());
         this.address.setFullName(address.getOrderAddressFullName());
+        this.paid=customerOrder.isPaid();
 
     }
 }

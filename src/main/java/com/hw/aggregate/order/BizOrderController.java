@@ -1,9 +1,7 @@
 package com.hw.aggregate.order;
 
 import com.hw.aggregate.address.command.UserUpdateBizAddressCommand;
-import com.hw.aggregate.order.command.AppCreateBizOrderCommand;
-import com.hw.aggregate.order.command.AppValidateBizOrderCommand;
-import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
+import com.hw.aggregate.order.command.*;
 import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation;
 import com.hw.shared.ServiceUtility;
 import com.hw.shared.UserThreadLocal;
@@ -69,17 +67,6 @@ public class BizOrderController {
         return ResponseEntity.ok().header("Location", userBizOrderApplicationService.prepareOrder(command, changeId).getPaymentLink()).build();
     }
 
-    @PostMapping("app")
-    public ResponseEntity<Void> createForUser(
-            @RequestHeader("authorization") String authorization,
-            @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId,
-            @RequestBody AppCreateBizOrderCommand command) {
-        UserThreadLocal.unset();
-        UserThreadLocal.set(ServiceUtility.getUserId(authorization));
-        appBizOrderApplicationService.create(command, changeId);
-        return ResponseEntity.ok().build();
-    }
-
     @PutMapping("user/{id}")
     public ResponseEntity<Void> confirmPaymentForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId,
                                                       @RequestBody UserUpdateBizAddressCommand command) {
@@ -91,20 +78,16 @@ public class BizOrderController {
 
     @PutMapping("user/{id}/confirm")
     public ResponseEntity<BizOrderConfirmStatusRepresentation> confirmPaymentForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId) {
-        return ResponseEntity.ok(userBizOrderApplicationService.confirmPayment(id, ServiceUtility.getUserId(authorization), changeId));
+        UserThreadLocal.unset();
+        UserThreadLocal.set(ServiceUtility.getUserId(authorization));
+        return ResponseEntity.ok(userBizOrderApplicationService.confirmPayment(id, changeId));
     }
 
     @PutMapping("user/{id}/reserve")
     public ResponseEntity<Void> reserveForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId) {
         UserThreadLocal.unset();
         UserThreadLocal.set(ServiceUtility.getUserId(authorization));
-        return ResponseEntity.ok().header("Location", userBizOrderApplicationService.reserve(id, ServiceUtility.getUserId(authorization), changeId).getPaymentLink()).build();
-    }
-
-    @PostMapping("app/validate")
-    public ResponseEntity<Void> validateForApp(@RequestBody AppValidateBizOrderCommand command) {
-        appBizOrderApplicationService.validate(command);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok().header("Location", userBizOrderApplicationService.reserve(id, changeId).getPaymentLink()).build();
     }
 
     @DeleteMapping("user/{id}")
@@ -114,4 +97,28 @@ public class BizOrderController {
         userBizOrderApplicationService.deleteById(id, changeId);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("app")
+    public ResponseEntity<Void> createForUser(
+            @RequestHeader("authorization") String authorization,
+            @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId,
+            @RequestBody AppCreateBizOrderCommand command) {
+        UserThreadLocal.unset();
+        UserThreadLocal.set(ServiceUtility.getUserId(authorization));
+        appBizOrderApplicationService.create(command, changeId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("app/validate")
+    public ResponseEntity<Void> validateForApp(@RequestBody AppValidateBizOrderCommand command) {
+        appBizOrderApplicationService.validate(command);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("app/{id}")
+    public ResponseEntity<Void> updateForApp(@RequestBody AppUpdateBizOrderCommand command, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId) {
+        appBizOrderApplicationService.replaceById(id, command, changeId);
+        return ResponseEntity.ok().build();
+    }
+
 }

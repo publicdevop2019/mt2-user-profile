@@ -19,7 +19,7 @@ public class AppChangeRecordCardRep {
 
     private OperationType operationType;
     private String query;
-
+    private Object replacedVersion;
 
     public AppChangeRecordCardRep(ChangeRecord changeRecord) {
         this.id = changeRecord.getId();
@@ -29,5 +29,6 @@ public class AppChangeRecordCardRep {
         this.patchCommands = changeRecord.getPatchCommands();
         this.operationType = changeRecord.getOperationType();
         this.query = changeRecord.getQuery();
+        this.replacedVersion=changeRecord.getReplacedVersion();
     }
 }

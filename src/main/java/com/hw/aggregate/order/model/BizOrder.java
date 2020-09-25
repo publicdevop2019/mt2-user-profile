@@ -1,18 +1,19 @@
 package com.hw.aggregate.order.model;
 
-import com.hw.aggregate.order.BizOrderRepository;
 import com.hw.aggregate.order.SagaOrchestratorService;
 import com.hw.aggregate.order.command.AppCreateBizOrderCommand;
+import com.hw.aggregate.order.command.AppUpdateBizOrderCommand;
 import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
 import com.hw.aggregate.order.command.UserPlaceBizOrderAgainCommand;
 import com.hw.aggregate.order.exception.BizOrderPaymentMismatchException;
 import com.hw.aggregate.order.model.product.AppProductOption;
 import com.hw.aggregate.order.model.product.AppProductSku;
 import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
+import com.hw.aggregate.order.representation.UserBizOrderRep;
 import com.hw.shared.Auditable;
 import com.hw.shared.UserThreadLocal;
 import com.hw.shared.rest.IdBasedEntity;
-import com.hw.shared.rest.exception.EntityNotExistException;
+import com.hw.shared.rest.VersionBasedEntity;
 import com.hw.shared.sql.PatchCommand;
 import lombok.Data;
 import lombok.Getter;
@@ -38,7 +39,7 @@ import static com.hw.shared.AppConstant.PATCH_OP_TYPE_SUM;
 @Data
 @NoArgsConstructor
 @Slf4j
-public class BizOrder extends Auditable implements IdBasedEntity {
+public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEntity {
     /**
      * id setter is required to correctly work with BeanPropertyRowMapper for spring batch
      */
@@ -125,7 +126,6 @@ public class BizOrder extends Auditable implements IdBasedEntity {
         machineCommand.setOrderState(BizOrderStatus.DRAFT);
         machineCommand.setPrepareEvent(BizOrderEvent.PREPARE_NEW_ORDER);
         machineCommand.setOrderStorageChange(BizOrder.getReserveOrderPatchCommands(collect2));
-        machineCommand.setActualStorageChange(BizOrder.getConfirmOrderPatchCommands(collect2));
         machineCommand.setTxId(changeId);
         machineCommand.setPaymentAmt(command.getPaymentAmt());
         machineCommand.setPaymentType(command.getPaymentType());
@@ -237,13 +237,6 @@ public class BizOrder extends Auditable implements IdBasedEntity {
             throw new BizOrderPaymentMismatchException();
     }
 
-    public static BizOrder getWOptLock(Long id, String userId, BizOrderRepository orderRepository) {
-        Optional<BizOrder> byId = orderRepository.findByIdOptLock(id, userId);
-        if (byId.isEmpty())
-            throw new EntityNotExistException();
-        return byId.get();
-    }
-
     public void updateAddress(UserPlaceBizOrderAgainCommand command) {
         if (command.getAddress() != null
                 && StringUtils.hasText(command.getAddress().getCountry())
@@ -266,31 +259,33 @@ public class BizOrder extends Auditable implements IdBasedEntity {
         updateModifiedByUserAt();
     }
 
-    public void confirmPayment(SagaOrchestratorService sagaOrchestratorService, String changeId) {
-        log.debug("start of confirmPayment {}", id);
+    public static void confirmPayment(SagaOrchestratorService sagaOrchestratorService, String changeId, UserBizOrderRep userBizOrderRep) {
+        log.debug("start of confirmPayment");
         SagaOrchestratorService.CreateBizStateMachineCommand createBizStateMachineCommand = new SagaOrchestratorService.CreateBizStateMachineCommand();
-        createBizStateMachineCommand.setOrderId(id);
+        createBizStateMachineCommand.setOrderId(userBizOrderRep.getId());
         createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.CONFIRM_PAYMENT);
         createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_CONFIRM_PAYMENT);
+        createBizStateMachineCommand.setActualStorageChange(BizOrder.getConfirmOrderPatchCommands(userBizOrderRep.getProductList()));
         createBizStateMachineCommand.setCreatedBy(UserThreadLocal.get());
         createBizStateMachineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
-        createBizStateMachineCommand.setOrderState(this.orderState);
+        createBizStateMachineCommand.setOrderState(userBizOrderRep.getOrderState());
         createBizStateMachineCommand.setTxId(changeId);
         sagaOrchestratorService.startTx(createBizStateMachineCommand);
     }
 
-    public void reserve(SagaOrchestratorService sagaOrchestratorService, String changeId) {
-        log.info("reserve order {} again", id);
-        log.info("order status {}", this.getOrderState());
-        SagaOrchestratorService.CreateBizStateMachineCommand createBizStateMachineCommand = new SagaOrchestratorService.CreateBizStateMachineCommand();
-        createBizStateMachineCommand.setOrderId(id);
-        createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.RESERVE);
-        createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_RESERVE);
-        createBizStateMachineCommand.setCreatedBy(UserThreadLocal.get());
-        createBizStateMachineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
-        createBizStateMachineCommand.setOrderState(this.orderState);
-        createBizStateMachineCommand.setTxId(changeId);
-        sagaOrchestratorService.startTx(createBizStateMachineCommand);
+    public static void reserve(SagaOrchestratorService sagaOrchestratorService, String changeId, UserBizOrderRep rep) {
+        log.info("reserve order {} again", rep.getId());
+        log.info("order status {}", rep.getOrderState());
+        SagaOrchestratorService.CreateBizStateMachineCommand machineCommand = new SagaOrchestratorService.CreateBizStateMachineCommand();
+        machineCommand.setOrderId(rep.getId());
+        machineCommand.setBizOrderEvent(BizOrderEvent.RESERVE);
+        machineCommand.setPrepareEvent(BizOrderEvent.PREPARE_RESERVE);
+        machineCommand.setCreatedBy(UserThreadLocal.get());
+        machineCommand.setOrderStorageChange(BizOrder.getReserveOrderPatchCommands(rep.getProductList()));
+        machineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
+        machineCommand.setOrderState(rep.getOrderState());
+        machineCommand.setTxId(changeId);
+        sagaOrchestratorService.startTx(machineCommand);
     }
 
     public static boolean validateProducts(AppProductSumPagedRep appProductSumPagedRep, List<BizOrderItem> orderItems) {
@@ -370,6 +365,13 @@ public class BizOrder extends Auditable implements IdBasedEntity {
             }
             return true;
         });
+    }
+
+    public BizOrder replace(AppUpdateBizOrderCommand command) {
+        this.setId(command.getOrderId());
+        this.setOrderState(command.getOrderState());
+        this.setPaid(command.getPaymentStatus());
+        return this;
     }
 }
 

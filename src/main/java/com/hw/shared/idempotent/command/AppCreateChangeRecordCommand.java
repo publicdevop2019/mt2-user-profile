@@ -17,4 +17,5 @@ public class AppCreateChangeRecordCommand {
 
     private OperationType operationType;
     private String query;
+    private Object replacedVersion;
 }

@@ -30,6 +30,9 @@ public class ChangeRecord extends Auditable implements IdBasedEntity {
     @Column(length = 100000)
     private ArrayList<PatchCommand> patchCommands;
 
+    @Column(length = 100000)
+    private Object replacedVersion;
+
     private OperationType operationType;
     private String query;
 
@@ -41,6 +44,7 @@ public class ChangeRecord extends Auditable implements IdBasedEntity {
         this.patchCommands = command.getPatchCommands();
         this.operationType = command.getOperationType();
         this.query = command.getQuery();
+        this.replacedVersion = command.getReplacedVersion();
     }
 
     public static ChangeRecord create(Long id, AppCreateChangeRecordCommand command) {

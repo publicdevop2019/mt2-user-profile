@@ -11,7 +11,6 @@ import com.hw.aggregate.order.representation.UserBizOrderCardRep;
 import com.hw.aggregate.order.representation.UserBizOrderRep;
 import com.hw.shared.IdGenerator;
 import com.hw.shared.idempotent.AppChangeRecordApplicationService;
-import com.hw.shared.idempotent.OperationType;
 import com.hw.shared.rest.DefaultRoleBasedRestfulService;
 import com.hw.shared.rest.VoidTypedClass;
 import com.hw.shared.sql.RestfulQueryRegistry;
@@ -60,6 +59,7 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
         om = om2;
         appChangeRecordApplicationService = changeHistoryRepository;
     }
+
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public BizOrderPaymentLinkRepresentation prepareOrder(Object command, String changeId) {
         long id = idGenerator.getId();
@@ -68,18 +68,20 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
         return new BizOrderPaymentLinkRepresentation(userBizOrderRep.getPaymentLink());
     }
 
-    @Transactional
-    public BizOrderConfirmStatusRepresentation confirmPayment(Long id, String userId, String changeId) {
-        BizOrder customerOrder = BizOrder.getWOptLock(id, userId, repo2);
-        customerOrder.confirmPayment(sagaOrchestratorService, changeId);
-        return new BizOrderConfirmStatusRepresentation(customerOrder.isPaid());
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public BizOrderConfirmStatusRepresentation confirmPayment(Long id, String changeId) {
+        UserBizOrderRep before = readById(id);
+        BizOrder.confirmPayment(sagaOrchestratorService, changeId, before);
+        UserBizOrderRep after = readById(id);
+        return new BizOrderConfirmStatusRepresentation(after.isPaid());
     }
 
-    @Transactional
-    public BizOrderPaymentLinkRepresentation reserve(Long id, String userId, String changeId) {
-        BizOrder customerOrder = BizOrder.getWOptLock(id, userId, repo2);
-        customerOrder.reserve(sagaOrchestratorService, changeId);
-        return new BizOrderPaymentLinkRepresentation(customerOrder.getPaymentLink());
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public BizOrderPaymentLinkRepresentation reserve(Long id, String changeId) {
+        UserBizOrderRep before = readById(id);
+        BizOrder.reserve(sagaOrchestratorService, changeId,before);
+        UserBizOrderRep after = readById(id);
+        return new BizOrderPaymentLinkRepresentation(after.getPaymentLink());
     }
 
     @Override
