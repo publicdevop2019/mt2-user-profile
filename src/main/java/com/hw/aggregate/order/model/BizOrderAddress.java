@@ -7,12 +7,13 @@ import lombok.NoArgsConstructor;
 import javax.persistence.Column;
 import javax.persistence.Embeddable;
 import javax.validation.constraints.NotBlank;
+import java.io.Serializable;
 
 @Embeddable
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class BizOrderAddress {
+public class BizOrderAddress implements Serializable {
 
     @NotBlank
     @Column(nullable = false)

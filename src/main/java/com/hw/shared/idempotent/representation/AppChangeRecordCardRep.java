@@ -2,6 +2,7 @@ package com.hw.shared.idempotent.representation;
 
 import com.hw.shared.idempotent.OperationType;
 import com.hw.shared.idempotent.model.ChangeRecord;
+import com.hw.shared.idempotent.model.CustomByteArraySerializer;
 import com.hw.shared.sql.PatchCommand;
 import lombok.Data;
 
@@ -29,6 +30,6 @@ public class AppChangeRecordCardRep {
         this.patchCommands = changeRecord.getPatchCommands();
         this.operationType = changeRecord.getOperationType();
         this.query = changeRecord.getQuery();
-        this.replacedVersion=changeRecord.getReplacedVersion();
+        this.replacedVersion= CustomByteArraySerializer.convertToEntityAttribute(changeRecord.getReplacedVersion());
     }
 }

@@ -25,6 +25,7 @@ import javax.persistence.*;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
@@ -39,7 +40,7 @@ import static com.hw.shared.AppConstant.PATCH_OP_TYPE_SUM;
 @Data
 @NoArgsConstructor
 @Slf4j
-public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEntity {
+public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEntity, Serializable {
     /**
      * id setter is required to correctly work with BeanPropertyRowMapper for spring batch
      */

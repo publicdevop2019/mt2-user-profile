@@ -25,6 +25,8 @@ import com.hw.shared.sql.SumPagedRep;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
@@ -133,7 +135,6 @@ public abstract class DefaultRoleBasedRestfulService<T extends Auditable & IdBas
         }
     }
 
-    @Transactional(readOnly = true)
     public SumPagedRep<X> readByQuery(String query, String page, String config) {
         SumPagedRep<T> tSumPagedRep = queryRegistry.readByQuery(role, query, page, config, entityClass);
         List<X> col = tSumPagedRep.getData().stream().map(this::getEntitySumRepresentation).collect(Collectors.toList());
@@ -141,7 +142,6 @@ public abstract class DefaultRoleBasedRestfulService<T extends Auditable & IdBas
     }
 
 
-    @Transactional(readOnly = true)
     public Y readById(Long id) {
         SumPagedRep<T> tSumPagedRep = getEntityById(id);
         return getEntityRepresentation(tSumPagedRep.getData().get(0));

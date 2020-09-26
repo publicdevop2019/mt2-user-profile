@@ -15,6 +15,7 @@ import com.hw.shared.rest.DefaultRoleBasedRestfulService;
 import com.hw.shared.rest.VoidTypedClass;
 import com.hw.shared.sql.RestfulQueryRegistry;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
+import javax.persistence.EntityManager;
 import java.util.Map;
 
 @Service
@@ -48,6 +50,8 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
     private SagaOrchestratorService sagaOrchestratorService;
     @Autowired
     private PlatformTransactionManager transactionManager;
+    @Autowired
+    private EntityManager entityManager;
 
     @PostConstruct
     private void setUp() {
@@ -60,7 +64,6 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
         appChangeRecordApplicationService = changeHistoryRepository;
     }
 
-    @Transactional(isolation = Isolation.READ_COMMITTED)
     public BizOrderPaymentLinkRepresentation prepareOrder(Object command, String changeId) {
         long id = idGenerator.getId();
         BizOrder.prepare(id, (UserCreateBizOrderCommand) command, sagaOrchestratorService, changeId);
@@ -68,20 +71,24 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
         return new BizOrderPaymentLinkRepresentation(userBizOrderRep.getPaymentLink());
     }
 
-    @Transactional(isolation = Isolation.READ_COMMITTED)
     public BizOrderConfirmStatusRepresentation confirmPayment(Long id, String changeId) {
         UserBizOrderRep before = readById(id);
         BizOrder.confirmPayment(sagaOrchestratorService, changeId, before);
-        UserBizOrderRep after = readById(id);
-        return new BizOrderConfirmStatusRepresentation(after.isPaid());
+        Session unwrap = entityManager.unwrap(Session.class);
+        try (Session session = unwrap.getSessionFactory().openSession()) {// auto close resource after return
+            BizOrder load = session.load(BizOrder.class, id);
+            return new BizOrderConfirmStatusRepresentation(load.isPaid());
+        }
     }
 
-    @Transactional(isolation = Isolation.READ_COMMITTED)
     public BizOrderPaymentLinkRepresentation reserve(Long id, String changeId) {
         UserBizOrderRep before = readById(id);
-        BizOrder.reserve(sagaOrchestratorService, changeId,before);
-        UserBizOrderRep after = readById(id);
-        return new BizOrderPaymentLinkRepresentation(after.getPaymentLink());
+        BizOrder.reserve(sagaOrchestratorService, changeId, before);
+        Session unwrap = entityManager.unwrap(Session.class);
+        try (Session session = unwrap.getSessionFactory().openSession()) {// auto close resource after return
+            BizOrder load = session.load(BizOrder.class, id);
+            return new BizOrderPaymentLinkRepresentation(load.getPaymentLink());
+        }
     }
 
     @Override
