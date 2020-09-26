@@ -69,7 +69,7 @@ public class BizOrderController {
 
     @PutMapping("user/{id}")
     public ResponseEntity<Void> confirmPaymentForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId,
-                                                      @RequestBody UserUpdateBizAddressCommand command) {
+                                                      @RequestBody UserUpdateBizOrderAddressCommand command) {
         UserThreadLocal.unset();
         UserThreadLocal.set(ServiceUtility.getUserId(authorization));
         userBizOrderApplicationService.replaceById(id, command, changeId);

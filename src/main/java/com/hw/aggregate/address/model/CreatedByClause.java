@@ -1,6 +1,6 @@
 package com.hw.aggregate.address.model;
 
-import com.hw.config.UserIdNotFoundException;
+import com.hw.shared.UserIdNotFoundException;
 import com.hw.shared.UserThreadLocal;
 import com.hw.shared.sql.clause.WhereClause;
 

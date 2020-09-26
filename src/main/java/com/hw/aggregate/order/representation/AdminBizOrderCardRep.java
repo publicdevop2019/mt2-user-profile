@@ -16,6 +16,7 @@ public class AdminBizOrderCardRep {
     private BizOrderStatus orderState;
     private List<BizOrderItem> productList;
     private long createdAt;
+    private long userId;
     private String createdBy;
 
     public AdminBizOrderCardRep(BizOrder bizOrder) {
@@ -26,5 +27,6 @@ public class AdminBizOrderCardRep {
         this.orderState = bizOrder.getOrderState();
         this.createdAt = bizOrder.getCreatedAt().getTime();
         this.createdBy = bizOrder.getCreatedBy();
+        this.userId = bizOrder.getUserId();
     }
 }

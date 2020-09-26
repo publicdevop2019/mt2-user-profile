@@ -5,6 +5,7 @@ import com.hw.aggregate.address.exception.MaxAddressCountException;
 import com.hw.aggregate.cart.exception.MaxCartItemException;
 import com.hw.aggregate.order.exception.BizOrderCreationUnknownException;
 import com.hw.aggregate.order.exception.BizOrderPaymentMismatchException;
+import com.hw.aggregate.order.exception.BizOrderUpdateAddressAfterPaymentException;
 import com.hw.aggregate.order.exception.ProductInfoValidationException;
 import com.hw.shared.ErrorMessage;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ public class DomainExceptionHandler extends ResponseEntityExceptionHandler {
             MaxCartItemException.class,
             DuplicateAddressException.class,
             MaxAddressCountException.class,
+            BizOrderUpdateAddressAfterPaymentException.class
     })
     protected ResponseEntity<Object> handle400Exception(RuntimeException ex, WebRequest request) {
         ErrorMessage errorMessage = new ErrorMessage(ex);

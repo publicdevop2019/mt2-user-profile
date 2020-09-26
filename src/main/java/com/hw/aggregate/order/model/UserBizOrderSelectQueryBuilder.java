@@ -10,6 +10,7 @@ import javax.persistence.EntityManager;
 public class UserBizOrderSelectQueryBuilder extends SelectQueryBuilder<BizOrder> {
     UserBizOrderSelectQueryBuilder() {
         allowEmptyClause = true;
+        defaultWhereField.add(new UserIdClause());
     }
 
     @Autowired

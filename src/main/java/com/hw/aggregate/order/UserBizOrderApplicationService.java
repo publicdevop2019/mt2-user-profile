@@ -2,7 +2,7 @@ package com.hw.aggregate.order;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
-import com.hw.aggregate.order.command.UserPlaceBizOrderAgainCommand;
+import com.hw.aggregate.order.command.UserUpdateBizOrderAddressCommand;
 import com.hw.aggregate.order.model.BizOrder;
 import com.hw.aggregate.order.model.BizOrderQueryRegistry;
 import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation;
@@ -10,16 +10,18 @@ import com.hw.aggregate.order.representation.BizOrderPaymentLinkRepresentation;
 import com.hw.aggregate.order.representation.UserBizOrderCardRep;
 import com.hw.aggregate.order.representation.UserBizOrderRep;
 import com.hw.shared.IdGenerator;
+import com.hw.shared.UserThreadLocal;
 import com.hw.shared.idempotent.AppChangeRecordApplicationService;
+import com.hw.shared.idempotent.OperationType;
 import com.hw.shared.rest.DefaultRoleBasedRestfulService;
 import com.hw.shared.rest.VoidTypedClass;
 import com.hw.shared.sql.RestfulQueryRegistry;
+import com.hw.shared.sql.SumPagedRep;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
@@ -64,6 +66,14 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
         appChangeRecordApplicationService = changeHistoryRepository;
     }
 
+    @Transactional
+    public void replaceById(Long id, Object command, String changeId) {
+        BizOrder wOptLock = BizOrder.getWOptLock(id, UserThreadLocal.get(), repo2);
+        saveChangeRecord(null, changeId, OperationType.PUT, "id:" + id.toString(),null, wOptLock);
+        BizOrder after = replaceEntity(wOptLock, command);
+        repo.save(after);
+    }
+
     public BizOrderPaymentLinkRepresentation prepareOrder(Object command, String changeId) {
         long id = idGenerator.getId();
         BizOrder.prepare(id, (UserCreateBizOrderCommand) command, sagaOrchestratorService, changeId);
@@ -93,7 +103,7 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
 
     @Override
     public BizOrder replaceEntity(BizOrder bizOrder, Object command) {
-        bizOrder.updateAddress((UserPlaceBizOrderAgainCommand) command);
+        bizOrder.updateAddress((UserUpdateBizOrderAddressCommand) command);
         return bizOrder;
     }
 

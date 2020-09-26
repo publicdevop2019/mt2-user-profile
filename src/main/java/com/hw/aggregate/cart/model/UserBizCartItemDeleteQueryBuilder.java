@@ -10,7 +10,6 @@ import javax.persistence.EntityManager;
 public class UserBizCartItemDeleteQueryBuilder extends DeleteByIdQueryBuilder<BizCartItem> {
     UserBizCartItemDeleteQueryBuilder() {
         defaultWhereField.add(new CreatedByClause());
-        allowEmptyClause = true;
     }
 
     @Autowired

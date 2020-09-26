@@ -1,7 +1,7 @@
 package com.hw.aggregate.cart.model;
 
 import com.hw.shared.UserThreadLocal;
-import com.hw.config.UserIdNotFoundException;
+import com.hw.shared.UserIdNotFoundException;
 import com.hw.shared.sql.clause.WhereClause;
 import lombok.extern.slf4j.Slf4j;
 

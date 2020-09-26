@@ -1,11 +1,13 @@
 package com.hw.aggregate.order.model;
 
+import com.hw.aggregate.order.BizOrderRepository;
 import com.hw.aggregate.order.SagaOrchestratorService;
 import com.hw.aggregate.order.command.AppCreateBizOrderCommand;
 import com.hw.aggregate.order.command.AppUpdateBizOrderCommand;
 import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
-import com.hw.aggregate.order.command.UserPlaceBizOrderAgainCommand;
+import com.hw.aggregate.order.command.UserUpdateBizOrderAddressCommand;
 import com.hw.aggregate.order.exception.BizOrderPaymentMismatchException;
+import com.hw.aggregate.order.exception.BizOrderUpdateAddressAfterPaymentException;
 import com.hw.aggregate.order.model.product.AppProductOption;
 import com.hw.aggregate.order.model.product.AppProductSku;
 import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
@@ -14,6 +16,7 @@ import com.hw.shared.Auditable;
 import com.hw.shared.UserThreadLocal;
 import com.hw.shared.rest.IdBasedEntity;
 import com.hw.shared.rest.VersionBasedEntity;
+import com.hw.shared.rest.exception.EntityNotExistException;
 import com.hw.shared.sql.PatchCommand;
 import lombok.Data;
 import lombok.Getter;
@@ -54,6 +57,8 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
     @Valid
     @Embedded
     private BizOrderAddress address;
+    private Long userId;
+    public static final String ENTITY_USER_ID = "userId";
 
     @Column(length = 100000)
     private ArrayList<BizOrderItem> readOnlyProductList;
@@ -99,6 +104,7 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
         validatePaymentAmount();
         this.id = command.getOrderId();
         this.writeOnlyProductList = collect2;
+        this.userId = command.getUserId();
         BizOrderAddress customerOrderAddress = new BizOrderAddress();
         customerOrderAddress.setOrderAddressCity(command.getAddress().getCity());
         customerOrderAddress.setOrderAddressCountry(command.getAddress().getCountry());
@@ -238,24 +244,26 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
             throw new BizOrderPaymentMismatchException();
     }
 
-    public void updateAddress(UserPlaceBizOrderAgainCommand command) {
-        if (command.getAddress() != null
-                && StringUtils.hasText(command.getAddress().getCountry())
-                && StringUtils.hasText(command.getAddress().getProvince())
-                && StringUtils.hasText(command.getAddress().getCity())
-                && StringUtils.hasText(command.getAddress().getPostalCode())
-                && StringUtils.hasText(command.getAddress().getLine1())
-                && StringUtils.hasText(command.getAddress().getFullName())
-                && StringUtils.hasText(command.getAddress().getPhoneNumber())
+    public void updateAddress(UserUpdateBizOrderAddressCommand command) {
+        if(this.orderState.equals(BizOrderStatus.PAID_RECYCLED) || this.orderState.equals(BizOrderStatus.PAID_RESERVED)){
+            throw new BizOrderUpdateAddressAfterPaymentException();
+        }
+        if (StringUtils.hasText(command.getCountry())
+                && StringUtils.hasText(command.getProvince())
+                && StringUtils.hasText(command.getCity())
+                && StringUtils.hasText(command.getPostalCode())
+                && StringUtils.hasText(command.getLine1())
+                && StringUtils.hasText(command.getFullName())
+                && StringUtils.hasText(command.getPhoneNumber())
         ) {
-            address.setOrderAddressCountry(command.getAddress().getCountry());
-            address.setOrderAddressProvince(command.getAddress().getProvince());
-            address.setOrderAddressCity(command.getAddress().getCity());
-            address.setOrderAddressPostalCode(command.getAddress().getPostalCode());
-            address.setOrderAddressLine1(command.getAddress().getLine1());
-            address.setOrderAddressLine2(command.getAddress().getLine2());
-            address.setOrderAddressFullName(command.getAddress().getFullName());
-            address.setOrderAddressPhoneNumber(command.getAddress().getPhoneNumber());
+            address.setOrderAddressCountry(command.getCountry());
+            address.setOrderAddressProvince(command.getProvince());
+            address.setOrderAddressCity(command.getCity());
+            address.setOrderAddressPostalCode(command.getPostalCode());
+            address.setOrderAddressLine1(command.getLine1());
+            address.setOrderAddressLine2(command.getLine2());
+            address.setOrderAddressFullName(command.getFullName());
+            address.setOrderAddressPhoneNumber(command.getPhoneNumber());
         }
         updateModifiedByUserAt();
     }
@@ -373,6 +381,13 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
         this.setOrderState(command.getOrderState());
         this.setPaid(command.getPaymentStatus());
         return this;
+    }
+
+    public static BizOrder getWOptLock(Long id, String userId, BizOrderRepository orderRepository) {
+        Optional<BizOrder> byId = orderRepository.findByIdOptLock(id, Long.parseLong(userId));
+        if (byId.isEmpty())
+            throw new EntityNotExistException();
+        return byId.get();
     }
 }
 

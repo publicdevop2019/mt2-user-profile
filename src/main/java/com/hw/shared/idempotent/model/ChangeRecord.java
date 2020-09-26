@@ -1,6 +1,5 @@
 package com.hw.shared.idempotent.model;
 
-import com.fasterxml.jackson.databind.ser.std.ByteArraySerializer;
 import com.hw.shared.Auditable;
 import com.hw.shared.idempotent.OperationType;
 import com.hw.shared.idempotent.command.AppCreateChangeRecordCommand;
@@ -10,9 +9,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 
 @Entity
@@ -39,7 +35,7 @@ public class ChangeRecord extends Auditable implements IdBasedEntity {
     //@Convert(converter = CustomByteArraySerializer.class)
     // not using converter due to lazy load , no session error
     private byte[] replacedVersion;
-
+    private ArrayList<Long> deletedIds;
     private OperationType operationType;
     private String query;
 
@@ -52,6 +48,8 @@ public class ChangeRecord extends Auditable implements IdBasedEntity {
         this.operationType = command.getOperationType();
         this.query = command.getQuery();
         this.replacedVersion = CustomByteArraySerializer.convertToDatabaseColumn(command.getReplacedVersion());
+        if (command.getDeletedIds() != null)
+            this.deletedIds = new ArrayList<>(command.getDeletedIds());
     }
 
     public static ChangeRecord create(Long id, AppCreateChangeRecordCommand command) {

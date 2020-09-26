@@ -1,4 +1,4 @@
-package com.hw.config;
+package com.hw.shared;
 
 public class UserIdNotFoundException extends RuntimeException{
 }

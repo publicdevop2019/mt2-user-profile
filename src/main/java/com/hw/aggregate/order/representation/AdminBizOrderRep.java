@@ -1,14 +1,17 @@
 package com.hw.aggregate.order.representation;
 
-import com.hw.aggregate.order.model.*;
+import com.hw.aggregate.order.model.BizOrder;
+import com.hw.aggregate.order.model.BizOrderAddress;
+import com.hw.aggregate.order.model.BizOrderItem;
+import com.hw.aggregate.order.model.BizOrderStatus;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.Map;
+
 @Data
 public class AdminBizOrderRep {
+    private Long userId;
     private Long id;
 
     private BizOrderAddress address;
@@ -40,5 +43,6 @@ public class AdminBizOrderRep {
         this.createdAt = bizOrder.getCreatedAt().getTime();
         this.modifiedBy = bizOrder.getModifiedBy();
         this.modifiedAt = bizOrder.getModifiedAt().getTime();
+        this.userId = bizOrder.getUserId();
     }
 }
