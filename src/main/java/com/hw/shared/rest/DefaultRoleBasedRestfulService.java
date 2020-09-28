@@ -176,7 +176,8 @@ public abstract class DefaultRoleBasedRestfulService<T extends Auditable & IdBas
                 if (data.get(0).getOperationType().equals(OperationType.DELETE_BY_ID)) {
                     restoreDelete(data.get(0).getQuery().replace("id:", ""), changeId + CHANGE_REVOKED);
                 } else {
-                    // todo
+                    String collect = data.get(0).getDeletedIds().stream().map(Object::toString).collect(Collectors.joining("."));
+                    restoreDelete(collect, changeId + CHANGE_REVOKED);
                 }
             }
         } else if (data.get(0).getOperationType().equals(OperationType.PATCH_BATCH)) {
@@ -220,7 +221,7 @@ public abstract class DefaultRoleBasedRestfulService<T extends Auditable & IdBas
 
     protected void restoreDelete(String ids, String changeId) {
         saveChangeRecord(null, changeId, OperationType.RESTORE_DELETE, "id:" + ids, null,null);
-        String[] split = ids.split(".");
+        String[] split = ids.split("\\.");
         for (String str : split) {
             Optional<T> byId = repo.findById(Long.parseLong(str));//use repo instead of common readyBy
             if (byId.isEmpty())

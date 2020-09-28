@@ -2,7 +2,6 @@ package com.hw.shared.sql.builder;
 
 import com.hw.shared.AuditorAwareImpl;
 import com.hw.shared.sql.clause.SelectFieldIdWhereClause;
-import com.hw.shared.sql.clause.SelectNotDeletedClause;
 import com.hw.shared.sql.clause.WhereClause;
 import com.hw.shared.sql.exception.EmptyQueryValueException;
 import com.hw.shared.sql.exception.EmptyWhereClauseException;
