@@ -138,7 +138,7 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
         machineCommand.setPaymentType(command.getPaymentType());
         machineCommand.setAddress(command.getAddress());
         machineCommand.setProductList(collect2);
-        sagaOrchestratorService.startTx(machineCommand);
+        sagaOrchestratorService.startTx(List.of(machineCommand));
     }
 
     public static BizOrder create(AppCreateBizOrderCommand command) {
@@ -245,7 +245,7 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
     }
 
     public void updateAddress(UserUpdateBizOrderAddressCommand command) {
-        if(this.orderState.equals(BizOrderStatus.PAID_RECYCLED) || this.orderState.equals(BizOrderStatus.PAID_RESERVED)){
+        if (this.orderState.equals(BizOrderStatus.PAID_RECYCLED) || this.orderState.equals(BizOrderStatus.PAID_RESERVED)) {
             throw new BizOrderUpdateAddressAfterPaymentException();
         }
         if (StringUtils.hasText(command.getCountry())
@@ -279,7 +279,7 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
         createBizStateMachineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
         createBizStateMachineCommand.setOrderState(userBizOrderRep.getOrderState());
         createBizStateMachineCommand.setTxId(changeId);
-        sagaOrchestratorService.startTx(createBizStateMachineCommand);
+        sagaOrchestratorService.startTx(List.of(createBizStateMachineCommand));
     }
 
     public static void reserve(SagaOrchestratorService sagaOrchestratorService, String changeId, UserBizOrderRep rep) {
@@ -294,7 +294,7 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
         machineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
         machineCommand.setOrderState(rep.getOrderState());
         machineCommand.setTxId(changeId);
-        sagaOrchestratorService.startTx(machineCommand);
+        sagaOrchestratorService.startTx(List.of(machineCommand));
     }
 
     public static boolean validateProducts(AppProductSumPagedRep appProductSumPagedRep, List<BizOrderItem> orderItems) {
@@ -379,7 +379,7 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
     public BizOrder replace(AppUpdateBizOrderCommand command) {
         this.setId(command.getOrderId());
         this.setOrderState(command.getOrderState());
-        this.setPaid(command.getPaymentStatus());
+        this.setPaid(command.getPaymentStatus() == null ? false : command.getPaymentStatus());
         return this;
     }
 

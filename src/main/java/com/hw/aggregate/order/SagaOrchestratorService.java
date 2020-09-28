@@ -30,10 +30,10 @@ public class SagaOrchestratorService {
     @Autowired
     private ResourceServiceTokenHelper tokenHelper;
 
-    public void startTx(CreateBizStateMachineCommand createBizStateMachineCommand) {
+    public void startTx(List<CreateBizStateMachineCommand> createBizStateMachineCommand) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<CreateBizStateMachineCommand> hashMapHttpEntity = new HttpEntity<>(createBizStateMachineCommand, headers);
+        HttpEntity<List<CreateBizStateMachineCommand>> hashMapHttpEntity = new HttpEntity<>(createBizStateMachineCommand, headers);
         tokenHelper.exchange(eurekaRegistryHelper.getProxyHomePageUrl() + sageUrl, HttpMethod.POST, hashMapHttpEntity, Void.class);
     }
 
