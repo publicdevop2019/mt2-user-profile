@@ -99,13 +99,13 @@ public class BizOrderController {
     }
 
     @PostMapping("app")
-    public ResponseEntity<Void> createForUser(
+    public ResponseEntity<Void> createForApp(
             @RequestHeader("authorization") String authorization,
             @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId,
             @RequestBody AppCreateBizOrderCommand command) {
-        UserThreadLocal.unset();
-        UserThreadLocal.set(ServiceUtility.getUserId(authorization));
+        log.info("start createForApp");
         appBizOrderApplicationService.create(command, changeId);
+        log.info("complete createForApp");
         return ResponseEntity.ok().build();
     }
 

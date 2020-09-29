@@ -11,6 +11,8 @@ import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
 import com.hw.aggregate.order.representation.AppBizOrderRep;
 import com.hw.shared.IdGenerator;
 import com.hw.shared.idempotent.AppChangeRecordApplicationService;
+import com.hw.shared.idempotent.OperationType;
+import com.hw.shared.rest.CreatedEntityRep;
 import com.hw.shared.rest.DefaultRoleBasedRestfulService;
 import com.hw.shared.rest.VoidTypedClass;
 import com.hw.shared.sql.RestfulQueryRegistry;
@@ -18,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
 import java.util.Map;
@@ -56,6 +59,14 @@ public class AppBizOrderApplicationService extends DefaultRoleBasedRestfulServic
         role = RestfulQueryRegistry.RoleEnum.APP;
         om = om2;
         appChangeRecordApplicationService = changeHistoryRepository;
+    }
+
+    @Transactional
+    public CreatedEntityRep create(AppCreateBizOrderCommand command, String changeId) {
+        saveChangeRecord(null, changeId, OperationType.POST, "id:" + command.getOrderId(), null, null);
+        BizOrder created = createEntity(command.getOrderId(), command);
+        BizOrder save = repo.save(created);
+        return new CreatedEntityRep(save);
     }
 
     public void validate(AppValidateBizOrderCommand command) {
