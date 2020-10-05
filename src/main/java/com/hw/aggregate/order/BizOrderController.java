@@ -68,8 +68,8 @@ public class BizOrderController {
     }
 
     @PutMapping("user/{id}")
-    public ResponseEntity<Void> confirmPaymentForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId,
-                                                      @RequestBody UserUpdateBizOrderAddressCommand command) {
+    public ResponseEntity<Void> updateOrderAddress(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId,
+                                                   @RequestBody UserUpdateBizOrderAddressCommand command) {
         UserThreadLocal.unset();
         UserThreadLocal.set(ServiceUtility.getUserId(authorization));
         userBizOrderApplicationService.replaceById(id, command, changeId);
@@ -77,7 +77,7 @@ public class BizOrderController {
     }
 
     @PutMapping("user/{id}/confirm")
-    public ResponseEntity<BizOrderConfirmStatusRepresentation> confirmPaymentForUser(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId) {
+    public ResponseEntity<BizOrderConfirmStatusRepresentation> updateOrderAddress(@RequestHeader("authorization") String authorization, @PathVariable(name = "id") Long id, @RequestHeader(HTTP_HEADER_CHANGE_ID) String changeId) {
         UserThreadLocal.unset();
         UserThreadLocal.set(ServiceUtility.getUserId(authorization));
         return ResponseEntity.ok(userBizOrderApplicationService.confirmPayment(id, changeId));

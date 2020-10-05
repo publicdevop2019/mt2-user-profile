@@ -52,5 +52,6 @@ public class SagaOrchestratorService {
         private BizOrderAddressCmdRep address;
         private String paymentType;
         private BigDecimal paymentAmt;
+        private Integer version;
     }
 }

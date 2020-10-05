@@ -105,16 +105,16 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
         this.id = command.getOrderId();
         this.writeOnlyProductList = collect2;
         this.userId = command.getUserId();
-        BizOrderAddress customerOrderAddress = new BizOrderAddress();
-        customerOrderAddress.setOrderAddressCity(command.getAddress().getCity());
-        customerOrderAddress.setOrderAddressCountry(command.getAddress().getCountry());
-        customerOrderAddress.setOrderAddressFullName(command.getAddress().getFullName());
-        customerOrderAddress.setOrderAddressLine1(command.getAddress().getLine1());
-        customerOrderAddress.setOrderAddressLine2(command.getAddress().getLine2());
-        customerOrderAddress.setOrderAddressPhoneNumber(command.getAddress().getPhoneNumber());
-        customerOrderAddress.setOrderAddressProvince(command.getAddress().getProvince());
-        customerOrderAddress.setOrderAddressPostalCode(command.getAddress().getPostalCode());
-        this.address = customerOrderAddress;
+        BizOrderAddress address = new BizOrderAddress();
+        address.setOrderAddressCity(command.getAddress().getCity());
+        address.setOrderAddressCountry(command.getAddress().getCountry());
+        address.setOrderAddressFullName(command.getAddress().getFullName());
+        address.setOrderAddressLine1(command.getAddress().getLine1());
+        address.setOrderAddressLine2(command.getAddress().getLine2());
+        address.setOrderAddressPhoneNumber(command.getAddress().getPhoneNumber());
+        address.setOrderAddressProvince(command.getAddress().getProvince());
+        address.setOrderAddressPostalCode(command.getAddress().getPostalCode());
+        this.address = address;
         this.paymentType = command.getPaymentType();
         this.paymentLink = command.getPaymentLink();
         this.modifiedByUserAt = Date.from(Instant.now());
@@ -268,18 +268,19 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
         updateModifiedByUserAt();
     }
 
-    public static void confirmPayment(SagaOrchestratorService sagaOrchestratorService, String changeId, UserBizOrderRep userBizOrderRep) {
+    public static void confirmPayment(SagaOrchestratorService sagaOrchestratorService, String changeId, UserBizOrderRep rep) {
         log.debug("start of confirmPayment");
-        SagaOrchestratorService.CreateBizStateMachineCommand createBizStateMachineCommand = new SagaOrchestratorService.CreateBizStateMachineCommand();
-        createBizStateMachineCommand.setOrderId(userBizOrderRep.getId());
-        createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.CONFIRM_PAYMENT);
-        createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_CONFIRM_PAYMENT);
-        createBizStateMachineCommand.setActualStorageChange(BizOrder.getConfirmOrderPatchCommands(userBizOrderRep.getProductList()));
-        createBizStateMachineCommand.setCreatedBy(UserThreadLocal.get());
-        createBizStateMachineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
-        createBizStateMachineCommand.setOrderState(userBizOrderRep.getOrderState());
-        createBizStateMachineCommand.setTxId(changeId);
-        sagaOrchestratorService.startTx(List.of(createBizStateMachineCommand));
+        SagaOrchestratorService.CreateBizStateMachineCommand machineCommand = new SagaOrchestratorService.CreateBizStateMachineCommand();
+        machineCommand.setOrderId(rep.getId());
+        machineCommand.setBizOrderEvent(BizOrderEvent.CONFIRM_PAYMENT);
+        machineCommand.setPrepareEvent(BizOrderEvent.PREPARE_CONFIRM_PAYMENT);
+        machineCommand.setActualStorageChange(BizOrder.getConfirmOrderPatchCommands(rep.getProductList()));
+        machineCommand.setCreatedBy(UserThreadLocal.get());
+        machineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
+        machineCommand.setOrderState(rep.getOrderState());
+        machineCommand.setTxId(changeId);
+        machineCommand.setVersion(rep.getVersion());
+        sagaOrchestratorService.startTx(List.of(machineCommand));
     }
 
     public static void reserve(SagaOrchestratorService sagaOrchestratorService, String changeId, UserBizOrderRep rep) {
@@ -294,6 +295,7 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
         machineCommand.setUserId(Long.parseLong(UserThreadLocal.get()));
         machineCommand.setOrderState(rep.getOrderState());
         machineCommand.setTxId(changeId);
+        machineCommand.setVersion(rep.getVersion());
         sagaOrchestratorService.startTx(List.of(machineCommand));
     }
 
@@ -377,14 +379,20 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
     }
 
     public BizOrder replace(AppUpdateBizOrderCommand command) {
-        this.setId(command.getOrderId());
         this.setOrderState(command.getOrderState());
         this.setPaid(command.getPaymentStatus() == null ? false : command.getPaymentStatus());
+        this.setVersion(command.getVersion());
         return this;
     }
 
-    public static BizOrder getWOptLock(Long id, String userId, BizOrderRepository orderRepository) {
-        Optional<BizOrder> byId = orderRepository.findByIdOptLock(id, Long.parseLong(userId));
+    public static BizOrder getWOptLockForUser(Long id, String userId, BizOrderRepository orderRepository) {
+        Optional<BizOrder> byId = orderRepository.findByIdOptLockForUser(id, Long.parseLong(userId));
+        if (byId.isEmpty())
+            throw new EntityNotExistException();
+        return byId.get();
+    }
+    public static BizOrder getWOptLockForApp(Long id, BizOrderRepository orderRepository) {
+        Optional<BizOrder> byId = orderRepository.findByIdOptLockForApp(id);
         if (byId.isEmpty())
             throw new EntityNotExistException();
         return byId.get();

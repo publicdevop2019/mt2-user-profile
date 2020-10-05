@@ -65,6 +65,7 @@ public class AppBizOrderScheduler {
                 createBizStateMachineCommand.setOrderState(BizOrderStatus.NOT_PAID_RESERVED);
                 createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_RECYCLE_ORDER_STORAGE);
                 createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.RECYCLE_ORDER_STORAGE);
+                createBizStateMachineCommand.setVersion(expiredOrder.getVersion());
 
                 releaseCmds.add(createBizStateMachineCommand);
             });
@@ -103,6 +104,7 @@ public class AppBizOrderScheduler {
                 createBizStateMachineCommand.setOrderState(order.getOrderState());
                 createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_RESERVE);
                 createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.RESERVE);
+                createBizStateMachineCommand.setVersion(order.getVersion());
                 confirmCmd.add(createBizStateMachineCommand);
             });
         }

@@ -16,7 +16,6 @@ import com.hw.shared.idempotent.OperationType;
 import com.hw.shared.rest.DefaultRoleBasedRestfulService;
 import com.hw.shared.rest.VoidTypedClass;
 import com.hw.shared.sql.RestfulQueryRegistry;
-import com.hw.shared.sql.SumPagedRep;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,7 +67,7 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
 
     @Transactional
     public void replaceById(Long id, Object command, String changeId) {
-        BizOrder wOptLock = BizOrder.getWOptLock(id, UserThreadLocal.get(), repo2);
+        BizOrder wOptLock = BizOrder.getWOptLockForUser(id, UserThreadLocal.get(), repo2);
         saveChangeRecord(null, changeId, OperationType.PUT, "id:" + id.toString(),null, wOptLock);
         BizOrder after = replaceEntity(wOptLock, command);
         repo.save(after);

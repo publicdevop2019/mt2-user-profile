@@ -16,7 +16,11 @@ public interface BizOrderRepository extends JpaRepository<BizOrder, Long> {
 
     @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
     @Query("SELECT p FROM #{#entityName} as p WHERE p.id = ?1 AND p.userId = ?2 AND (p.deleted = false OR p.deleted = null)")
-    Optional<BizOrder> findByIdOptLock(Long id,Long userId);
+    Optional<BizOrder> findByIdOptLockForUser(Long id, Long userId);
+
+    @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
+    @Query("SELECT p FROM #{#entityName} as p WHERE p.id = ?1 AND (p.deleted = false OR p.deleted = null)")
+    Optional<BizOrder> findByIdOptLockForApp(Long id);
 
     @Query("SELECT p FROM #{#entityName} as p WHERE p.modifiedByUserAt < ?1 AND p.orderState = 'NOT_PAID_RESERVED'")
     List<BizOrder> findExpiredNotPaidReserved(Date expireAt);

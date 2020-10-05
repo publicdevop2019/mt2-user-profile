@@ -5,11 +5,13 @@ import com.hw.aggregate.order.command.AppCreateBizOrderCommand;
 import com.hw.aggregate.order.command.AppUpdateBizOrderCommand;
 import com.hw.aggregate.order.command.AppValidateBizOrderCommand;
 import com.hw.aggregate.order.exception.ProductInfoValidationException;
+import com.hw.aggregate.order.exception.VersionMismatchException;
 import com.hw.aggregate.order.model.BizOrder;
 import com.hw.aggregate.order.model.BizOrderQueryRegistry;
 import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
 import com.hw.aggregate.order.representation.AppBizOrderRep;
 import com.hw.shared.IdGenerator;
+import com.hw.shared.UserThreadLocal;
 import com.hw.shared.idempotent.AppChangeRecordApplicationService;
 import com.hw.shared.idempotent.OperationType;
 import com.hw.shared.rest.CreatedEntityRep;
@@ -59,6 +61,15 @@ public class AppBizOrderApplicationService extends DefaultRoleBasedRestfulServic
         role = RestfulQueryRegistry.RoleEnum.APP;
         om = om2;
         appChangeRecordApplicationService = changeHistoryRepository;
+    }
+    @Transactional
+    public void replaceById(Long id, Object command, String changeId) {
+        BizOrder wOptLock = BizOrder.getWOptLockForApp(id, repo2);
+        if(!wOptLock.getVersion().equals(((AppUpdateBizOrderCommand)command).getVersion()))
+            throw new VersionMismatchException();
+        saveChangeRecord(null, changeId, OperationType.PUT, "id:" + id.toString(),null, wOptLock);
+        BizOrder after = replaceEntity(wOptLock, command);
+        repo.save(after);
     }
 
     @Transactional
