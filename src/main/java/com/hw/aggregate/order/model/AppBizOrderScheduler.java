@@ -89,6 +89,7 @@ public class AppBizOrderScheduler {
                 createBizStateMachineCommand.setOrderState(order.getOrderState());
                 createBizStateMachineCommand.setPrepareEvent(BizOrderEvent.PREPARE_CONFIRM_ORDER);
                 createBizStateMachineCommand.setBizOrderEvent(BizOrderEvent.CONFIRM_ORDER);
+                createBizStateMachineCommand.setVersion(order.getVersion());
                 confirmCmd.add(createBizStateMachineCommand);
             });
         }
