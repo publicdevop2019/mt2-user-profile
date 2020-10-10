@@ -68,7 +68,7 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
     @Transactional
     public void replaceById(Long id, Object command, String changeId) {
         BizOrder wOptLock = BizOrder.getWOptLockForUser(id, UserThreadLocal.get(), repo2);
-        saveChangeRecord(null, changeId, OperationType.PUT, "id:" + id.toString(),null, wOptLock);
+        saveChangeRecord(command, changeId, OperationType.PUT, "id:" + id.toString(),null, wOptLock);
         BizOrder after = replaceEntity(wOptLock, command);
         repo.save(after);
     }

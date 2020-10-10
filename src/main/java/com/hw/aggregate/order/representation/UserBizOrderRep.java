@@ -1,5 +1,6 @@
 package com.hw.aggregate.order.representation;
 
+import com.hw.aggregate.order.command.BizOrderAddressCmdRep;
 import com.hw.aggregate.order.model.*;
 import lombok.Data;
 

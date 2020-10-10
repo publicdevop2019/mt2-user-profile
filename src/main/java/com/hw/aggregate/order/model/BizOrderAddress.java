@@ -14,7 +14,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 @NoArgsConstructor
 public class BizOrderAddress implements Serializable {
-
+    private static final long serialVersionUID = 1;
     @NotBlank
     @Column(nullable = false)
     private String orderAddressFullName;

@@ -2,8 +2,11 @@ package com.hw.aggregate.order.command;
 
 import lombok.Data;
 
+import java.io.Serializable;
+
 @Data
-public class UserUpdateBizOrderAddressCommand {
+public class UserUpdateBizOrderAddressCommand implements Serializable {
+    private static final long serialVersionUID = 1;
     private String fullName;
 
     private String line1;

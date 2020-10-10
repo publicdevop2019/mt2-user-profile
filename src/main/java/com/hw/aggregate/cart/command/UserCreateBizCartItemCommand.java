@@ -4,13 +4,15 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.hw.aggregate.order.model.BizOrderItemAddOn;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 @Data
-public class UserCreateBizCartItemCommand {
+public class UserCreateBizCartItemCommand implements Serializable {
+    private static final long serialVersionUID = 1;
 
     private String name;
 

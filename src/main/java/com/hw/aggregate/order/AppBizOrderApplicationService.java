@@ -67,14 +67,14 @@ public class AppBizOrderApplicationService extends DefaultRoleBasedRestfulServic
         BizOrder wOptLock = BizOrder.getWOptLockForApp(id, repo2);
         if(!wOptLock.getVersion().equals(((AppUpdateBizOrderCommand)command).getVersion()))
             throw new VersionMismatchException();
-        saveChangeRecord(null, changeId, OperationType.PUT, "id:" + id.toString(),null, wOptLock);
+        saveChangeRecord(command, changeId, OperationType.PUT, "id:" + id.toString(),null, wOptLock);
         BizOrder after = replaceEntity(wOptLock, command);
         repo.save(after);
     }
 
     @Transactional
     public CreatedEntityRep create(AppCreateBizOrderCommand command, String changeId) {
-        saveChangeRecord(null, changeId, OperationType.POST, "id:" + command.getOrderId(), null, null);
+        saveChangeRecord(command, changeId, OperationType.POST, "id:" + command.getOrderId(), null, null);
         BizOrder created = createEntity(command.getOrderId(), command);
         BizOrder save = repo.save(created);
         return new CreatedEntityRep(save);

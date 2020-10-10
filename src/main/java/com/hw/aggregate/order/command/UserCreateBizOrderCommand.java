@@ -1,14 +1,14 @@
 package com.hw.aggregate.order.command;
 
-import com.hw.aggregate.order.model.BizOrderAddressCmdRep;
-import com.hw.aggregate.order.model.BizOrderItemCommand;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.List;
 
 @Data
-public class UserCreateBizOrderCommand {
+public class UserCreateBizOrderCommand implements Serializable {
+    private static final long serialVersionUID = 1;
     private BizOrderAddressCmdRep address;
     private List<BizOrderItemCommand> productList;
     private String paymentType;

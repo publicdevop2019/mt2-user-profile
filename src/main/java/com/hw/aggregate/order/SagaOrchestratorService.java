@@ -1,6 +1,6 @@
 package com.hw.aggregate.order;
 
-import com.hw.aggregate.order.model.BizOrderAddressCmdRep;
+import com.hw.aggregate.order.command.BizOrderAddressCmdRep;
 import com.hw.aggregate.order.model.BizOrderEvent;
 import com.hw.aggregate.order.model.BizOrderItem;
 import com.hw.aggregate.order.model.BizOrderStatus;
