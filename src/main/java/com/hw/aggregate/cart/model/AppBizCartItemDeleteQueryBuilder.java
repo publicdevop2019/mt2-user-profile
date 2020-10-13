@@ -6,8 +6,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.persistence.EntityManager;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
 
 import static com.hw.shared.Auditable.ENTITY_CREATED_BY;
 
@@ -15,11 +13,6 @@ import static com.hw.shared.Auditable.ENTITY_CREATED_BY;
 public class AppBizCartItemDeleteQueryBuilder extends SoftDeleteQueryBuilder<BizCartItem> {
     AppBizCartItemDeleteQueryBuilder() {
         supportedWhereField.put(ENTITY_CREATED_BY, new SelectFieldStringLikeClause<>(ENTITY_CREATED_BY));
-    }
-
-    @Override
-    protected Predicate getWhereClause(Root<BizCartItem> root, String fieldName) {
-        return null;
     }
 
     @Autowired
