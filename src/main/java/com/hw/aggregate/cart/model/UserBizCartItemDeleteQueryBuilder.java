@@ -12,8 +12,4 @@ public class UserBizCartItemDeleteQueryBuilder extends SoftDeleteQueryBuilder<Bi
         defaultWhereField.add(new CreatedByClause());
     }
 
-    @Autowired
-    private void setEntityManager(EntityManager entityManager) {
-        em = entityManager;
-    }
 }

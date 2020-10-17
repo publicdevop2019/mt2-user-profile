@@ -13,8 +13,4 @@ public class UserBizOrderDeleteQueryBuilder extends SoftDeleteQueryBuilder<BizOr
         defaultWhereField.add(new NotPayedClause());
     }
 
-    @Autowired
-    private void setEntityManager(EntityManager entityManager) {
-        em = entityManager;
-    }
 }

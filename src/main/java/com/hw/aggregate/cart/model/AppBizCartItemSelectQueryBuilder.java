@@ -17,8 +17,4 @@ public class AppBizCartItemSelectQueryBuilder extends SelectQueryBuilder<BizCart
     AppBizCartItemSelectQueryBuilder() {
         supportedWhereField.put(ENTITY_CREATED_BY, new SelectFieldStringLikeClause<>(ENTITY_CREATED_BY));
     }
-    @Autowired
-    private void setEntityManager(EntityManager entityManager) {
-        em = entityManager;
-    }
 }

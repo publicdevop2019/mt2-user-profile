@@ -13,8 +13,4 @@ public class UserBizOrderSelectQueryBuilder extends SelectQueryBuilder<BizOrder>
         defaultWhereField.add(new UserIdClause());
     }
 
-    @Autowired
-    private void setEntityManager(EntityManager entityManager) {
-        em = entityManager;
-    }
 }

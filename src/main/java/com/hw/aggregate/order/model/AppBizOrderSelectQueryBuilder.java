@@ -11,8 +11,4 @@ public class AppBizOrderSelectQueryBuilder extends SelectQueryBuilder<BizOrder> 
     AppBizOrderSelectQueryBuilder(){
         allowEmptyClause=false;
     }
-    @Autowired
-    private void setEntityManager(EntityManager entityManager) {
-        em = entityManager;
-    }
 }

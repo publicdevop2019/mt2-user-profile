@@ -12,8 +12,4 @@ public class UserBizAddressDeleteQueryBuilder extends SoftDeleteQueryBuilder<Biz
         defaultWhereField.add(new CreatedByClause());
     }
 
-    @Autowired
-    private void setEntityManager(EntityManager entityManager) {
-        em = entityManager;
-    }
 }

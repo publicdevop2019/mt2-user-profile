@@ -15,8 +15,4 @@ public class AppBizCartItemDeleteQueryBuilder extends SoftDeleteQueryBuilder<Biz
         supportedWhereField.put(ENTITY_CREATED_BY, new SelectFieldStringLikeClause<>(ENTITY_CREATED_BY));
     }
 
-    @Autowired
-    private void setEntityManager(EntityManager entityManager) {
-        em = entityManager;
-    }
 }

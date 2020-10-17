@@ -10,8 +10,4 @@ public class AdminBizOrderSelectQueryBuilder extends SelectQueryBuilder<BizOrder
     AdminBizOrderSelectQueryBuilder(){
         allowEmptyClause=true;
     }
-    @Autowired
-    private void setEntityManager(EntityManager entityManager) {
-        em = entityManager;
-    }
 }

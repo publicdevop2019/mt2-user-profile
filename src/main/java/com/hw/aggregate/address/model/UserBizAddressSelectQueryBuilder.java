@@ -13,8 +13,4 @@ public class UserBizAddressSelectQueryBuilder extends SelectQueryBuilder<BizAddr
         allowEmptyClause = true;
     }
 
-    @Autowired
-    private void setEntityManager(EntityManager entityManager) {
-        em = entityManager;
-    }
 }

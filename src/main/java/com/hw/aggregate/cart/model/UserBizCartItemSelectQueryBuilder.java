@@ -13,8 +13,4 @@ public class UserBizCartItemSelectQueryBuilder extends SelectQueryBuilder<BizCar
         defaultWhereField.add(new CreatedByClause());
     }
 
-    @Autowired
-    private void setEntityManager(EntityManager entityManager) {
-        em = entityManager;
-    }
 }
