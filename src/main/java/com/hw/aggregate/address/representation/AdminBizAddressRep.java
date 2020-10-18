@@ -3,8 +3,6 @@ package com.hw.aggregate.address.representation;
 import com.hw.aggregate.address.model.BizAddress;
 import lombok.Data;
 
-import java.util.Date;
-
 @Data
 public class AdminBizAddressRep {
     private Long id;

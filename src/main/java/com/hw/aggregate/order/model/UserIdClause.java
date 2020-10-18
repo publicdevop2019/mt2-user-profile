@@ -1,7 +1,7 @@
 package com.hw.aggregate.order.model;
 
-import com.hw.shared.UserThreadLocal;
 import com.hw.shared.UserIdNotFoundException;
+import com.hw.shared.UserThreadLocal;
 import com.hw.shared.sql.clause.WhereClause;
 
 import javax.persistence.criteria.CriteriaBuilder;

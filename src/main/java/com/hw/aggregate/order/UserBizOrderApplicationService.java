@@ -1,17 +1,13 @@
 package com.hw.aggregate.order;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
 import com.hw.aggregate.order.command.UserUpdateBizOrderAddressCommand;
 import com.hw.aggregate.order.model.BizOrder;
-import com.hw.aggregate.order.model.BizOrderQueryRegistry;
 import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation;
 import com.hw.aggregate.order.representation.BizOrderPaymentLinkRepresentation;
 import com.hw.aggregate.order.representation.UserBizOrderCardRep;
 import com.hw.aggregate.order.representation.UserBizOrderRep;
-import com.hw.shared.IdGenerator;
 import com.hw.shared.UserThreadLocal;
-import com.hw.shared.idempotent.AppChangeRecordApplicationService;
 import com.hw.shared.idempotent.OperationType;
 import com.hw.shared.rest.DefaultRoleBasedRestfulService;
 import com.hw.shared.rest.VoidTypedClass;
@@ -32,20 +28,9 @@ import java.util.Map;
 public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulService<BizOrder, UserBizOrderCardRep, UserBizOrderRep, VoidTypedClass> {
     @Autowired
     private BizOrderRepository repo2;
-    @Autowired
-    private AppChangeRecordApplicationService changeHistoryRepository;
-
-    @Autowired
-    private IdGenerator idGenerator2;
-
-    @Autowired
-    private BizOrderQueryRegistry skuQueryRegistry;
 
     @Autowired
     private ProductService productService;
-
-    @Autowired
-    private ObjectMapper om2;
 
     @Autowired
     private SagaOrchestratorService sagaOrchestratorService;
@@ -56,13 +41,8 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
 
     @PostConstruct
     private void setUp() {
-        repo = repo2;
-        idGenerator = idGenerator2;
-        queryRegistry = skuQueryRegistry;
         entityClass = BizOrder.class;
         role = RestfulQueryRegistry.RoleEnum.USER;
-        om = om2;
-        appChangeRecordApplicationService = changeHistoryRepository;
     }
 
     @Transactional

@@ -1,18 +1,13 @@
 package com.hw.aggregate.order;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hw.aggregate.order.command.AppCreateBizOrderCommand;
 import com.hw.aggregate.order.command.AppUpdateBizOrderCommand;
 import com.hw.aggregate.order.command.AppValidateBizOrderCommand;
 import com.hw.aggregate.order.exception.ProductInfoValidationException;
 import com.hw.aggregate.order.exception.VersionMismatchException;
 import com.hw.aggregate.order.model.BizOrder;
-import com.hw.aggregate.order.model.BizOrderQueryRegistry;
 import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
 import com.hw.aggregate.order.representation.AppBizOrderRep;
-import com.hw.shared.IdGenerator;
-import com.hw.shared.UserThreadLocal;
-import com.hw.shared.idempotent.AppChangeRecordApplicationService;
 import com.hw.shared.idempotent.OperationType;
 import com.hw.shared.rest.CreatedEntityRep;
 import com.hw.shared.rest.DefaultRoleBasedRestfulService;
@@ -32,20 +27,9 @@ import java.util.Map;
 public class AppBizOrderApplicationService extends DefaultRoleBasedRestfulService<BizOrder, Void, AppBizOrderRep, VoidTypedClass> {
     @Autowired
     private BizOrderRepository repo2;
-    @Autowired
-    private AppChangeRecordApplicationService changeHistoryRepository;
-
-    @Autowired
-    private IdGenerator idGenerator2;
-
-    @Autowired
-    private BizOrderQueryRegistry skuQueryRegistry;
 
     @Autowired
     private ProductService productService;
-
-    @Autowired
-    private ObjectMapper om2;
 
     @Autowired
     private SagaOrchestratorService sagaOrchestratorService;
@@ -54,13 +38,8 @@ public class AppBizOrderApplicationService extends DefaultRoleBasedRestfulServic
 
     @PostConstruct
     private void setUp() {
-        repo = repo2;
-        idGenerator = idGenerator2;
-        queryRegistry = skuQueryRegistry;
         entityClass = BizOrder.class;
         role = RestfulQueryRegistry.RoleEnum.APP;
-        om = om2;
-        appChangeRecordApplicationService = changeHistoryRepository;
     }
     @Transactional
     public void replaceById(Long id, Object command, String changeId) {

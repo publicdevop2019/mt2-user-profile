@@ -1,7 +1,10 @@
 package com.hw.aggregate.order.representation;
 
 import com.hw.aggregate.order.command.BizOrderAddressCmdRep;
-import com.hw.aggregate.order.model.*;
+import com.hw.aggregate.order.model.BizOrder;
+import com.hw.aggregate.order.model.BizOrderAddress;
+import com.hw.aggregate.order.model.BizOrderItem;
+import com.hw.aggregate.order.model.BizOrderStatus;
 import lombok.Data;
 
 import java.math.BigDecimal;

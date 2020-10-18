@@ -1,6 +1,5 @@
 package com.hw.aggregate.order;
 
-import com.hw.aggregate.address.command.UserUpdateBizAddressCommand;
 import com.hw.aggregate.order.command.*;
 import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation;
 import com.hw.shared.ServiceUtility;
