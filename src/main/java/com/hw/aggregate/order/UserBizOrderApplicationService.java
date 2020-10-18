@@ -1,7 +1,9 @@
 package com.hw.aggregate.order;
 
+import com.hw.aggregate.order.command.AppUpdateBizOrderCommand;
 import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
 import com.hw.aggregate.order.command.UserUpdateBizOrderAddressCommand;
+import com.hw.aggregate.order.exception.VersionMismatchException;
 import com.hw.aggregate.order.model.BizOrder;
 import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation;
 import com.hw.aggregate.order.representation.BizOrderPaymentLinkRepresentation;
@@ -47,10 +49,16 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
 
     @Transactional
     public void replaceById(Long id, Object command, String changeId) {
-        BizOrder wOptLock = BizOrder.getWOptLockForUser(id, UserThreadLocal.get(), repo2);
-        saveChangeRecord(command, changeId, OperationType.PUT, "id:" + id.toString(),null, wOptLock);
-        BizOrder after = replaceEntity(wOptLock, command);
-        repo.save(after);
+        if (changeAlreadyExist(changeId) && changeAlreadyRevoked(changeId)) {
+        } else if (changeAlreadyExist(changeId) && !changeAlreadyRevoked(changeId)) {
+        } else if (!changeAlreadyExist(changeId) && changeAlreadyRevoked(changeId)) {
+            saveChangeRecord(command, changeId, OperationType.PUT, "id:" + id.toString(), null, null);
+        } else {
+            BizOrder wOptLock = BizOrder.getWOptLockForUser(id, UserThreadLocal.get(), repo2);
+            saveChangeRecord(command, changeId, OperationType.PUT, "id:" + id.toString(),null, wOptLock);
+            BizOrder after = replaceEntity(wOptLock, command);
+            repo.save(after);
+        }
     }
 
     public BizOrderPaymentLinkRepresentation prepareOrder(Object command, String changeId) {
