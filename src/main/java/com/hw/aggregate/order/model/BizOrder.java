@@ -303,7 +303,11 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
             if (byId.isEmpty())
                 return true;
             BigDecimal price;
+            if (command.getAttributesSales().isEmpty())
+                command.getAttributesSales().add("");
             List<AppProductSku> collect = byId.get().getProductSkuList().stream().filter(productSku -> new TreeSet(productSku.getAttributesSales()).equals(new TreeSet(command.getAttributesSales()))).collect(Collectors.toList());
+            if (collect.isEmpty())
+                return true;
             price = collect.get(0).getPrice();
             //if no option present then compare final price
             if (command.getSelectedOptions() == null || command.getSelectedOptions().size() == 0) {
@@ -388,6 +392,7 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
             throw new EntityNotExistException();
         return byId.get();
     }
+
     public static BizOrder getWOptLockForApp(Long id, BizOrderRepository orderRepository) {
         Optional<BizOrder> byId = orderRepository.findByIdOptLockForApp(id);
         if (byId.isEmpty())
