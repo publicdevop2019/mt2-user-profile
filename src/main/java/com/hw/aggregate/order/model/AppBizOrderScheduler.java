@@ -74,6 +74,9 @@ public class AppBizOrderScheduler {
         }
     }
 
+    /**
+     * resubmit order in paid_reserved and paid_recycled
+     */
     @Scheduled(fixedRateString = "${fixedRate.in.milliseconds.resubmit}")
     public void resubmitOrder() {
         List<BizOrder> paidReserved = bizOrderRepository.findPaidReserved();
