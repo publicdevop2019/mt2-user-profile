@@ -9,4 +9,11 @@ public class BizAddressQueryRegistry extends RestfulQueryRegistry<BizAddress> {
     public Class<BizAddress> getEntityClass() {
         return BizAddress.class;
     }
+    private void setUp() {
+        cacheable.put(RoleEnum.USER, true);
+        cacheable.put(RoleEnum.ADMIN, true);
+        cacheable.put(RoleEnum.APP, true);
+        cacheable.put(RoleEnum.PUBLIC, true);
+        cacheable.put(RoleEnum.ROOT, true);
+    }
 }
