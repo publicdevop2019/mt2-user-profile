@@ -17,6 +17,7 @@ public class AdminBizOrderCardRep {
     private long createdAt;
     private long userId;
     private String createdBy;
+    private Integer version;
 
     public AdminBizOrderCardRep(BizOrder bizOrder) {
 
@@ -27,5 +28,6 @@ public class AdminBizOrderCardRep {
         this.createdAt = bizOrder.getCreatedAt().getTime();
         this.createdBy = bizOrder.getCreatedBy();
         this.userId = bizOrder.getUserId();
+        this.version = bizOrder.getVersion();
     }
 }

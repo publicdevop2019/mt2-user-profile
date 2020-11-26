@@ -27,6 +27,7 @@ public class AdminBizOrderRep {
     private long createdAt;
     private String modifiedBy;
     private long modifiedAt;
+    private Integer version;
 
     public AdminBizOrderRep(BizOrder bizOrder) {
         this.id = bizOrder.getId();
@@ -44,5 +45,6 @@ public class AdminBizOrderRep {
         this.modifiedBy = bizOrder.getModifiedBy();
         this.modifiedAt = bizOrder.getModifiedAt().getTime();
         this.userId = bizOrder.getUserId();
+        this.version = bizOrder.getVersion();
     }
 }
