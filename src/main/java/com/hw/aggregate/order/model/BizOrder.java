@@ -11,13 +11,10 @@ import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
 import com.hw.aggregate.order.representation.UserBizOrderRep;
 import com.hw.shared.Auditable;
 import com.hw.shared.UserThreadLocal;
-import com.hw.shared.rest.IdBasedEntity;
-import com.hw.shared.rest.VersionBasedEntity;
-import com.hw.shared.rest.exception.EntityNotExistException;
+import com.hw.shared.rest.Aggregate;
+import com.hw.shared.rest.exception.AggregateNotExistException;
 import com.hw.shared.sql.PatchCommand;
-import lombok.Data;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
 
@@ -40,7 +37,7 @@ import static com.hw.shared.AppConstant.PATCH_OP_TYPE_SUM;
 @Data
 @NoArgsConstructor
 @Slf4j
-public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEntity, Serializable {
+public class BizOrder extends Auditable implements Aggregate, Serializable {
     /**
      * id setter is required to correctly work with BeanPropertyRowMapper for spring batch
      */
@@ -92,6 +89,7 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
     private Date modifiedByUserAt;
 
     @Version
+    @Setter(AccessLevel.NONE)
     private Integer version;
 
     public BizOrder(AppCreateBizOrderCommand command) {
@@ -382,22 +380,7 @@ public class BizOrder extends Auditable implements IdBasedEntity, VersionBasedEn
     public BizOrder replace(AppUpdateBizOrderCommand command) {
         this.setOrderState(command.getOrderState());
         this.setPaid(command.getPaymentStatus() == null ? false : command.getPaymentStatus());
-        this.setVersion(command.getVersion());
         return this;
-    }
-
-    public static BizOrder getWOptLockForUser(Long id, String userId, BizOrderRepository orderRepository) {
-        Optional<BizOrder> byId = orderRepository.findByIdOptLockForUser(id, Long.parseLong(userId));
-        if (byId.isEmpty())
-            throw new EntityNotExistException();
-        return byId.get();
-    }
-
-    public static BizOrder getWOptLockForApp(Long id, BizOrderRepository orderRepository) {
-        Optional<BizOrder> byId = orderRepository.findByIdOptLockForApp(id);
-        if (byId.isEmpty())
-            throw new EntityNotExistException();
-        return byId.get();
     }
 }
 

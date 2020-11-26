@@ -7,16 +7,15 @@ import com.hw.aggregate.address.exception.DuplicateAddressException;
 import com.hw.aggregate.address.exception.MaxAddressCountException;
 import com.hw.aggregate.address.representation.UserBizAddressCardRep;
 import com.hw.shared.Auditable;
-import com.hw.shared.rest.IdBasedEntity;
+import com.hw.shared.rest.Aggregate;
 import com.hw.shared.sql.SumPagedRep;
+import lombok.AccessLevel;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.beans.BeanUtils;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
 import javax.validation.constraints.NotBlank;
 import java.util.Objects;
 
@@ -24,7 +23,7 @@ import java.util.Objects;
 @Table(name = "biz_address")
 @Data
 @NoArgsConstructor
-public class BizAddress extends Auditable implements IdBasedEntity {
+public class BizAddress extends Auditable implements Aggregate {
     @Id
     private Long id;
 
@@ -57,6 +56,9 @@ public class BizAddress extends Auditable implements IdBasedEntity {
     @NotBlank
     @Column(nullable = false)
     private String country;
+    @Version
+    @Setter(AccessLevel.NONE)
+    private Integer version;
 
     public static BizAddress create(Long id, UserCreateBizAddressCommand command, UserBizAddressApplicationService userBizAddressApplicationService) {
         SumPagedRep<UserBizAddressCardRep> userBizAddressCardRepSumPagedRep = userBizAddressApplicationService.readByQuery(null, null, null);

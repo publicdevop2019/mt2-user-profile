@@ -1,16 +1,12 @@
 package com.hw.aggregate.order;
 
-import com.hw.aggregate.order.command.AppUpdateBizOrderCommand;
 import com.hw.aggregate.order.command.UserCreateBizOrderCommand;
 import com.hw.aggregate.order.command.UserUpdateBizOrderAddressCommand;
-import com.hw.aggregate.order.exception.VersionMismatchException;
 import com.hw.aggregate.order.model.BizOrder;
 import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation;
 import com.hw.aggregate.order.representation.BizOrderPaymentLinkRepresentation;
 import com.hw.aggregate.order.representation.UserBizOrderCardRep;
 import com.hw.aggregate.order.representation.UserBizOrderRep;
-import com.hw.shared.UserThreadLocal;
-import com.hw.shared.idempotent.OperationType;
 import com.hw.shared.rest.DefaultRoleBasedRestfulService;
 import com.hw.shared.rest.VoidTypedClass;
 import com.hw.shared.sql.RestfulQueryRegistry;
@@ -19,7 +15,6 @@ import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
@@ -45,20 +40,6 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
     private void setUp() {
         entityClass = BizOrder.class;
         role = RestfulQueryRegistry.RoleEnum.USER;
-    }
-
-    @Transactional
-    public void replaceById(Long id, Object command, String changeId) {
-        if (changeAlreadyExist(changeId) && changeAlreadyRevoked(changeId)) {
-        } else if (changeAlreadyExist(changeId) && !changeAlreadyRevoked(changeId)) {
-        } else if (!changeAlreadyExist(changeId) && changeAlreadyRevoked(changeId)) {
-            saveChangeRecord(command, changeId, OperationType.PUT, "id:" + id.toString(), null, null);
-        } else {
-            BizOrder wOptLock = BizOrder.getWOptLockForUser(id, UserThreadLocal.get(), repo2);
-            saveChangeRecord(command, changeId, OperationType.PUT, "id:" + id.toString(),null, wOptLock);
-            BizOrder after = replaceEntity(wOptLock, command);
-            repo.save(after);
-        }
     }
 
     public BizOrderPaymentLinkRepresentation prepareOrder(Object command, String changeId) {

@@ -8,10 +8,12 @@ import com.hw.aggregate.order.model.BizOrderItemAddOn;
 import com.hw.aggregate.order.model.ProductOptionMapper;
 import com.hw.shared.Auditable;
 import com.hw.shared.LinkedHashSetConverter;
-import com.hw.shared.rest.IdBasedEntity;
+import com.hw.shared.rest.Aggregate;
 import com.hw.shared.sql.SumPagedRep;
+import lombok.AccessLevel;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotBlank;
@@ -23,7 +25,7 @@ import java.util.Set;
 @Table(name = "biz_cart_item")
 @Data
 @NoArgsConstructor
-public class BizCartItem extends Auditable implements IdBasedEntity {
+public class BizCartItem extends Auditable implements Aggregate {
 
     @Id
     private Long id;
@@ -50,7 +52,9 @@ public class BizCartItem extends Auditable implements IdBasedEntity {
     private Set<String> attributesSales;
 
     private HashMap<String, String> attrIdMap;
-
+    @Version
+    @Setter(AccessLevel.NONE)
+    private Integer version;
     public static BizCartItem create(Long id, UserCreateBizCartItemCommand command, UserBizCartApplicationService userBizCartApplicationService) {
         SumPagedRep<UserBizCartItemCardRep> userBizCartItemCardRepSumPagedRep = userBizCartApplicationService.readByQuery(null, null, null);
         if (userBizCartItemCardRepSumPagedRep.getData().size() == 10)

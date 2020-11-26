@@ -4,13 +4,12 @@ import com.hw.aggregate.order.command.AppCreateBizOrderCommand;
 import com.hw.aggregate.order.command.AppUpdateBizOrderCommand;
 import com.hw.aggregate.order.command.AppValidateBizOrderCommand;
 import com.hw.aggregate.order.exception.ProductInfoValidationException;
-import com.hw.aggregate.order.exception.VersionMismatchException;
 import com.hw.aggregate.order.model.BizOrder;
 import com.hw.aggregate.order.model.product.AppProductSumPagedRep;
 import com.hw.aggregate.order.representation.AppBizOrderRep;
 import com.hw.shared.idempotent.OperationType;
 import com.hw.shared.idempotent.representation.AppChangeRecordCardRep;
-import com.hw.shared.rest.CreatedEntityRep;
+import com.hw.shared.rest.CreatedAggregateRep;
 import com.hw.shared.rest.DefaultRoleBasedRestfulService;
 import com.hw.shared.rest.VoidTypedClass;
 import com.hw.shared.sql.RestfulQueryRegistry;
@@ -47,42 +46,9 @@ public class AppBizOrderApplicationService extends DefaultRoleBasedRestfulServic
         role = RestfulQueryRegistry.RoleEnum.APP;
     }
 
-    @Transactional
-    public void replaceById(Long id, Object command, String changeId) {
-        if (changeAlreadyExist(changeId) && changeAlreadyRevoked(changeId)) {
-        } else if (changeAlreadyExist(changeId) && !changeAlreadyRevoked(changeId)) {
-        } else if (!changeAlreadyExist(changeId) && changeAlreadyRevoked(changeId)) {
-            saveChangeRecord(command, changeId, OperationType.PUT, "id:" + id.toString(), null, null);
-        } else {
-            BizOrder wOptLock = BizOrder.getWOptLockForApp(id, repo2);
-            if (!wOptLock.getVersion().equals(((AppUpdateBizOrderCommand) command).getVersion()))
-                throw new VersionMismatchException();
-            saveChangeRecord(command, changeId, OperationType.PUT, "id:" + id.toString(), null, wOptLock);
-            BizOrder after = replaceEntity(wOptLock, command);
-            repo.save(after);
-        }
-    }
-
-    @Transactional
-    public CreatedEntityRep create(AppCreateBizOrderCommand command, String changeId) {
-        if (changeAlreadyExist(changeId) && changeAlreadyRevoked(changeId)) {
-            return new CreatedEntityRep();
-        } else if (changeAlreadyExist(changeId) && !changeAlreadyRevoked(changeId)) {
-            String entityType = getEntityName();
-            SumPagedRep<AppChangeRecordCardRep> appChangeRecordCardRepSumPagedRep = appChangeRecordApplicationService.readByQuery(CHANGE_ID + ":" + changeId + "," + ENTITY_TYPE + ":" + entityType, null, "sc:1");
-            CreatedEntityRep createdEntityRep = new CreatedEntityRep();
-            long l = Long.parseLong(appChangeRecordCardRepSumPagedRep.getData().get(0).getQuery().replace("id:", ""));
-            createdEntityRep.setId(l);
-            return createdEntityRep;
-        } else if (!changeAlreadyExist(changeId) && changeAlreadyRevoked(changeId)) {
-            saveChangeRecord(command, changeId, OperationType.POST, "id:", null, null);
-            return new CreatedEntityRep();
-        } else {
-            saveChangeRecord(command, changeId, OperationType.POST, "id:" + command.getOrderId(), null, null);
-            BizOrder created = createEntity(command.getOrderId(), command);
-            BizOrder save = repo.save(created);
-            return new CreatedEntityRep(save);
-        }
+    @Override
+    protected Long getAggregateId(Object object) {
+        return ((AppCreateBizOrderCommand) object).getOrderId();
     }
 
     public void validate(AppValidateBizOrderCommand command) {
