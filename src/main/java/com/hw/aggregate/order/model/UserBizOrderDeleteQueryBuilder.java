@@ -5,9 +5,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class UserBizOrderDeleteQueryBuilder extends SoftDeleteQueryBuilder<BizOrder> {
-    UserBizOrderDeleteQueryBuilder() {
+    {
         defaultWhereField.add(new UserIdClause());
         defaultWhereField.add(new NotPayedClause());
     }
-
 }

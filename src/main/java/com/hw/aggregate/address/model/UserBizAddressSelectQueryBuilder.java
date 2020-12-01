@@ -5,9 +5,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class UserBizAddressSelectQueryBuilder extends SelectQueryBuilder<BizAddress> {
-    UserBizAddressSelectQueryBuilder() {
+    {
         defaultWhereField.add(new CreatedByClause());
         allowEmptyClause = true;
     }
-
 }

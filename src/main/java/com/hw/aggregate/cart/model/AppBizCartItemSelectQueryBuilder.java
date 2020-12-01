@@ -8,7 +8,7 @@ import static com.hw.shared.Auditable.ENTITY_CREATED_BY;
 
 @Component
 public class AppBizCartItemSelectQueryBuilder extends SelectQueryBuilder<BizCartItem> {
-    AppBizCartItemSelectQueryBuilder() {
+    {
         supportedWhereField.put(ENTITY_CREATED_BY, new SelectFieldStringLikeClause<>(ENTITY_CREATED_BY));
     }
 }

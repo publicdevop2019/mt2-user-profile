@@ -5,9 +5,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class UserBizCartItemSelectQueryBuilder extends SelectQueryBuilder<BizCartItem> {
-    UserBizCartItemSelectQueryBuilder() {
+    {
         allowEmptyClause = true;
         defaultWhereField.add(new CreatedByClause());
     }
-
 }

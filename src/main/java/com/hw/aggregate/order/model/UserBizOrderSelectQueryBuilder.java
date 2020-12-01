@@ -5,9 +5,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class UserBizOrderSelectQueryBuilder extends SelectQueryBuilder<BizOrder> {
-    UserBizOrderSelectQueryBuilder() {
+    {
         allowEmptyClause = true;
         defaultWhereField.add(new UserIdClause());
     }
-
 }

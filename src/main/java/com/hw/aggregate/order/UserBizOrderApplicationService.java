@@ -7,40 +7,28 @@ import com.hw.aggregate.order.representation.BizOrderConfirmStatusRepresentation
 import com.hw.aggregate.order.representation.BizOrderPaymentLinkRepresentation;
 import com.hw.aggregate.order.representation.UserBizOrderCardRep;
 import com.hw.aggregate.order.representation.UserBizOrderRep;
-import com.hw.shared.rest.DefaultRoleBasedRestfulService;
+import com.hw.shared.rest.RoleBasedRestfulService;
 import com.hw.shared.rest.VoidTypedClass;
 import com.hw.shared.sql.RestfulQueryRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
 
-import javax.annotation.PostConstruct;
 import javax.persistence.EntityManager;
-import java.util.Map;
 
 @Service
 @Slf4j
-public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulService<BizOrder, UserBizOrderCardRep, UserBizOrderRep, VoidTypedClass> {
-    @Autowired
-    private BizOrderRepository repo2;
-
-    @Autowired
-    private ProductService productService;
-
-    @Autowired
-    private SagaOrchestratorService sagaOrchestratorService;
-    @Autowired
-    private PlatformTransactionManager transactionManager;
-    @Autowired
-    private EntityManager entityManager;
-
-    @PostConstruct
-    private void setUp() {
+public class UserBizOrderApplicationService extends RoleBasedRestfulService<BizOrder, UserBizOrderCardRep, UserBizOrderRep, VoidTypedClass> {
+    {
         entityClass = BizOrder.class;
         role = RestfulQueryRegistry.RoleEnum.USER;
     }
+
+    @Autowired
+    SagaOrchestratorService sagaOrchestratorService;
+    @Autowired
+    private EntityManager entityManager;
 
     public BizOrderPaymentLinkRepresentation prepareOrder(Object command, String changeId) {
         long id = idGenerator.getId();
@@ -49,6 +37,12 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
         return new BizOrderPaymentLinkRepresentation(userBizOrderRep.getPaymentLink());
     }
 
+    /**
+     * open new session to by pass hibernate cache, so it can read latest value
+     * @param id
+     * @param changeId
+     * @return
+     */
     public BizOrderConfirmStatusRepresentation confirmPayment(Long id, String changeId) {
         UserBizOrderRep before = readById(id);
         BizOrder.confirmPayment(sagaOrchestratorService, changeId, before);
@@ -85,28 +79,4 @@ public class UserBizOrderApplicationService extends DefaultRoleBasedRestfulServi
         return new UserBizOrderRep(bizOrder);
     }
 
-    @Override
-    protected BizOrder createEntity(long id, Object command) {
-        return null;
-    }
-
-    @Override
-    public void preDelete(BizOrder bizOrder) {
-
-    }
-
-    @Override
-    public void postDelete(BizOrder bizOrder) {
-
-    }
-
-    @Override
-    protected void prePatch(BizOrder bizOrder, Map<String, Object> params, VoidTypedClass middleLayer) {
-
-    }
-
-    @Override
-    protected void postPatch(BizOrder bizOrder, Map<String, Object> params, VoidTypedClass middleLayer) {
-
-    }
 }

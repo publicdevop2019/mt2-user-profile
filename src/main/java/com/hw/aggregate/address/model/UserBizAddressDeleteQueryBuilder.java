@@ -5,8 +5,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class UserBizAddressDeleteQueryBuilder extends SoftDeleteQueryBuilder<BizAddress> {
-    UserBizAddressDeleteQueryBuilder() {
+    {
         defaultWhereField.add(new CreatedByClause());
     }
-
 }

@@ -8,7 +8,7 @@ import static com.hw.shared.Auditable.ENTITY_CREATED_BY;
 
 @Component
 public class AppBizCartItemDeleteQueryBuilder extends SoftDeleteQueryBuilder<BizCartItem> {
-    AppBizCartItemDeleteQueryBuilder() {
+    {
         supportedWhereField.put(ENTITY_CREATED_BY, new SelectFieldStringLikeClause<>(ENTITY_CREATED_BY));
     }
 

@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class AppBizOrderSelectQueryBuilder extends SelectQueryBuilder<BizOrder> {
-    AppBizOrderSelectQueryBuilder(){
+    {
         allowEmptyClause=false;
     }
 }
