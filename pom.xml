@@ -7,14 +7,12 @@
     <version>0.0.0a</version>
     <packaging>jar</packaging>
 
-    <name>UserProfile</name>
     <parent>
         <groupId>com.hw</groupId>
         <artifactId>config-center</artifactId>
         <version>0.0.0a</version>
         <relativePath>./shared/parent-pom.xml</relativePath>
     </parent>
-
     <build>
         <finalName>UserProfile</finalName>
     </build>
