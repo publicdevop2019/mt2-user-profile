@@ -4,6 +4,7 @@ import com.hw.aggregate.order.model.BizOrder;
 import com.hw.aggregate.order.model.BizOrderItem;
 import com.hw.aggregate.order.model.BizOrderStatus;
 import lombok.Data;
+import org.springframework.beans.BeanUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -16,9 +17,7 @@ public class UserBizOrderCardRep {
     private List<BizOrderItem> productList;
 
     public UserBizOrderCardRep(BizOrder customerOrder) {
-        this.id = customerOrder.getId();
-        this.paymentAmt = customerOrder.getPaymentAmt();
-        this.orderState = customerOrder.getOrderState();
+        BeanUtils.copyProperties(customerOrder, this);
         this.productList = customerOrder.getReadOnlyProductList();
     }
 }

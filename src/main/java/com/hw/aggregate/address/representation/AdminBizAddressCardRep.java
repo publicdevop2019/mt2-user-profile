@@ -2,6 +2,7 @@ package com.hw.aggregate.address.representation;
 
 import com.hw.aggregate.address.model.BizAddress;
 import lombok.Data;
+import org.springframework.beans.BeanUtils;
 
 @Data
 public class AdminBizAddressCardRep {
@@ -21,13 +22,7 @@ public class AdminBizAddressCardRep {
     private long createdAt;
 
     public AdminBizAddressCardRep(BizAddress bizAddress) {
-        this.id = bizAddress.getId();
-        this.fullName = bizAddress.getFullName();
-        this.postalCode = bizAddress.getPostalCode();
-        this.phoneNumber = bizAddress.getPhoneNumber();
-        this.city = bizAddress.getCity();
-        this.province = bizAddress.getProvince();
-        this.country = bizAddress.getCountry();
+        BeanUtils.copyProperties(bizAddress, this);
         this.createdAt = bizAddress.getCreatedAt().getTime();
     }
 

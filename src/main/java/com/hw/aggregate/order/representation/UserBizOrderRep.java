@@ -6,6 +6,7 @@ import com.hw.aggregate.order.model.BizOrderAddress;
 import com.hw.aggregate.order.model.BizOrderItem;
 import com.hw.aggregate.order.model.BizOrderStatus;
 import lombok.Data;
+import org.springframework.beans.BeanUtils;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -27,12 +28,8 @@ public class UserBizOrderRep {
     private Integer version;
 
     public UserBizOrderRep(BizOrder customerOrder) {
-        this.id = customerOrder.getId();
-        this.productList = customerOrder.getReadOnlyProductList();
-        this.paymentType = customerOrder.getPaymentType();
-        this.paymentLink = customerOrder.getPaymentLink();
-        this.paymentAmt = customerOrder.getPaymentAmt();
-        this.orderState = customerOrder.getOrderState();
+        BeanUtils.copyProperties(customerOrder, this);
+        this.productList=customerOrder.getReadOnlyProductList();
         BizOrderAddress address = customerOrder.getAddress();
         this.address = new BizOrderAddressCmdRep();
         this.address.setCountry(address.getOrderAddressCountry());
@@ -43,8 +40,5 @@ public class UserBizOrderRep {
         this.address.setLine2(address.getOrderAddressLine2());
         this.address.setPhoneNumber(address.getOrderAddressPhoneNumber());
         this.address.setFullName(address.getOrderAddressFullName());
-        this.paid=customerOrder.isPaid();
-        this.version=customerOrder.getVersion();
-
     }
 }
